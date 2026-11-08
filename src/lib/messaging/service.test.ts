@@ -18,6 +18,7 @@ import {
   pairKey,
   sendMessage,
   startConversation,
+  visibleStatus,
 } from "./service";
 
 function errorOf(result: ActionResult<unknown>): string {
@@ -297,6 +298,21 @@ describe("participants and reads", () => {
     expect(polled?.messages[1].mine).toBe(false);
   });
 
+  it("uses an inclusive cursor: two messages with the same createdAt are both returned", async () => {
+    const c = await createUser();
+    const d = await createUser();
+    await sharedProject(c.id, d.id);
+    const { conversationId } = dataOf(await startConversation(c.id, d.username, "Önceki"));
+    const sameMs = new Date(Date.now() + 1000);
+    // İki taraf aynı milisaniyede yazar. İstemci birini görüp imleci onun zamanına taşımış olabilir.
+    await db.message.create({ data: { conversationId, senderId: c.id, body: "Aynı an 1", createdAt: sameMs } });
+    await db.message.create({ data: { conversationId, senderId: d.id, body: "Aynı an 2", createdAt: sameMs } });
+
+    const polled = await getMessagesAfter(d.id, conversationId, sameMs);
+    expect(polled?.messages.map((message) => message.body).sort()).toEqual(["Aynı an 1", "Aynı an 2"]);
+    expect(polled?.messages.every((message) => message.createdAt === sameMs.toISOString())).toBe(true);
+  });
+
   it("returns the last 50 messages for the detail view, oldest first", async () => {
     const c = await createUser();
     const d = await createUser();
@@ -315,5 +331,60 @@ describe("participants and reads", () => {
     expect(detail?.messages).toHaveLength(50);
     expect(detail?.messages[0].body).toBe("Mesaj 5");
     expect(detail?.messages[49].body).toBe("Mesaj 54");
+  });
+});
+
+describe("declined requests stay hidden from the initiator (spec §4.7)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("visibleStatus turns DECLINED into REQUEST only for the initiator", () => {
+    expect(visibleStatus("DECLINED", "a", "a")).toBe("REQUEST");
+    expect(visibleStatus("DECLINED", "a", "b")).toBe("DECLINED");
+    expect(visibleStatus("REQUEST", "a", "a")).toBe("REQUEST");
+    expect(visibleStatus("ACTIVE", "a", "b")).toBe("ACTIVE");
+  });
+
+  it("never returns DECLINED to the initiator from the detail, the poll or the list", async () => {
+    const a = await createUser();
+    const b = await createUser();
+    const { conversationId } = dataOf(await startConversation(a.id, b.username, "Merhaba"));
+    expect((await declineRequest(b.id, conversationId)).ok).toBe(true);
+
+    expect((await getConversationForUser(a.id, conversationId))?.status).toBe("REQUEST");
+    expect((await getMessagesAfter(a.id, conversationId, new Date(0)))?.status).toBe("REQUEST");
+    expect((await listConversations(a.id, "chats"))[0]?.status).toBe("REQUEST");
+
+    // Alıcı kendi kararını görmeye devam eder.
+    expect((await getConversationForUser(b.id, conversationId))?.status).toBe("DECLINED");
+    expect((await getMessagesAfter(b.id, conversationId, new Date(0)))?.status).toBe("DECLINED");
+  });
+});
+
+describe("listConversations unread flag", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("uses the other side's latest message per conversation", async () => {
+    const me = await createUser();
+    const x = await createUser();
+    const y = await createUser();
+    await sharedProject(me.id, x.id, y.id);
+    const withX = dataOf(await startConversation(x.id, me.username, "X'ten")).conversationId;
+    const withY = dataOf(await startConversation(y.id, me.username, "Y'den")).conversationId;
+
+    // X sohbeti okundu, sonra yalnız ben yazdım; Y sohbetinde okunduktan sonra Y yeniden yazdı.
+    await getMessagesAfter(me.id, withX, new Date(0));
+    await getMessagesAfter(me.id, withY, new Date(0));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await sendMessage(me.id, withX, "Benden");
+    await sendMessage(y.id, withY, "Y'den yeni");
+
+    const rows = await listConversations(me.id, "chats");
+    const unread = Object.fromEntries(rows.map((row) => [row.id, row.unread]));
+    expect(unread[withX]).toBe(false);
+    expect(unread[withY]).toBe(true);
   });
 });

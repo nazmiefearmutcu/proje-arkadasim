@@ -131,4 +131,39 @@ describe("getCounters", () => {
     const counters = await getCounters(me.id);
     expect(counters.messages).toBe(1);
   });
+
+  it("does not count an unread message from a blocked user, in either block direction", async () => {
+    const me = await createUser();
+    const blockedByMe = await createUser();
+    const blocksMe = await createUser();
+    const friend = await createUser();
+
+    for (const other of [blockedByMe, blocksMe, friend]) {
+      const conversation = await makeConversation(me.id, other.id, other.id);
+      await db.message.create({
+        data: { conversationId: conversation.id, senderId: other.id, body: "Okunmadı" },
+      });
+    }
+    await db.block.create({ data: { blockerId: me.id, blockedId: blockedByMe.id } });
+    await db.block.create({ data: { blockerId: blocksMe.id, blockedId: me.id } });
+
+    const counters = await getCounters(me.id);
+    expect(counters.messages).toBe(1);
+  });
+
+  it("does not count a message request from a blocked user, in either block direction", async () => {
+    const me = await createUser();
+    const blockedByMe = await createUser();
+    const blocksMe = await createUser();
+    const stranger = await createUser();
+
+    await makeConversation(blockedByMe.id, me.id, blockedByMe.id, "REQUEST");
+    await makeConversation(me.id, blocksMe.id, blocksMe.id, "REQUEST");
+    await makeConversation(stranger.id, me.id, stranger.id, "REQUEST");
+    await db.block.create({ data: { blockerId: me.id, blockedId: blockedByMe.id } });
+    await db.block.create({ data: { blockerId: blocksMe.id, blockedId: me.id } });
+
+    const counters = await getCounters(me.id);
+    expect(counters.requests).toBe(1);
+  });
 });

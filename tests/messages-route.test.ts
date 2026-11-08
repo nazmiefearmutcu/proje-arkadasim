@@ -84,4 +84,37 @@ describe("GET /api/conversations/[id]/messages", () => {
     expect(body.messages.map((message) => message.mine)).toEqual([false, true]);
     expect(body.messages[0].senderId).toBeUndefined();
   });
+
+  it("treats the after value as inclusive so a message at the cursor's millisecond is not lost", async () => {
+    const a = await createUser();
+    const b = await createUser();
+    const id = await activeConversation(a.id, b.id);
+    const earlier = new Date(Date.now() - 60_000);
+    const cursor = new Date(Date.now() - 30_000);
+    await db.message.create({ data: { conversationId: id, senderId: a.id, body: "Önce", createdAt: earlier } });
+    await db.message.create({ data: { conversationId: id, senderId: a.id, body: "İmleçte", createdAt: cursor } });
+    await db.message.create({ data: { conversationId: id, senderId: b.id, body: "İmleçte de", createdAt: cursor } });
+    currentUser.value = { id: b.id, verificationStatus: "VERIFIED" };
+
+    const response = await GET(...request(id, cursor.toISOString()));
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { messages: { body: string; createdAt: string }[] };
+    expect(body.messages.map((message) => message.body).sort()).toEqual(["İmleçte", "İmleçte de"]);
+    expect(body.messages.every((message) => message.createdAt === cursor.toISOString())).toBe(true);
+  });
+
+  it("does not reveal a declined request to the initiator", async () => {
+    const a = await createUser();
+    const b = await createUser();
+    const [userAId, userBId] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
+    const conversation = await db.conversation.create({
+      data: { userAId, userBId, initiatorId: a.id, status: "DECLINED", lastMessageAt: new Date() },
+    });
+    currentUser.value = { id: a.id, verificationStatus: "VERIFIED" };
+
+    const response = await GET(...request(conversation.id, new Date(0).toISOString()));
+    const text = await response.text();
+    expect((JSON.parse(text) as { status: string }).status).toBe("REQUEST");
+    expect(text).not.toContain("DECLINED");
+  });
 });

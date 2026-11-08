@@ -70,6 +70,15 @@ function otherParticipantId(conversation: { userAId: string; userBId: string }, 
   return conversation.userAId === userId ? conversation.userBId : conversation.userAId;
 }
 
+/**
+ * Görüntüleyene gösterilecek durum. Spec §4.7: reddedilen istek gönderene "bekliyor" olarak görünmeye
+ * devam eder; bu yüzden başlatan DECLINED yerine REQUEST görür (sunucudan giden hiçbir yanıtta ret yoktur).
+ */
+export function visibleStatus(status: string, initiatorId: string, viewerId: string): ConversationStatus {
+  if (status === "DECLINED" && initiatorId === viewerId) return "REQUEST";
+  return status as ConversationStatus;
+}
+
 /** Ortak yazma: mesajı ekler, sohbetin son mesaj zamanını ve gönderenin okuma kaydını günceller. */
 async function writeMessage(
   conversationId: string,
@@ -284,7 +293,8 @@ export interface ConversationRow {
   unread: boolean;
 }
 
-async function blockedUserIds(userId: string): Promise<string[]> {
+/** Kullanıcının engellediği ya da onu engelleyen kişilerin kimlikleri (iki yön, tekrarsız). */
+export async function blockedUserIds(userId: string): Promise<string[]> {
   const blocks = await db.block.findMany({
     where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
     select: { blockerId: true, blockedId: true },
@@ -338,17 +348,19 @@ export async function listConversations(userId: string, kind: ConversationKind):
     },
   });
 
+  // Karşı tarafın her sohbetteki son mesaj zamanı: tek gruplu sorgu (sohbet başına bir satır).
   const ids = rows.map((row) => row.id);
-  const latestFromOther =
-    ids.length === 0
-      ? []
-      : await db.message.findMany({
-          where: { conversationId: { in: ids }, senderId: { not: userId } },
-          orderBy: { createdAt: "desc" },
-          distinct: ["conversationId"],
-          select: { conversationId: true, createdAt: true },
-        });
-  const otherAt = new Map(latestFromOther.map((row) => [row.conversationId, row.createdAt]));
+  const otherAt = new Map<string, Date>();
+  if (ids.length > 0) {
+    const latestFromOther = await db.message.groupBy({
+      by: ["conversationId"],
+      where: { conversationId: { in: ids }, senderId: { not: userId } },
+      _max: { createdAt: true },
+    });
+    for (const row of latestFromOther) {
+      if (row._max.createdAt) otherAt.set(row.conversationId, row._max.createdAt);
+    }
+  }
 
   return rows.map((row) => {
     const otherRow = row.userAId === userId ? row.userB : row.userA;
@@ -363,7 +375,7 @@ export async function listConversations(userId: string, kind: ConversationKind):
     return {
       id: row.id,
       other: toPersonSummary(otherRow),
-      status: row.status as ConversationStatus,
+      status: visibleStatus(row.status, row.initiatorId, userId),
       isInitiator: row.initiatorId === userId,
       preview: last ? previewText(last.body, last.senderId === userId) : null,
       latestBody: last ? last.body : null,
@@ -409,7 +421,7 @@ export async function getConversationForUser(userId: string, conversationId: str
 
   return {
     id: conversation.id,
-    status: conversation.status as ConversationStatus,
+    status: visibleStatus(conversation.status, conversation.initiatorId, userId),
     isInitiator: conversation.initiatorId === userId,
     blocked: await isBlockedEitherWay(userId, otherRow.id),
     other: toPersonSummary(otherRow),
@@ -418,8 +430,9 @@ export async function getConversationForUser(userId: string, conversationId: str
 }
 
 /**
- * `afterIso` sonrasındaki mesajlar (en çok 100, eskiden yeniye) ve sohbetin durumu.
- * Katılımcı değilse null. Çağrı, katılımcının okuma zamanını şimdiye çeker.
+ * `after` anındaki ve sonrasındaki mesajlar (en çok 100, eskiden yeniye) ve sohbetin durumu.
+ * İmleç kapsayıcıdır (`>=`): aynı milisaniyede yazılmış iki mesajdan biri kaçmaz; istemci zaten
+ * gösterdiği mesajları kimliğe göre atlar. Katılımcı değilse null. Çağrı, okuma zamanını şimdiye çeker.
  */
 export async function getMessagesAfter(
   userId: string,
@@ -430,7 +443,7 @@ export async function getMessagesAfter(
   if (!conversation) return null;
 
   const rows = await db.message.findMany({
-    where: { conversationId, createdAt: { gt: after } },
+    where: { conversationId, createdAt: { gte: after } },
     orderBy: { createdAt: "asc" },
     take: MESSAGES_PER_POLL,
     select: { id: true, body: true, createdAt: true, senderId: true },
@@ -440,7 +453,7 @@ export async function getMessagesAfter(
 
   return {
     messages: rows.map((row) => toMessageDTO(row, userId)),
-    status: conversation.status as ConversationStatus,
+    status: visibleStatus(conversation.status, conversation.initiatorId, userId),
   };
 }
 

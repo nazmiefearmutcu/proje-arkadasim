@@ -30,7 +30,9 @@ export function ConversationItem({ row, viewer }: { row: ConversationRow; viewer
           <div className="flex min-w-0 items-center gap-2">
             <span className={cn("t-label min-w-0 truncate text-ink", row.unread && "font-[700]")}>{name}</span>
             {row.unread ? (
-              <span aria-label="Okunmamış mesaj" className="size-2.5 shrink-0 rounded-full bg-pen" />
+              <span className="size-2.5 shrink-0 rounded-full bg-pen">
+                <span className="sr-only">Okunmamış</span>
+              </span>
             ) : null}
           </div>
           {row.preview ? <p className="t-meta truncate text-ink-2">{row.preview}</p> : null}

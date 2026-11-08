@@ -15,6 +15,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { BlockButton } from "@/components/social/block-button";
 import { ReportSheet } from "@/components/social/report-sheet";
+import { refreshCounters } from "@/components/shell/use-counters";
 import { controlBase, focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/cn";
 import type { ActionResult } from "@/lib/action-result";
@@ -57,11 +58,17 @@ function useIsClient(): boolean {
   return useSyncExternalStore(subscribeNoop, () => true, () => false);
 }
 
+/** Yoklamadan gelen mesajları ekler. İmleç kapsayıcı olduğundan zaten gösterilen kimlikler atlanır. */
 function mergeMessages(previous: ChatMessage[], incoming: MessageDTO[]): ChatMessage[] {
   const known = new Set(previous.map((message) => message.id));
   const fresh = incoming.filter((message) => !known.has(message.id));
   if (fresh.length === 0) return previous;
   return [...previous, ...fresh];
+}
+
+/** İki ISO zamanından yenisi. İmleç hiçbir zaman geriye gitmez. */
+function laterIso(current: string, candidate: string): string {
+  return new Date(candidate).getTime() > new Date(current).getTime() ? candidate : current;
 }
 
 function dedupeById(messages: ChatMessage[]): ChatMessage[] {
@@ -115,10 +122,12 @@ export function Chat({
   const trimmed = draft.trim();
   const canSend = rule.allowed && trimmed.length > 0 && Array.from(trimmed).length <= MESSAGE_MAX_LENGTH;
 
-  // Yoklama: açıkken 3 sn'de bir; sekme yeniden görünür olunca hemen.
+  // Yoklama: açıkken 3 sn'de bir; sekme yeniden görünür olunca hemen. İmleç kapsayıcıdır (`>=`):
+  // aynı milisaniyedeki mesajlar kaçmaz, tekrar gelenler kimliğe göre atlanır.
   useEffect(() => {
     let cancelled = false;
     let inFlight = false;
+    let countersRefreshed = false;
 
     async function poll(): Promise<void> {
       if (inFlight || document.visibilityState !== "visible") return;
@@ -134,8 +143,13 @@ export function Chat({
 
         setStatus(body.status);
         if (body.messages.length > 0) {
-          cursorRef.current = body.messages[body.messages.length - 1].createdAt;
+          cursorRef.current = laterIso(cursorRef.current, body.messages[body.messages.length - 1].createdAt);
           setMessages((previous) => mergeMessages(previous, body.messages));
+        }
+        // Yoklama sohbeti okundu işaretledi: Mesajlarım rozeti bir sonraki 20 sn'yi beklemeden düşer.
+        if (!countersRefreshed) {
+          countersRefreshed = true;
+          refreshCounters();
         }
       } catch {
         // Ağ hatasında bir sonraki yoklama denenir.
@@ -295,7 +309,14 @@ export function Chat({
         </div>
       ) : null}
 
-      <div ref={listRef} onScroll={onScroll} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
+      <div
+        ref={listRef}
+        onScroll={onScroll}
+        role="log"
+        aria-live="polite"
+        aria-label="Mesajlar"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3"
+      >
         {messages.length === 0 ? <p className="t-body text-ink-2">Henüz mesaj yok.</p> : null}
         {messages.map((message, index) => {
           const current = toLocalMeta(message);
