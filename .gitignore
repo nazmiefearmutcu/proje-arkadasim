@@ -48,3 +48,6 @@ next-env.d.ts
 *.db-wal
 /storage
 /prisma/*.db*
+
+# SDD review packages
+docs/superpowers/sdd/*-review-package*.txt

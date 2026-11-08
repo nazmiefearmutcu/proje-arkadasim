@@ -1,7 +1,7 @@
 # Proje Arkadaşım — Tasarım Dokümanı (Spec)
 
 - Tarih: 2026-11-08
-- Durum: Onay bekliyor
+- Durum: Onaylandı (2026-11-08) — belge doğrulamada A yaklaşımı (yerel çıkarım + maskeleme, DeepSeek'e yalnızca maskelenmiş metin)
 - Yol: Mimari (yeni proje)
 
 ## 1. Amaç
@@ -283,7 +283,7 @@ Hesap silme: kullanıcıya bağlı tüm kayıtlar cascade silinir (mesajlar dahi
 - **Tanıştırma algoritması:** aday = doğrulanmış, kendisi değil, takip edilmeyen, engel yok, gizlenmemiş. Puan =
   3×ortak ilgi + 2×tamamlayıcı disiplin + 1,5×aynı şehir + 1×ortak takip (en çok 3) + 1×proje arıyor + 0,5×aynı üniversite. Gerekçe en yüksek katkılı faktörden üretilir.
 - **Hız sınırları:** giriş 10/15 dk/IP+e-posta, kayıt 5/saat/IP, doğrulama 5/24 saat/kullanıcı (veritabanından), mesaj 30/dk/kullanıcı, şifre sıfırlama 3/saat.
-- **Görsel yön:** ciddi ama sıcak "atölye defteri" hissi — kâğıt tonlu açık zemin, mürekkep laciverti metin, tek sıcak vurgu rengi, doğrulama rozeti için ayrı bir güven rengi; başlıklarda karakterli bir serif, gövdede okunaklı bir grotesk (ikisi de Türkçe karakter destekli). Kesin tokenlar uygulama planının tasarım adımında `frontend-design` ile belirlenir. Koyu tema desteklenir (sistem tercihine göre).
+- **Görsel yön (frontend-design ile kesinleşti):** Türk kampüs hayatının dili. Eylemler için **tükenmez kalem mavisi** (#2340C8), belge doğrulaması için **resmî mühür moru** (#7A3FA8), soğuk tonlu kâğıt zemin (#F4F6F9), mürekkep metin (#161A33) ve 12 disiplin grubunun her birine bir renk. Akılda kalan tek öğe **disiplin sırtı**: projenin aradığı disiplinler kartın sol kenarında renk dilimleri olarak, proje sayfasında yatay bant olarak görünür. Geri kalan her şey sakin: ince çizgiler, kartlarda gölge yok, dekoratif gradyan yok. Tek yazı ailesi: Geologica (Türkçe destekli). İlk taslaktaki "krem zemin + serif + sıcak vurgu" fikri, bu tür sayfaların varsayılan görünümü olduğu için bilinçli olarak bırakıldı. Kesin tokenlar: `docs/superpowers/sdd/task-03-brief.md` ve `docs/design-system.md`. Koyu tema sistem tercihine göre desteklenir.
 
 ## 9. Hata yönetimi
 - Form hataları alan bazında Türkçe; sunucu hataları kullanıcıya genel mesaj, loglarda kişisel veri olmadan.
