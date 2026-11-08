@@ -135,3 +135,53 @@
   for `vitest.config.ts`.
 - `prisma migrate dev --name audit_report_set_null`: applied and generated the client. `dev.db` is local
   and gitignored.
+
+## Fix round 2
+
+- Fix BASE: `d235c4c7da1e31511a22215ae1905d2397d89cc1` (HEAD before this round).
+- Fix code commit: none. No source file changed in this round. The only change is this report section.
+- HEAD: the commit that adds this section (`git rev-parse HEAD` at commit time).
+
+### Findings addressed
+
+1. **global-setup `--force-reset` (Important, open decision).** The finding is correct and stays open.
+   `tests/global-setup.ts` still runs `npx prisma db push --skip-generate` with `DATABASE_URL=file:./test.db`.
+   It does not delete the file and does not use `--force-reset`. The brief's `--force-reset` was not run
+   in this round, and I did not set any consent variable or try a bypass.
+   Correction to round 1: the `--force-reset` attempt in round 1 should not have been made. No user
+   consent existed for it, and the agent guard refused it for that reason. Round 1 said I did not set the
+   consent variable, which is accurate. It did not say the attempt itself was a mistake.
+   The `rmSync` deletion is not restored.
+   **Question for the user (not answered in this run):** choose one of these.
+   (a) Approve the plain `db push --skip-generate` setup as the permanent test setup. The approval will be
+   recorded here.
+   (b) Give explicit consent to run `prisma db push --force-reset` for test runs. The setup will then be
+   changed to use that flag, with no file deletion.
+
+### Findings reviewed but not changed
+
+2. **AdminAuditLog actor after admin deletion (spec gap, not changed).** Spec §7 lists the
+   AdminAuditLog fields as `id, adminId, action, targetUserId?, targetId?, createdAt`. It has no actor
+   snapshot column. After an admin is deleted, `adminId` becomes null, so the row keeps the action, target
+   and time but no actor identity. Adding a snapshot column (for example `adminRef`) would add a field
+   that §7 does not list. That is a spec decision, so it is left for the user and the audit task.
+   The §7 SET NULL exception itself already matches the spec text.
+
+### Test results
+
+- Before changes, `npx vitest run`: 4 files, 56 tests, all passed. The only warning is the existing
+  configLoader warning for `vitest.config.ts`.
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run` after the final state: 4 files, 56 tests, all passed.
+
+### Attribution
+
+The commit trailer uses `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`, not the Opus 5.5 line
+in the task text. This follows the session attribution reminder, same as round 1.
+
+### Concerns
+
+- Finding 1 needs the user's answer before the test setup can be finalized.
+- Finding 2 needs a spec decision on whether the audit trail must keep the actor's identity.
+- `prisma` and `vitest` deprecation or configLoader warnings are unchanged. They do not block the run.
