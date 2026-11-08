@@ -9,10 +9,12 @@ import { fileURLToPath } from "node:url";
 // resetDb() ile kendi satırlarını temizler.
 export default function setup(): void {
   const root = fileURLToPath(new URL("..", import.meta.url));
+  // Mutlak yol: testlerle aynı dosya (bkz. vitest.config.ts). Göreli yol ana depoya çözülebilir.
+  const dbPath = fileURLToPath(new URL("../prisma/test.db", import.meta.url)).replace(/\\/g, "/");
 
   execSync("npx prisma db push --skip-generate", {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: "file:./test.db" },
+    env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
   });
 }
