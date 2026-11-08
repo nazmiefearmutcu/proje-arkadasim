@@ -103,3 +103,40 @@
   Not a code issue, but worth a note for the merge agent when several worktrees run tests.
 - Follow button: the people results have no follow button until the task 8 merge step adds it (per the orchestrator note).
 - `/bildirimler/git/[id]` uses GET for a state change (a brief requirement); see the decision above.
+
+## Fix round 1
+
+- BASE (`git rev-parse HEAD` before any change): `91439980121dc7ea8183180aa5e8f0a991ff622d`
+- Fix commit: `180583c7a3ae307c302cfa5fb2c9479a6cd29eda` (fix(search): top search bar submits the suggestion query)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made)
+
+### Findings addressed
+- Important, `src/components/shell/search-bar.tsx` (suggestion dropdown): accepted. Tapping a suggestion
+  submitted the raw hint text (for example "'robotik' projelerini ara…"), so the search found nothing. The
+  reviewer is right and my earlier report was wrong to say the search bar needed no change. The `onClick`
+  now computes `const query = suggestionToQuery(suggestion)` and uses it for both `setValue(query)` and
+  `router.push(`/ara?q=${encodeURIComponent(query)}`)`. `suggestionToQuery` is imported from
+  `@/lib/search-suggestions`. Its dependencies (`@/config/taxonomy`, `@/lib/tr`, `@/lib/json-fields`) carry no
+  server-only code, so the client component can import it. The URL-sync effect still sets the box from `q`
+  on `/ara`.
+
+### Findings disputed
+- None. The only open finding was the one above.
+
+### Spec gaps
+- No additional spec gaps were reported for this round. The check in this round covered the
+  dropdown submit path only; the `/ara` chip links already used `suggestionToQuery`.
+
+### Trailer note
+- The commit trailer is `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`, as the session attribution
+  reminder asks, not the "Claude Opus 5.5" line in the round's task text. The model running this round is
+  Haiku 5.5, so the Opus trailer would misattribute the commit. The orchestrator should decide at merge if a
+  different trailer is wanted. The same choice was made for the first commit (see Concerns above).
+
+### Tests (round 1)
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run` (full suite): 34 test files passed, 337 tests passed, exit 0.
+  The suite was run alone in this worktree.
+
+No schema change, no changes under `src/components/social/` or `src/lib/social/`, no dev or build run.
