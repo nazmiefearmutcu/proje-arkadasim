@@ -85,3 +85,22 @@ export function getSearchSuggestions(user: SuggestionUser | null): string[] {
 
   return unique.slice(0, 6);
 }
+
+/**
+ * Öneri metnini arama sorgusuna çevirir: sondaki "ara…" ifadesi, "projelerini/projeleri/projesi"
+ * sözcükleri ve tek tırnak atılır; "'robotik' projelerini ara…" -> "robotik", "İzmir'deki projeleri ara…" -> "İzmir".
+ * Büyük/küçük harf korunur; arama zaten büyük/küçük harfe duyarsızdır.
+ */
+export function suggestionToQuery(suggestion: string): string {
+  let text = suggestion.trim().replace(/(…|\.\.\.)$/, "").trim();
+  text = text.replace(/\s+ara$/, "").trim();
+  text = text.replace(/\s+(projelerini|projeleri|projesi)$/, "").trim();
+
+  const quoted = /^'(.+)'$/.exec(text);
+  if (quoted) return quoted[1].trim();
+
+  const locative = /^(.+?)'[^\s']+$/.exec(text);
+  if (locative) return locative[1].trim();
+
+  return text;
+}

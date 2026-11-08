@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { suggestionToQuery } from "@/lib/search-suggestions";
 
 const ROTATE_INTERVAL_MS = 3500;
 const FADE_MS = 400;
@@ -117,10 +118,12 @@ function SearchField({ suggestions }: SearchBarProps) {
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
+                  // Öneri metni ("'robotik' projelerini ara…") değil, sorgunun kendisi aranır.
+                  const query = suggestionToQuery(suggestion);
                   // Yönlendirmeyi doğrudan kuruyoruz: state henüz işlenmeden form okunursa eski değer gider.
-                  setValue(suggestion);
+                  setValue(query);
                   setOpen(false);
-                  router.push(`/ara?q=${encodeURIComponent(suggestion)}`);
+                  router.push(`/ara?q=${encodeURIComponent(query)}`);
                 }}
                 className="t-body flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen"
               >

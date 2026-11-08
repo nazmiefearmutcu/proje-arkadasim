@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSearchSuggestions, locativeTr } from "./search-suggestions";
+import { getSearchSuggestions, locativeTr, suggestionToQuery } from "./search-suggestions";
 
 const GUEST = [
   "Yapay zeka projelerini ara…",
@@ -52,6 +52,33 @@ describe("getSearchSuggestions", () => {
 
     const sparse = getSearchSuggestions({ disciplineGroup: null, interestsJson: "[]", city: null });
     expect(sparse.length).toBe(4);
+  });
+});
+
+describe("suggestionToQuery", () => {
+  it.each([
+    ["Endüstriyel tasarımcı ara…", "Endüstriyel tasarımcı"],
+    ["'yapay zeka' projelerini ara…", "yapay zeka"],
+    ["'robotik' projelerini ara…", "robotik"],
+    ["İzmir'deki projeleri ara…", "İzmir"],
+    ["Sivas'taki projeleri ara…", "Sivas"],
+    ["Mobil uygulama projesi ara…", "Mobil uygulama"],
+    ["Girişim projelerini ara…", "Girişim"],
+    ["Mimar ara…", "Mimar"],
+    ["Pazarlama ve iş geliştirme ekip arkadaşı ara…", "Pazarlama ve iş geliştirme ekip arkadaşı"],
+  ])("%s becomes %s", (suggestion, query) => {
+    expect(suggestionToQuery(suggestion)).toBe(query);
+  });
+
+  it("returns a non-empty query for every generated suggestion", () => {
+    const personal = getSearchSuggestions({
+      disciplineGroup: "yazilim",
+      interestsJson: JSON.stringify(["robotik"]),
+      city: "İzmir",
+    });
+    for (const suggestion of [...personal, ...getSearchSuggestions(null)]) {
+      expect(suggestionToQuery(suggestion).length).toBeGreaterThan(0);
+    }
   });
 });
 
