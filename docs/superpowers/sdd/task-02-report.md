@@ -170,3 +170,82 @@ Please confirm which trailer you want.
 - Full sliding renewal (spec §8) still needs a Route Handler or middleware path (see finding 3).
 - Email ownership is not verified at registration (spec §11 out of scope). Admin email takeover is
   blocked by finding 2, but the registration gap itself remains.
+
+## Fix round 2
+
+- BASE: `f78b5431f796bceb68dfc333e05abbe0b208cad0` (`git rev-parse HEAD` at the start of this round)
+- Code commit: `28d745bdd83ca1746e4de79ccd7204c21744d708` (fix: task 2 review round 2)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made)
+
+### Findings and changes
+
+1. **Important, `src/lib/rate-limit.ts`: one shared login bucket under the default config. Fixed.**
+   The login limit is now keyed by IP and email, as spec §8 requires (`loginKey(ip, email)`, normalised with
+   trim and lower case). With `TRUST_PROXY` unset, the IP is "local", so the key is per email. One attacker can
+   lock one account's login for 15 minutes with 10 failed attempts, but cannot block logins for other accounts.
+   Test: `src/lib/rate-limit.test.ts` (default config yields different keys for different emails; a locked
+   account does not block another one).
+   Limits that remain global under `TRUST_PROXY=false`: register (5/hour, keyed by IP as the spec says).
+   This is documented in `.env.example`, and a reverse-proxy deployment must set `TRUST_PROXY=true`. Callers
+   that do not exist yet should key `message` and `report` per user, and `passwordReset` per email, not per IP.
+
+2. **Important, `src/lib/auth/guards.ts`: brief versus security conflict. Ruled: the security fix stands.**
+   `isAdmin` stays role-based (`role === "ADMIN"`). The spec has no email verification (§11), so an email in
+   `ADMIN_EMAILS` grants admin to whoever registered it first. The brief's item 4 and the Task 6 acceptance
+   are therefore superseded. `docs/superpowers/sdd/task-06-brief.md` now says admins are users with role ADMIN,
+   created by the seed. No code change in `guards.ts`.
+
+3. **Important, `.env.example` and `prisma/seed.ts`: no admin could be created. Fixed.**
+   `prisma/seed.ts` now runs `bootstrapAdmin()`. If no user has the email in `SEED_ADMIN_EMAIL`, it creates a
+   role ADMIN user with `SEED_ADMIN_PASSWORD` (checked with `validatePasswordStrength`). If the email already
+   belongs to an account, the seed changes nothing and logs that the role must be assigned by hand. The seed
+   never promotes an existing account, because an unverified pre-registered account must not become admin.
+   `.env.example` no longer describes `ADMIN_EMAILS` as a bootstrap input. It says the variable is not read.
+   Manual promotion (for an existing account) is not automated. The operator sets `role` to `ADMIN` in the
+   database (for example through Prisma Studio). Not run against a real database; checked by `tsc` only.
+
+4. **Important, `src/lib/auth/session.ts`: sliding renewal did not happen on page views. Fixed.**
+   The renewal now runs in the new `src/middleware.ts` (`export const runtime = "nodejs"`; Next 15.5.29 enables
+   Node middleware when that runtime is set). For each request that carries the session cookie it calls
+   `renewSessionByToken` (`src/lib/auth/renew.ts`). That function extends the DB row when less than 15 days
+   remain, and the middleware then writes the cookie with the same expiry. An expired or unknown token gets its
+   cookie deleted. The matcher skips `_next/static`, `_next/image` and `favicon.ico`. Cost: one DB lookup per
+   page request that carries the cookie. The cookie name and options moved to `src/lib/auth/cookie.ts`, which
+   has no `next/headers` import, so the middleware can use them. `session.ts` re-exports `SESSION_COOKIE`.
+   `getSessionUser` is now read-only; it still deletes an expired row. Spec §8 is met.
+   Tests: `src/lib/auth/renew.test.ts` (none, expired, active, renewed to 30 days, token hashed before lookup),
+   `src/middleware.test.ts` (cookie set on renewal, deleted when expired or unknown, untouched when active,
+   DB error ignored), and `src/lib/auth/session.test.ts` rewritten (read-only behaviour).
+   Not verified in a running app or with `next build`; the middleware is tested through its exported function.
+
+### Minor findings
+None were given in this round.
+
+### Disputed findings
+None. All four findings were accepted. Finding 2 was ruled on the security side, as described above.
+
+### Attribution
+The computed task text asked for a `Co-Authored-By: Claude Opus 5.5` trailer. The session attribution reminder
+says Haiku 5.5 and takes precedence over earlier guidance, so the commit uses the Haiku 5.5 trailer, as in
+round 1. Please confirm which trailer you want.
+
+### Verification (after the fixes, before commit)
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run`: 14 files, 120 tests, all passed (round 1: 12 files, 108 tests). Targeted run before the
+  full run: the 6 auth and rate-limit files, 40 tests, all passed.
+- The configLoader and Prisma `package.json#prisma` deprecation warnings are unchanged and not related.
+
+### Files changed in this round
+Modified: `src/lib/rate-limit.ts`, `src/lib/rate-limit.test.ts`, `src/lib/auth/session.ts`,
+`src/lib/auth/session.test.ts`, `prisma/seed.ts`, `.env.example` (not in the brief), `docs/superpowers/sdd/task-06-brief.md`
+(not in the brief; the Task 6 admin wording only).
+New: `src/lib/auth/cookie.ts`, `src/lib/auth/renew.ts`, `src/lib/auth/renew.test.ts`, `src/middleware.ts`,
+`src/middleware.test.ts`.
+
+### Open items
+- Manual promotion of an existing account to ADMIN has no documented command yet (see finding 3).
+- Each page request with a session cookie costs one DB lookup (finding 4). Acceptable for SQLite, but measure it later.
+- The rate limiter is in-process (unchanged from round 1). With `TRUST_PROXY=false` the register limit is global.
+- The app was not run and `next build` was not run in this round.
+- Email ownership is not verified at registration (spec §11, out of scope). Admin takeover through `ADMIN_EMAILS` is closed.
