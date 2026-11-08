@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProjectCard } from "@/components/common/project-card";
 import { UserRow } from "@/components/common/user-row";
+import { FollowButton } from "@/components/social/follow-button";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -186,15 +187,18 @@ async function PeopleResults({
   const viewerView = { verificationStatus: viewer.verificationStatus, role: viewer.role };
   return (
     <ul className="flex flex-col divide-y divide-line">
-      {results.map(({ person }) => (
+      {results.map(({ person, following }) => (
         <li key={person.id}>
           <UserRow
             person={person}
             name={displayName(person, viewerView)}
             action={
-              <ButtonLink href={`/u/${person.username}`} variant="secondary">
-                Profili gör
-              </ButtonLink>
+              <div className="flex items-center gap-2">
+                <ButtonLink href={`/u/${person.username}`} variant="secondary">
+                  Profili gör
+                </ButtonLink>
+                <FollowButton userId={person.id} initialFollowing={following} />
+              </div>
             }
           />
         </li>

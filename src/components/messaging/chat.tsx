@@ -11,8 +11,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { buttonClasses } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { BlockButton } from "@/components/social/block-button";
+import { ReportSheet } from "@/components/social/report-sheet";
 import { controlBase, focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/cn";
 import type { ActionResult } from "@/lib/action-result";
@@ -25,6 +27,7 @@ const POLL_INTERVAL_MS = 3_000;
 const NEAR_BOTTOM_PX = 96;
 
 export interface ChatOther {
+  id: string;
   username: string;
   /** Görüntüleyiciye göre ad (sunucuda `displayName` ile seçilir). */
   name: string;
@@ -38,6 +41,8 @@ export interface ChatProps {
   initialStatus: ConversationStatus;
   isInitiator: boolean;
   blocked: boolean;
+  /** Görüntüleyen karşı tarafı engellediyse true: menüdeki düğme "Engeli kaldır" olur. */
+  blockedByViewer: boolean;
   initialMessages: MessageDTO[];
   /** Sayfanın oluşturulma anı (ISO). Hiç mesaj yoksa yoklamanın başlangıç imleci olur. */
   renderedAt: string;
@@ -89,6 +94,7 @@ export function Chat({
   initialStatus,
   isInitiator,
   blocked,
+  blockedByViewer,
   initialMessages,
   renderedAt,
 }: ChatProps) {
@@ -98,6 +104,7 @@ export function Chat({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const cursorRef = useRef<string>(initialMessages[initialMessages.length - 1]?.createdAt ?? renderedAt);
   const listRef = useRef<HTMLDivElement>(null);
@@ -247,16 +254,27 @@ export function Chat({
       </header>
 
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Sohbet">
-        <div className="flex flex-col px-2">
-          <Link
-            href={otherUrl}
-            onClick={() => setMenuOpen(false)}
-            className={cn("t-label flex min-h-11 items-center rounded-control px-3 text-ink hover:bg-surface-2", focusRing)}
+        <div className="flex flex-col gap-3 px-2 pt-2 pb-2">
+          <BlockButton userId={other.id} blocked={blockedByViewer} />
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            }}
           >
-            Profili görüntüle
-          </Link>
+            Şikayet et
+          </Button>
         </div>
       </Sheet>
+
+      <ReportSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="USER"
+        targetId={other.id}
+        subject={other.name}
+      />
 
       {blocked ? (
         <div className="border-b border-line bg-surface px-4 py-3">
