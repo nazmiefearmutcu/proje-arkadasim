@@ -42,4 +42,4 @@ Server Component: `requireUser("/dogrulama")`. Loads user status, last attempt (
 - `tests/verification-route.test.ts`: call the route's `POST` with a `Request` built from `FormData` (mock auth to return a user): missing file → 400 JSON; oversized content-length → 413; cross-origin `Origin` header → 403.
 
 ## Done when
-In `npm run dev` with `VERIFIER_PROVIDER=mock`: a newly registered user can upload a generated test PDF and gets a result in seconds; an admin (email in `ADMIN_EMAILS`) sees and decides manual-review items. Checks pass, committed, report written.
+In `npm run dev` with `VERIFIER_PROVIDER=mock`: a newly registered user can upload a generated test PDF and gets a result in seconds; an admin (a user with role `ADMIN`, created by `prisma/seed.ts` from `SEED_ADMIN_EMAIL`) sees and decides manual-review items. Checks pass, committed, report written.

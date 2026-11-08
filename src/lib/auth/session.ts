@@ -3,30 +3,17 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import { SESSION_DAYS } from "@/config/legal";
 import { generateToken, hashToken } from "./tokens";
+import { SESSION_COOKIE, sessionCookieOptions } from "./cookie";
 import { currentUserSelect, type CurrentUser } from "./user-select";
 
-export const SESSION_COOKIE = "pa_session";
+export { SESSION_COOKIE } from "./cookie";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-// Bu süreden az kalmışsa oturum uzatılır (kayan yenileme).
-const RENEW_BEFORE_MS = 15 * DAY_MS;
 const USER_AGENT_MAX = 200;
 
 export interface SessionUser {
   sessionId: string;
   user: CurrentUser;
-}
-
-type Store = Awaited<ReturnType<typeof cookies>>;
-
-function cookieOptions(expires: Date) {
-  return {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    path: "/",
-    secure: process.env.NODE_ENV === "production",
-    expires,
-  };
 }
 
 /** Oturum açar: jeton üretir, özetini veritabanına yazar ve çerezi ayarlar. Server Action içinde çağrılmalı. */
@@ -42,16 +29,13 @@ export async function createSession(userId: string): Promise<void> {
   });
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, cookieOptions(expiresAt));
+  store.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
 }
 
 /**
  * Çerezdeki oturumu çözer ve kullanıcıyı döner. İstek başına bir kez çalışır (React cache).
- * Süresi dolmuş oturumu siler. Kayan yenileme: 15 günden az kaldıysa süreyi uzatır. Çerez
- * önce yazılır; yalnız yazılabilen bağlamda (Server Action, Route Handler) başarılı olursa
- * veritabanı süresi de uzatılır. Server Component gibi yazılamayan bağlamda ikisi de değişmez,
- * böylece çerez ve veritabanı süresi hiçbir zaman ayrışmaz. Sonuç: yenileme yalnız yazılabilen
- * istekler sırasında gerçekleşir (sayfa gezintisi süreyi uzatmaz).
+ * Yalnız okur: çerez ve veritabanı süresi middleware'de (`renewSessionByToken`) birlikte
+ * uzatılır. Burada yalnızca süresi dolmuş satır silinir.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const store = await cookies();
@@ -68,34 +52,13 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   });
   if (!session) return null;
 
-  const now = Date.now();
-  if (session.expiresAt.getTime() <= now) {
+  if (session.expiresAt.getTime() <= Date.now()) {
     await db.session.deleteMany({ where: { id: session.id } });
     return null;
   }
 
-  if (session.expiresAt.getTime() - now < RENEW_BEFORE_MS) {
-    const renewed = new Date(now + SESSION_DAYS * DAY_MS);
-    if (renewCookie(store, token, renewed)) {
-      await db.session.update({
-        where: { id: session.id },
-        data: { expiresAt: renewed },
-      });
-    }
-  }
-
   return { sessionId: session.id, user: session.user };
 });
-
-/** Çerezi yeniler. Yazma yalnız Server Action / Route Handler içinde başarılıdır; false döner. */
-function renewCookie(store: Store, token: string, expires: Date): boolean {
-  try {
-    store.set(SESSION_COOKIE, token, cookieOptions(expires));
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /** Geçerli oturumu kapatır: veritabanı satırını ve çerezi siler. */
 export async function destroySession(): Promise<void> {

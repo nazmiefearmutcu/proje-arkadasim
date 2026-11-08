@@ -70,6 +70,15 @@ export const LIMITS = {
 } as const;
 
 /**
+ * Giriş sınırının anahtarı: IP + e-posta (spec §8). Anahtar e-postayı da içerdiği için, IP
+ * bilinmediğinde ("local") bile farklı hesaplar birbirinin girişini engellemez; bir saldırgan
+ * yalnız tek bir hesabın girişini geçici olarak kilitleyebilir.
+ */
+export function loginKey(ip: string, email: string): string {
+  return `login:${ip}:${email.trim().toLowerCase()}`;
+}
+
+/**
  * İstemci IP'si. Vekil başlıkları yalnız `TRUST_PROXY=true` iken okunur (istemci önündeki
  * güvenilir bir ters vekil varken). Bu durumda `x-forwarded-for` içinde İLK değer değil SON değer
  * kullanılır: vekil, gerçek istemci adresini listenin sonuna ekler; baştaki değerleri istemci

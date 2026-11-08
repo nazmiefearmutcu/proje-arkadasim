@@ -25,46 +25,18 @@ function sessionRow(expiresInMs: number) {
   };
 }
 
-describe("getSessionUser kayan yenileme", () => {
+describe("getSessionUser (yalnız okur; yenileme middleware'de)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.store.get.mockReturnValue({ value: "token-degeri" });
   });
 
-  it("15 günden az kaldığında çerez yazılabiliyorsa hem çerez hem veritabanı süresi uzar", async () => {
+  it("geçerli oturumda kullanıcıyı döner ve çerez ya da veritabanına yazmaz", async () => {
     mocks.db.session.findUnique.mockResolvedValue(sessionRow(3 * DAY_MS));
-    mocks.store.set.mockImplementation(() => undefined);
 
     const result = await getSessionUser();
 
     expect(result?.user.id).toBe("user-1");
-    expect(mocks.store.set).toHaveBeenCalledWith(
-      SESSION_COOKIE,
-      "token-degeri",
-      expect.objectContaining({ expires: expect.any(Date) }),
-    );
-    expect(mocks.db.session.update).toHaveBeenCalledTimes(1);
-    const { expiresAt } = mocks.db.session.update.mock.calls[0][0].data as { expiresAt: Date };
-    expect(Math.abs(expiresAt.getTime() - (Date.now() + 30 * DAY_MS))).toBeLessThan(60_000);
-  });
-
-  it("çerez yazılamayan bağlamda (Server Component) veritabanı süresi uzatılmaz; çerez ve veritabanı aynı kalır", async () => {
-    mocks.db.session.findUnique.mockResolvedValue(sessionRow(3 * DAY_MS));
-    mocks.store.set.mockImplementation(() => {
-      throw new Error("Cookies can only be modified in a Server Action or Route Handler.");
-    });
-
-    const result = await getSessionUser();
-
-    expect(result?.user.id).toBe("user-1");
-    expect(mocks.db.session.update).not.toHaveBeenCalled();
-  });
-
-  it("15 günden fazla kaldığında yenileme yapılmaz", async () => {
-    mocks.db.session.findUnique.mockResolvedValue(sessionRow(20 * DAY_MS));
-
-    await getSessionUser();
-
     expect(mocks.store.set).not.toHaveBeenCalled();
     expect(mocks.db.session.update).not.toHaveBeenCalled();
   });
@@ -77,5 +49,13 @@ describe("getSessionUser kayan yenileme", () => {
     expect(result).toBeNull();
     expect(mocks.db.session.deleteMany).toHaveBeenCalledWith({ where: { id: "sess-1" } });
     expect(mocks.db.session.update).not.toHaveBeenCalled();
+  });
+
+  it("çerez yoksa veritabanına gitmeden null döner", async () => {
+    mocks.store.get.mockReturnValue(undefined);
+
+    expect(await getSessionUser()).toBeNull();
+    expect(mocks.db.session.findUnique).not.toHaveBeenCalled();
+    expect(SESSION_COOKIE).toBe("pa_session");
   });
 });
