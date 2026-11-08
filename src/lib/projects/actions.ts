@@ -20,14 +20,20 @@ import {
   projectStatusSchema,
   type ProjectInput,
 } from "./schemas";
+import { isTransientTxError } from "./tx-errors";
 
 // Proje eylemleri. Her eylem doğrulanmış kullanıcı ister; sahiplik kontrolleri ayrıca yapılır.
 // Bu dosya yalnız async dışa aktarım içerir ('use server' kuralı).
+// Başvuru ve davet durum değişiklikleri koşullu yazılır (`status: "PENDING"`): ön kontrol ile yazma
+// arasında başka bir istek kaydı sonuçlandırdıysa yazma hiçbir satırı değiştirmez ve eylem hata döner.
 
 const NOT_VERIFIED = "Bu işlem için belgeni doğrulaman gerekiyor.";
 const NO_PERMISSION = "Bu işlem için yetkin yok.";
 const PAYLOAD_ERROR = "Form verisi okunamadı. Sayfayı yenileyip tekrar dene.";
 const FORM_ERROR = "Lütfen işaretli alanları düzelt.";
+const REQUEST_SETTLED = "Bu başvuru zaten sonuçlandı.";
+const INVITE_SETTLED = "Bu davet zaten sonuçlandı.";
+const BUSY = "Şu an işlenemedi. Birazdan tekrar dene.";
 
 type FormState = ActionResult | null;
 
@@ -79,8 +85,18 @@ function projectSearchText(input: ProjectInput): string {
   );
 }
 
-/** Rol kontenjan hatası ve üyelik çakışması. Transaction içinde fırlatılır ve eylemde `fail`'e çevrilir. */
-class SeatError extends Error {}
+/**
+ * Transaction içinde fırlatılan ret (rol kontenjanı, üyelik çakışması, zaten sonuçlanmış kayıt).
+ * Fırlatılınca transaction geri alınır; eylem mesajı `fail` olarak döner.
+ */
+class TxRefusal extends Error {}
+
+/** Transaction hatasını sonuca çevirir: ret mesajı ya da geçici çakışma. Diğer hatalar yeniden fırlatılır. */
+function txFailure(error: unknown): ActionResult<never> {
+  if (error instanceof TxRefusal) return fail(error.message);
+  if (isTransientTxError(error)) return fail(BUSY);
+  throw error;
+}
 
 /**
  * Üyeyi transaction içinde ekler. Rol varsa projeye ait olmalı ve kontenjanı dolmamış olmalı.
@@ -96,18 +112,44 @@ async function addMemberInTx(
     where: { projectId_userId: { projectId, userId } },
     select: { id: true },
   });
-  if (existing) throw new SeatError("Bu kişi zaten ekipte.");
+  if (existing) throw new TxRefusal("Bu kişi zaten ekipte.");
 
   if (roleId) {
     const role = await tx.projectRole.findUnique({
       where: { id: roleId },
       select: { projectId: true, slots: true, _count: { select: { members: true } } },
     });
-    if (!role || role.projectId !== projectId) throw new SeatError("Seçilen rol bu projeye ait değil.");
-    if (role._count.members >= role.slots) throw new SeatError("Bu rolün kontenjanı dolu.");
+    if (!role || role.projectId !== projectId) throw new TxRefusal("Seçilen rol bu projeye ait değil.");
+    if (role._count.members >= role.slots) throw new TxRefusal("Bu rolün kontenjanı dolu.");
   }
 
   await tx.projectMember.create({ data: { projectId, userId, roleId } });
+}
+
+/**
+ * Üyeliği transaction içinde bitirir ve kişinin bu projedeki bekleyen davetlerini iptal eder, bekleyen
+ * başvurularını geri çeker; böylece eski bir davet çıkarılan kişiyi ekibe geri getiremez.
+ * Üyelik bu arada silinmişse false döner.
+ */
+async function endMembershipInTx(
+  tx: Prisma.TransactionClient,
+  projectId: string,
+  userId: string,
+  memberId: string,
+): Promise<boolean> {
+  const deleted = await tx.projectMember.deleteMany({ where: { id: memberId } });
+  if (deleted.count === 0) return false;
+
+  const decidedAt = new Date();
+  await tx.projectInvite.updateMany({
+    where: { projectId, inviteeId: userId, status: "PENDING" },
+    data: { status: "CANCELLED", decidedAt },
+  });
+  await tx.joinRequest.updateMany({
+    where: { projectId, userId, status: "PENDING" },
+    data: { status: "WITHDRAWN", decidedAt },
+  });
+  return true;
 }
 
 function revalidateProject(projectId: string): void {
@@ -335,6 +377,13 @@ export async function applyToProjectAction(
   });
   if (pending) return fail("Bu projeye zaten bir başvurun var.");
 
+  // Aynı proje için bekleyen davet varken ikinci bir yol açılmaz; davet Network'te yanıtlanır.
+  const pendingInvite = await db.projectInvite.findFirst({
+    where: { projectId, inviteeId: viewer.id, status: "PENDING" },
+    select: { id: true },
+  });
+  if (pendingInvite) return fail("Bu projeden bekleyen bir davetin var. Network > Davetler'den yanıtla.");
+
   const roleId = parsed.data.roleId;
   if (roleId) {
     const role = project.roles.find((candidate) => candidate.id === roleId);
@@ -363,15 +412,21 @@ export async function withdrawApplicationAction(requestId: string): Promise<Acti
   if (!request || request.userId !== viewer.id) return fail(NO_PERMISSION);
   if (request.status !== "PENDING") return fail("Bu başvuru artık geri çekilemez.");
 
-  await db.joinRequest.update({
-    where: { id: requestId },
+  const updated = await db.joinRequest.updateMany({
+    where: { id: requestId, status: "PENDING" },
     data: { status: "WITHDRAWN", decidedAt: new Date() },
   });
+  if (updated.count === 0) return fail(REQUEST_SETTLED);
+
   revalidatePath(`/projeler/${request.projectId}`);
   return ok();
 }
 
-/** Başvuruyu kabul eder ya da reddeder (yalnız sahip). Kabulde üyelik ve kontenjan kontrolü transaction içinde. */
+/**
+ * Başvuruyu kabul eder ya da reddeder (yalnız sahip). Kabulde durum değişikliği, üyelik ve kontenjan
+ * kontrolü tek transaction'dadır; aynı kişiye bu projeden giden bekleyen davet iptal edilir.
+ * Aralarında engel olan iki kişi aynı ekipte buluşmaz.
+ */
 export async function decideApplicationAction(
   requestId: string,
   decision: "ACCEPT" | "REJECT",
@@ -391,26 +446,39 @@ export async function decideApplicationAction(
     },
   });
   if (!request || request.project.ownerId !== viewer.id) return fail(NO_PERMISSION);
-  if (request.status !== "PENDING") return fail("Bu başvuru zaten sonuçlandı.");
+  if (request.status !== "PENDING") return fail(REQUEST_SETTLED);
 
   const { projectId, userId, roleId } = request;
   const decidedAt = new Date();
 
   if (decision === "REJECT") {
-    await db.joinRequest.update({ where: { id: requestId }, data: { status: "REJECTED", decidedAt } });
+    const updated = await db.joinRequest.updateMany({
+      where: { id: requestId, status: "PENDING" },
+      data: { status: "REJECTED", decidedAt },
+    });
+    if (updated.count === 0) return fail(REQUEST_SETTLED);
     await notify({ userId, actorId: viewer.id, type: "JOIN_REJECTED", projectId });
     revalidatePath(`/projeler/${projectId}`);
     return ok();
   }
 
+  if (await isBlockedEitherWay(viewer.id, userId)) return fail("Bu başvuru kabul edilemez.");
+
   try {
     await db.$transaction(async (tx) => {
+      const updated = await tx.joinRequest.updateMany({
+        where: { id: requestId, status: "PENDING" },
+        data: { status: "ACCEPTED", decidedAt },
+      });
+      if (updated.count === 0) throw new TxRefusal(REQUEST_SETTLED);
       await addMemberInTx(tx, projectId, userId, roleId);
-      await tx.joinRequest.update({ where: { id: requestId }, data: { status: "ACCEPTED", decidedAt } });
+      await tx.projectInvite.updateMany({
+        where: { projectId, inviteeId: userId, status: "PENDING" },
+        data: { status: "CANCELLED", decidedAt },
+      });
     });
   } catch (error) {
-    if (error instanceof SeatError) return fail(error.message);
-    throw error;
+    return txFailure(error);
   }
 
   await notify({ userId, actorId: viewer.id, type: "JOIN_ACCEPTED", projectId });
@@ -474,6 +542,15 @@ export async function inviteToProjectAction(_prev: FormState, formData: FormData
   });
   if (pending) return fail(FORM_ERROR, { username: "Bu kişiye zaten bekleyen bir davet var." });
 
+  // Kişinin bu projeye bekleyen başvurusu varsa davet yerine başvuru yanıtlanır (iki açık yol olmaz).
+  const pendingRequest = await db.joinRequest.findFirst({
+    where: { projectId: input.projectId, userId: invitee.id, status: "PENDING" },
+    select: { id: true },
+  });
+  if (pendingRequest) {
+    return fail(FORM_ERROR, { username: "Bu kişinin bekleyen bir başvurusu var. Önce başvuruyu yanıtla." });
+  }
+
   if (input.roleId) {
     const role = project.roles.find((candidate) => candidate.id === input.roleId);
     if (!role) return fail(FORM_ERROR, { roleId: "Seçilen rol bu projeye ait değil." });
@@ -508,16 +585,21 @@ export async function cancelInviteAction(inviteId: string): Promise<ActionResult
   if (!invite || invite.project.ownerId !== viewer.id) return fail(NO_PERMISSION);
   if (invite.status !== "PENDING") return fail("Bu davet artık geri alınamaz.");
 
-  await db.projectInvite.update({
-    where: { id: inviteId },
+  const updated = await db.projectInvite.updateMany({
+    where: { id: inviteId, status: "PENDING" },
     data: { status: "CANCELLED", decidedAt: new Date() },
   });
+  if (updated.count === 0) return fail(INVITE_SETTLED);
+
   revalidateProject(invite.projectId);
   revalidatePath("/network");
   return ok();
 }
 
-/** Daveti kabul eder ya da reddeder (yalnız davetli, yalnız bekleyen davet). */
+/**
+ * Daveti kabul eder ya da reddeder (yalnız davetli, yalnız bekleyen davet). Kabulde durum değişikliği,
+ * üyelik ve kontenjan kontrolü tek transaction'dadır; davetlinin bu projeye bekleyen başvurusu geri çekilir.
+ */
 export async function respondToInviteAction(
   inviteId: string,
   response: "ACCEPT" | "DECLINE",
@@ -544,7 +626,11 @@ export async function respondToInviteAction(
   const decidedAt = new Date();
 
   if (response === "DECLINE") {
-    await db.projectInvite.update({ where: { id: inviteId }, data: { status: "DECLINED", decidedAt } });
+    const updated = await db.projectInvite.updateMany({
+      where: { id: inviteId, status: "PENDING" },
+      data: { status: "DECLINED", decidedAt },
+    });
+    if (updated.count === 0) return fail(INVITE_SETTLED);
     await notify({ userId: inviterId, actorId: viewer.id, type: "INVITE_DECLINED", projectId });
     revalidatePath("/network");
     revalidatePath(`/projeler/${projectId}`);
@@ -552,15 +638,24 @@ export async function respondToInviteAction(
   }
 
   if (invite.project.status !== "OPEN") return fail("Bu proje artık yeni üye almıyor.");
+  // Davetten sonra engel oluştuysa kabul edilmez; mesaj engeli ele vermez.
+  if (await isBlockedEitherWay(viewer.id, inviterId)) return fail("Bu davet artık geçerli değil.");
 
   try {
     await db.$transaction(async (tx) => {
+      const updated = await tx.projectInvite.updateMany({
+        where: { id: inviteId, status: "PENDING" },
+        data: { status: "ACCEPTED", decidedAt },
+      });
+      if (updated.count === 0) throw new TxRefusal(INVITE_SETTLED);
       await addMemberInTx(tx, projectId, viewer.id, roleId);
-      await tx.projectInvite.update({ where: { id: inviteId }, data: { status: "ACCEPTED", decidedAt } });
+      await tx.joinRequest.updateMany({
+        where: { projectId, userId: viewer.id, status: "PENDING" },
+        data: { status: "WITHDRAWN", decidedAt },
+      });
     });
   } catch (error) {
-    if (error instanceof SeatError) return fail(error.message);
-    throw error;
+    return txFailure(error);
   }
 
   await notify({ userId: inviterId, actorId: viewer.id, type: "INVITE_ACCEPTED", projectId });
@@ -585,12 +680,17 @@ export async function leaveProjectAction(projectId: string): Promise<ActionResul
   if (!member) return fail(NO_PERMISSION);
   if (member.isOwner) return fail("Proje sahibi projeden ayrılamaz. Projeyi silebilir ya da kapatabilirsin.");
 
-  await db.projectMember.delete({ where: { id: member.id } });
+  const left = await db.$transaction((tx) => endMembershipInTx(tx, projectId, viewer.id, member.id));
+  if (!left) return fail(NO_PERMISSION);
+
   revalidateProject(projectId);
   return ok();
 }
 
-/** Üyeyi ekipten çıkarır (yalnız sahip). Sahip kendini çıkaramaz. */
+/**
+ * Üyeyi ekipten çıkarır (yalnız sahip). Sahip kendini çıkaramaz. Aynı transaction'da kişinin bu projedeki
+ * bekleyen davetleri iptal edilir ve başvuruları geri çekilir.
+ */
 export async function removeMemberAction(projectId: string, userId: string): Promise<ActionResult> {
   const viewer = await verifiedViewer();
   if (!viewer) return fail(NOT_VERIFIED);
@@ -606,14 +706,16 @@ export async function removeMemberAction(projectId: string, userId: string): Pro
   if (!member) return fail("Bu kişi ekipte değil.");
   if (member.isOwner) return fail("Proje sahibi ekipten çıkarılamaz.");
 
-  await db.projectMember.delete({ where: { id: member.id } });
+  const removed = await db.$transaction((tx) => endMembershipInTx(tx, projectId, userId, member.id));
+  if (!removed) return fail("Bu kişi ekipte değil.");
+
   revalidateProject(projectId);
   return ok();
 }
 
 /**
  * Davet için doğrulanmış kişi araması (yalnız sahip). En fazla 8 kişi. Üyeler, engellenenler,
- * bekleyen davetliler ve sahibin kendisi dışarıda kalır.
+ * bekleyen davetliler, bekleyen başvurusu olanlar ve sahibin kendisi dışarıda kalır.
  */
 export async function searchInvitableUsersAction(
   projectId: string,
@@ -628,7 +730,7 @@ export async function searchInvitableUsersAction(
   const tokens = searchTokens(query);
   if (tokens.length === 0) return ok<PersonSummary[]>([]);
 
-  const [members, blocks, pendingInvites] = await Promise.all([
+  const [members, blocks, pendingInvites, pendingRequests] = await Promise.all([
     db.projectMember.findMany({ where: { projectId }, select: { userId: true } }),
     db.block.findMany({
       where: { OR: [{ blockerId: viewer.id }, { blockedId: viewer.id }] },
@@ -638,12 +740,17 @@ export async function searchInvitableUsersAction(
       where: { projectId, status: "PENDING" },
       select: { inviteeId: true },
     }),
+    db.joinRequest.findMany({
+      where: { projectId, status: "PENDING" },
+      select: { userId: true },
+    }),
   ]);
 
   const excluded = new Set<string>([
     viewer.id,
     ...members.map((member) => member.userId),
     ...pendingInvites.map((invite) => invite.inviteeId),
+    ...pendingRequests.map((request) => request.userId),
     ...blocks.map((block) => (block.blockerId === viewer.id ? block.blockedId : block.blockerId)),
   ]);
 

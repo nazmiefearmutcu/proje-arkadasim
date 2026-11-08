@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { createUser, resetDb } from "../../../tests/helpers/db";
 import { toSearchText } from "@/lib/tr";
@@ -19,10 +19,12 @@ vi.mock("next/navigation", () => ({
 
 import {
   applyToProjectAction,
+  cancelInviteAction,
   createProjectAction,
   decideApplicationAction,
   deleteProjectAction,
   inviteToProjectAction,
+  leaveProjectAction,
   removeMemberAction,
   respondToInviteAction,
   searchInvitableUsersAction,
@@ -66,6 +68,16 @@ function applyForm(message: string, roleId = ""): FormData {
 
 async function asViewer(user: User): Promise<void> {
   mocks.viewer = user;
+}
+
+/** Davet formu: sahip panelindeki ve profildeki davet akışının gönderdiği alanlar. */
+function inviteForm(projectId: string, username: string, roleId = ""): FormData {
+  const formData = new FormData();
+  formData.set("projectId", projectId);
+  formData.set("username", username);
+  formData.set("roleId", roleId);
+  formData.set("message", "");
+  return formData;
 }
 
 /** Doğrudan veritabanında proje kurar. Sahip üyeliği ve rolleri ekler. */
@@ -435,5 +447,325 @@ describe("team management", () => {
 
     expect(await deleteProjectAction(project.id)).toEqual({ ok: false, error: "Bu işlem için yetkin yok." });
     expect(await db.project.count({ where: { id: project.id } })).toBe(1);
+  });
+});
+
+describe("engel ve kabul (F12b)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("başvurudan sonra engel oluşursa başvuru kabul edilemez ve üye eklenmez", async () => {
+    const owner = await createUser();
+    const applicant = await createUser();
+    const { project } = await seedProject(owner.id);
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: applicant.id, message: MESSAGE },
+    });
+    await db.block.create({ data: { blockerId: applicant.id, blockedId: owner.id } });
+    await asViewer(owner);
+
+    expect(await decideApplicationAction(request.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Bu başvuru kabul edilemez.",
+    });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: applicant.id } })).toBe(0);
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("PENDING");
+    expect(await db.notification.count({ where: { userId: applicant.id, type: "JOIN_ACCEPTED" } })).toBe(0);
+  });
+
+  it("davetten sonra engel oluşursa davet kabul edilemez", async () => {
+    const owner = await createUser();
+    const invitee = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: invitee.id },
+    });
+    await db.block.create({ data: { blockerId: owner.id, blockedId: invitee.id } });
+    await asViewer(invitee);
+
+    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Bu davet artık geçerli değil.",
+    });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: invitee.id } })).toBe(0);
+  });
+});
+
+describe("başvuru ve davet çakışması (F14)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("başvuru kabul edilince aynı kişiye giden bekleyen davet iptal edilir", async () => {
+    const owner = await createUser();
+    const person = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: person.id },
+    });
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: person.id, message: MESSAGE },
+    });
+    await asViewer(owner);
+
+    expect(await decideApplicationAction(request.id, "ACCEPT")).toEqual({ ok: true });
+    const refreshed = await db.projectInvite.findUniqueOrThrow({ where: { id: invite.id } });
+    expect(refreshed.status).toBe("CANCELLED");
+    expect(refreshed.decidedAt).not.toBeNull();
+
+    // İptal edilen davet artık yanıtlanamaz; reddetmek sahibe INVITE_DECLINED göndermez.
+    await asViewer(person);
+    expect((await respondToInviteAction(invite.id, "DECLINE")).ok).toBe(false);
+    expect(await db.notification.count({ where: { userId: owner.id, type: "INVITE_DECLINED" } })).toBe(0);
+  });
+
+  it("davet kabul edilince davetlinin bekleyen başvurusu geri çekilir", async () => {
+    const owner = await createUser();
+    const person = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: person.id },
+    });
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: person.id, message: MESSAGE },
+    });
+    await asViewer(person);
+
+    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({ ok: true });
+    const refreshed = await db.joinRequest.findUniqueOrThrow({ where: { id: request.id } });
+    expect(refreshed.status).toBe("WITHDRAWN");
+    expect(refreshed.decidedAt).not.toBeNull();
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: person.id } })).toBe(1);
+  });
+
+  it("üye çıkarılınca bekleyen davet iptal edilir, başvuru geri çekilir ve eski davet onu geri getiremez", async () => {
+    const owner = await createUser();
+    const member = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    await db.projectMember.create({ data: { projectId: project.id, userId: member.id } });
+    // Düzeltmeden önce oluşmuş eski kayıtlar: üyeyken bekleyen davet ve başvuru.
+    const staleInvite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: member.id },
+    });
+    const staleRequest = await db.joinRequest.create({
+      data: { projectId: project.id, userId: member.id, message: MESSAGE },
+    });
+    await asViewer(owner);
+
+    expect(await removeMemberAction(project.id, member.id)).toEqual({ ok: true });
+    expect((await db.projectInvite.findUniqueOrThrow({ where: { id: staleInvite.id } })).status).toBe("CANCELLED");
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: staleRequest.id } })).status).toBe("WITHDRAWN");
+
+    await asViewer(member);
+    expect((await respondToInviteAction(staleInvite.id, "ACCEPT")).ok).toBe(false);
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: member.id } })).toBe(0);
+  });
+
+  it("projeden ayrılan üyenin bekleyen davet ve başvuruları da kapanır", async () => {
+    const owner = await createUser();
+    const member = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    await db.projectMember.create({ data: { projectId: project.id, userId: member.id } });
+    const staleInvite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: member.id },
+    });
+    await asViewer(member);
+
+    expect(await leaveProjectAction(project.id)).toEqual({ ok: true });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: member.id } })).toBe(0);
+    expect((await db.projectInvite.findUniqueOrThrow({ where: { id: staleInvite.id } })).status).toBe("CANCELLED");
+  });
+
+  it("bekleyen başvurusu olan kişiye davet gönderilemez", async () => {
+    const owner = await createUser();
+    const applicant = await createUser({ username: "basvuran-kisi" });
+    const { project } = await seedProject(owner.id, 2);
+    await db.joinRequest.create({ data: { projectId: project.id, userId: applicant.id, message: MESSAGE } });
+    await asViewer(owner);
+
+    const result = await inviteToProjectAction(null, inviteForm(project.id, "basvuran-kisi"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.fieldErrors?.username).toBe("Bu kişinin bekleyen bir başvurusu var. Önce başvuruyu yanıtla.");
+    }
+    expect(await db.projectInvite.count()).toBe(0);
+  });
+
+  it("bekleyen daveti olan kişi aynı projeye başvuramaz", async () => {
+    const owner = await createUser();
+    const invitee = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    await db.projectInvite.create({ data: { projectId: project.id, inviterId: owner.id, inviteeId: invitee.id } });
+    await asViewer(invitee);
+
+    expect(await applyToProjectAction(project.id, null, applyForm(MESSAGE))).toEqual({
+      ok: false,
+      error: "Bu projeden bekleyen bir davetin var. Network > Davetler'den yanıtla.",
+    });
+    expect(await db.joinRequest.count()).toBe(0);
+    expect(await db.notification.count({ where: { userId: owner.id, type: "JOIN_REQUEST" } })).toBe(0);
+  });
+
+  it("davet araması bekleyen başvurusu olan kişileri dışarıda bırakır", async () => {
+    const owner = await createUser();
+    const candidate = await createUser({ firstName: "Deniz", lastName: "Ak", username: "deniz-ak" });
+    const applicant = await createUser({ firstName: "Deniz", lastName: "Er", username: "deniz-er" });
+    const { project } = await seedProject(owner.id, 2);
+    await db.joinRequest.create({ data: { projectId: project.id, userId: applicant.id, message: MESSAGE } });
+    await asViewer(owner);
+
+    const result = await searchInvitableUsersAction(project.id, "deniz");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data?.map((person) => person.id)).toEqual([candidate.id]);
+  });
+});
+
+describe("eşzamanlı karar (F37)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("geri çekilen başvuru sonradan kabul edilemez ve üye eklenmez", async () => {
+    const owner = await createUser();
+    const applicant = await createUser();
+    const { project } = await seedProject(owner.id);
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: applicant.id, message: MESSAGE },
+    });
+
+    await asViewer(applicant);
+    expect(await withdrawApplicationAction(request.id)).toEqual({ ok: true });
+
+    await asViewer(owner);
+    expect(await decideApplicationAction(request.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Bu başvuru zaten sonuçlandı.",
+    });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: applicant.id } })).toBe(0);
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("WITHDRAWN");
+  });
+
+  it("ön kontrolden sonra geri çekilen başvuru kabul transaction'ında reddedilir (WITHDRAWN korunur)", async () => {
+    const owner = await createUser();
+    const applicant = await createUser();
+    const { project } = await seedProject(owner.id);
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: applicant.id, message: MESSAGE },
+    });
+    await asViewer(owner);
+
+    // Yarış: sahibin isteği başvuruyu PENDING okur, ardından başvuran geri çeker, sonra kabul yazılır.
+    const realFindUnique = db.joinRequest.findUnique.bind(db.joinRequest);
+    vi.spyOn(db.joinRequest, "findUnique").mockImplementationOnce((async (args: Parameters<typeof realFindUnique>[0]) => {
+      const stale = await realFindUnique(args);
+      await db.joinRequest.update({ where: { id: request.id }, data: { status: "WITHDRAWN", decidedAt: new Date() } });
+      return stale;
+    }) as unknown as typeof db.joinRequest.findUnique);
+
+    expect(await decideApplicationAction(request.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Bu başvuru zaten sonuçlandı.",
+    });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: applicant.id } })).toBe(0);
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("WITHDRAWN");
+    expect(await db.notification.count({ where: { userId: applicant.id, type: "JOIN_ACCEPTED" } })).toBe(0);
+  });
+
+  it("ön kontrolden sonra geri alınan davet kabul edilemez (CANCELLED korunur)", async () => {
+    const owner = await createUser();
+    const invitee = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: invitee.id },
+    });
+    await asViewer(invitee);
+
+    const realFindUnique = db.projectInvite.findUnique.bind(db.projectInvite);
+    vi.spyOn(db.projectInvite, "findUnique").mockImplementationOnce((async (args: Parameters<typeof realFindUnique>[0]) => {
+      const stale = await realFindUnique(args);
+      await db.projectInvite.update({ where: { id: invite.id }, data: { status: "CANCELLED", decidedAt: new Date() } });
+      return stale;
+    }) as unknown as typeof db.projectInvite.findUnique);
+
+    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Bu davet zaten sonuçlandı.",
+    });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: invitee.id } })).toBe(0);
+    expect((await db.projectInvite.findUniqueOrThrow({ where: { id: invite.id } })).status).toBe("CANCELLED");
+  });
+
+  it("kabul edilmiş başvuru sonradan reddedilemez ya da geri çekilemez", async () => {
+    const owner = await createUser();
+    const applicant = await createUser();
+    const { project } = await seedProject(owner.id);
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: applicant.id, message: MESSAGE },
+    });
+    await asViewer(owner);
+    expect(await decideApplicationAction(request.id, "ACCEPT")).toEqual({ ok: true });
+
+    expect((await decideApplicationAction(request.id, "REJECT")).ok).toBe(false);
+    await asViewer(applicant);
+    expect((await withdrawApplicationAction(request.id)).ok).toBe(false);
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("ACCEPTED");
+  });
+
+  it("sonuçlanmış davet geri alınamaz", async () => {
+    const owner = await createUser();
+    const invitee = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: invitee.id },
+    });
+    await asViewer(invitee);
+    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({ ok: true });
+
+    await asViewer(owner);
+    expect((await cancelInviteAction(invite.id)).ok).toBe(false);
+    expect((await db.projectInvite.findUniqueOrThrow({ where: { id: invite.id } })).status).toBe("ACCEPTED");
+  });
+
+  it("kabul transaction'ında yazma çakışması (P2034) genel bir hata olarak döner", async () => {
+    const owner = await createUser();
+    const applicant = await createUser();
+    const { project } = await seedProject(owner.id);
+    const request = await db.joinRequest.create({
+      data: { projectId: project.id, userId: applicant.id, message: MESSAGE },
+    });
+    await asViewer(owner);
+
+    const conflict = Object.assign(new Error("Transaction failed due to a write conflict or a deadlock."), {
+      code: "P2034",
+    });
+    vi.spyOn(db, "$transaction").mockRejectedValueOnce(conflict);
+
+    expect(await decideApplicationAction(request.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Şu an işlenemedi. Birazdan tekrar dene.",
+    });
+    expect(await db.projectMember.count({ where: { projectId: project.id, userId: applicant.id } })).toBe(0);
+  });
+
+  it("SQLite kilidi (database is locked) davet kabulünde genel bir hata olarak döner", async () => {
+    const owner = await createUser();
+    const invitee = await createUser();
+    const { project } = await seedProject(owner.id, 2);
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: invitee.id },
+    });
+    await asViewer(invitee);
+
+    vi.spyOn(db, "$transaction").mockRejectedValueOnce(new Error("SqliteFailure: database is locked"));
+
+    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({
+      ok: false,
+      error: "Şu an işlenemedi. Birazdan tekrar dene.",
+    });
   });
 });
