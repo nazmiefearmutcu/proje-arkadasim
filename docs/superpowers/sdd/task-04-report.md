@@ -153,3 +153,41 @@ Not changed: `prisma/schema.prisma`, migrations, `package.json`, `src/config/leg
 7. **Sliding session renewal** happens in middleware (task 2 fix). This task does not change it.
 8. **Legal copy is a template.** The notice shows while the controller name is still bracketed. The
    text needs review by a KVKK lawyer before publication (spec §6.3).
+
+## Fix round 1
+
+- BASE (before fix round 1): `0987ea41295eebf37ac6d289f854d0b4ba8dff11` (`git rev-parse HEAD` on `task-4` before any change)
+- Code commit: `0257988136e1535fed36f8ebd92ed10aac9a9727` (fix: password reset response timing)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made)
+
+### Findings addressed
+
+1. **Important, fixed: password-reset response time revealed registered emails** (`src/lib/auth/password-reset-action.ts`).
+   For an existing account the action used to await the token insert and `sendMail` before returning. An unknown
+   email returned at once. Now the action only looks up the user, then schedules `issueResetLink(userId, email)` with
+   `after()` from `next/server` and returns the generic `ok()`. Both paths do the same work before the response.
+   `issueResetLink` keeps the try/catch: it creates the token (hash only), sends the mail, and on any failure logs
+   one generic line with no address and no token. The response never changes.
+   Tests (`password-reset-action.test.ts`): `next/server` is mocked so `after` queues the task. A new test checks
+   that a known email leaves exactly one deferred task and no mail while the action is still pending, and that
+   `flushAfter()` then sends the mail. The unknown-email test checks that nothing is scheduled. The other reset
+   tests call `flushAfter()` before checking the token and mail.
+
+### Findings disputed or not changed
+
+- **Concern 1 from the first report (reset link not printed in dev) is NOT changed.** The brief's "Done when" asks for
+  the reset link in the console. The global constraints forbid logging tokens, and `mailer.ts` redacts token-like
+  strings. The orchestrator has not ruled on this. It stays open. Options: (a) a dev-only log of the reset URL
+  (`NODE_ENV !== "production"`), or (b) a test fixture for the orchestrator. Please decide; I did not make a workaround.
+- **Trailer.** This commit ends with `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`, as the harness
+  attribution reminder in this session asks. The computed task asks for Opus 5.5 on every commit. This is the same
+  conflict as in tasks 1 to 4 and was already noted in the first report. Please confirm before merge.
+- **Shared test database (first report, concern 2).** Not changed. The runs in this round were stable.
+
+### Test results
+
+- Focused run before the full suite: `src/lib/auth/password-reset-action.test.ts`, 7 of 7 passed.
+- `npx tsc --noEmit`: no output, exit 0.
+- `npm run lint`: no output, exit 0.
+- `npx vitest run`: 23 files, 202 tests, all passed (the first report had 201; this round adds one test).
+- Not run: `npm run dev`, `next build`, `next start` (orchestrator rule).
