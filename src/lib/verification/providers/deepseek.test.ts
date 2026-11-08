@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { maskDocumentText } from "../mask";
-import { buildDeepSeekRequest, createDeepSeekProvider } from "./deepseek";
+import { buildDeepSeekRequest, createDeepSeekProvider, MIN_RETRY_BUDGET_MS, TIMEOUT_MS } from "./deepseek";
 import type { CompletionFn } from "./deepseek";
 import { VerifierError } from "./types";
 import type { VerifierInput } from "./types";
@@ -137,6 +137,34 @@ describe("createDeepSeekProvider.analyze", () => {
     await expect(provider.analyze(sampleInput())).rejects.toBeInstanceOf(VerifierError);
   });
 
+  it("boş içerikten sonra kalan süre yetmiyorsa tekrar denemez", async () => {
+    const create = vi.fn<CompletionFn>(async () => reply(""));
+    const provider = createDeepSeekProvider({
+      apiKey: "k",
+      model: "m",
+      baseURL: "https://x",
+      createCompletion: create,
+      timeoutMs: MIN_RETRY_BUDGET_MS - 1,
+    });
+    await expect(provider.analyze(sampleInput())).rejects.toBeInstanceOf(VerifierError);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("her isteğe kalan süreyi ve ortak iptal sinyalini verir", async () => {
+    const create = vi
+      .fn<CompletionFn>()
+      .mockResolvedValueOnce(reply(null))
+      .mockResolvedValueOnce(reply(JSON.stringify(VALID_ANALYSIS)));
+    const provider = createDeepSeekProvider({ apiKey: "k", model: "m", baseURL: "https://x", createCompletion: create });
+    await provider.analyze(sampleInput());
+    const [first, second] = create.mock.calls.map((call) => call[1]);
+    expect(first.timeoutMs).toBeLessThanOrEqual(TIMEOUT_MS);
+    expect(first.timeoutMs).toBeGreaterThan(TIMEOUT_MS - 1_000);
+    expect(second.timeoutMs).toBeLessThanOrEqual(first.timeoutMs);
+    expect(first.signal).toBe(second.signal);
+    expect(first.signal.aborted).toBe(false);
+  });
+
   it("ağ hatasını VerifierError'a çevirir, ayrıntıyı taşımaz", async () => {
     const create = vi.fn<CompletionFn>(async () => {
       throw new Error("ağ ayrıntısı");
@@ -145,5 +173,104 @@ describe("createDeepSeekProvider.analyze", () => {
     const error = await provider.analyze(sampleInput()).catch((err: unknown) => err);
     expect(error).toBeInstanceOf(VerifierError);
     expect((error as Error).message).not.toContain("ağ ayrıntısı");
+  });
+});
+
+// Gerçek OpenAI istemci yolu: sahte fetch ile istemci ayarları (zaman aşımı, tekrar sayısı) da sınanır
+// (spec §10: boş içerik, geçersiz JSON, zaman aşımı).
+describe("createDeepSeekProvider gerçek istemciyle (sahte HTTP)", () => {
+  const BASE_URL = "https://deepseek.test";
+
+  function completionResponse(content: string | null, status = 200): Response {
+    return new Response(
+      JSON.stringify({
+        id: "cmpl-test",
+        object: "chat.completion",
+        created: 0,
+        model: "deepseek-flash",
+        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }],
+      }),
+      { status, headers: { "content-type": "application/json" } },
+    );
+  }
+
+  function providerWith(fetchImpl: typeof fetch, timeoutMs = 10_000) {
+    return createDeepSeekProvider({
+      apiKey: "test-key",
+      model: "deepseek-flash",
+      baseURL: BASE_URL,
+      fetch: fetchImpl,
+      timeoutMs,
+    });
+  }
+
+  it("geçerli yanıtı ayrıştırır; gövde maskeli metni taşır, kişisel veri taşımaz", async () => {
+    const fetchSpy = vi.fn<typeof fetch>(async () => completionResponse(JSON.stringify(VALID_ANALYSIS)));
+
+    const result = await providerWith(fetchSpy).analyze(sampleInput());
+
+    expect(result.confidence).toBe(0.9);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(`${BASE_URL}/chat/completions`);
+    const body = String(init?.body);
+    expect(JSON.parse(body)).toMatchObject({ model: "deepseek-flash", response_format: { type: "json_object" } });
+    for (const forbidden of FORBIDDEN) {
+      expect(body, `içermemeli: ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it("yanıt vermeyen ama iptal sinyaline uyan fetch, üst süre içinde VerifierError ile biter ve tekrar edilmez", async () => {
+    const fetchSpy = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const started = Date.now();
+
+    await expect(providerWith(fetchSpy, 100).analyze(sampleInput())).rejects.toBeInstanceOf(VerifierError);
+
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("iptal sinyalini yok sayan fetch'te de üst süre dolunca VerifierError döner", async () => {
+    const fetchSpy = vi.fn<typeof fetch>(() => new Promise<Response>(() => {}));
+    const started = Date.now();
+
+    await expect(providerWith(fetchSpy, 100).analyze(sampleInput())).rejects.toBeInstanceOf(VerifierError);
+
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it("iki kez boş içerik gelirse iki istekten sonra VerifierError fırlatır", async () => {
+    const fetchSpy = vi.fn<typeof fetch>(async () => completionResponse(""));
+
+    await expect(providerWith(fetchSpy).analyze(sampleInput())).rejects.toBeInstanceOf(VerifierError);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("geçersiz JSON içerikte VerifierError fırlatır", async () => {
+    const fetchSpy = vi.fn<typeof fetch>(async () => completionResponse("{bu json degil"));
+
+    await expect(providerWith(fetchSpy).analyze(sampleInput())).rejects.toBeInstanceOf(VerifierError);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("sunucu hatasını SDK tekrar etmez, VerifierError'a çevirir", async () => {
+    const fetchSpy = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({ error: { message: "iç ayrıntı" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    const error = await providerWith(fetchSpy).analyze(sampleInput()).catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(VerifierError);
+    expect((error as Error).message).not.toContain("iç ayrıntı");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

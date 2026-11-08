@@ -3,8 +3,10 @@ import { AiAnalysisSchema, VerifierError } from "./types";
 import type { AiAnalysis, VerifierInput, VerifierProvider } from "./types";
 
 const MAX_TOKENS = 800;
-const TIMEOUT_MS = 20_000;
-const MAX_RETRIES = 1;
+/** Bir analizin toplam üst süresi (spec §5.1 adım 6): boş içerik tekrarı da bu sürenin içindedir. */
+export const TIMEOUT_MS = 20_000;
+/** Boş içerikten sonra tekrar için gereken en az kalan süre; daha azsa tekrar denenmez. */
+export const MIN_RETRY_BUDGET_MS = 2_000;
 
 const SCHEMA_EXAMPLE = `{
   "isEducationDocument": true,
@@ -57,7 +59,16 @@ export interface CompletionResponse {
   choices: Array<{ message: { content: string | null } }>;
 }
 
-export type CompletionFn = (params: DeepSeekRequest) => Promise<CompletionResponse>;
+/** Tek isteğin kalan süresi ve analizin ortak iptal sinyali. */
+export interface CompletionRequestOptions {
+  timeoutMs: number;
+  signal: AbortSignal;
+}
+
+export type CompletionFn = (
+  params: DeepSeekRequest,
+  request: CompletionRequestOptions,
+) => Promise<CompletionResponse>;
 
 /** İstek gövdesini kurar. Yalnızca maskelenmiş metin ve kişisel olmayan sinyaller içerir. */
 export function buildDeepSeekRequest(input: VerifierInput, model: string): DeepSeekRequest {
@@ -92,23 +103,39 @@ export interface DeepSeekOptions {
   baseURL: string;
   /** Test için: OpenAI istemcisi yerine kullanılacak tamamlama işlevi. */
   createCompletion?: CompletionFn;
+  /** Test için: OpenAI istemcisinin kullanacağı fetch (gerçek istemci yolu sahte HTTP ile sınanır). */
+  fetch?: typeof fetch;
+  /** Test için: toplam üst süre (varsayılan TIMEOUT_MS). */
+  timeoutMs?: number;
 }
 
 function clientCompletion(options: DeepSeekOptions): CompletionFn {
+  // SDK kendi tekrarını yapmaz (maxRetries 0): zaman aşımında tekrar, süreyi iki katına çıkarırdı.
+  // Boş içerik tekrarı sağlayıcıda, ortak üst sürenin içinde yapılır.
   const client = new OpenAI({
     apiKey: options.apiKey,
     baseURL: options.baseURL,
-    timeout: TIMEOUT_MS,
-    maxRetries: MAX_RETRIES,
+    timeout: options.timeoutMs ?? TIMEOUT_MS,
+    maxRetries: 0,
+    fetch: options.fetch,
   });
-  return (params) => client.chat.completions.create(params);
+  return (params, request) =>
+    client.chat.completions.create(params, {
+      timeout: request.timeoutMs,
+      signal: request.signal,
+      maxRetries: 0,
+    });
 }
 
 /** Boş ya da yalnız boşluktan oluşan içerikte null döner. Hata ayrıntısı içermez. */
-async function requestContent(complete: CompletionFn, params: DeepSeekRequest): Promise<string | null> {
+async function requestContent(
+  complete: CompletionFn,
+  params: DeepSeekRequest,
+  request: CompletionRequestOptions,
+): Promise<string | null> {
   let response: CompletionResponse;
   try {
-    response = await complete(params);
+    response = await complete(params, request);
   } catch {
     throw new VerifierError("Sağlayıcı isteği başarısız oldu.");
   }
@@ -119,6 +146,7 @@ async function requestContent(complete: CompletionFn, params: DeepSeekRequest): 
 
 export function createDeepSeekProvider(options: DeepSeekOptions): VerifierProvider {
   const complete = options.createCompletion ?? clientCompletion(options);
+  const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
 
   return {
     name: "deepseek",
@@ -126,9 +154,34 @@ export function createDeepSeekProvider(options: DeepSeekOptions): VerifierProvid
     async analyze(input: VerifierInput): Promise<AiAnalysis> {
       const params = buildDeepSeekRequest(input, options.model);
 
-      // Boş içerikte bir kez daha dene (spec §5.1 adım 6).
-      let content = await requestContent(complete, params);
-      if (content === null) content = await requestContent(complete, params);
+      // Tek üst süre: her istek kalan süreyi alır; süre dolunca istek iptal edilir ve analiz biter.
+      const deadline = Date.now() + timeoutMs;
+      const controller = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const expired = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new VerifierError("Sağlayıcı zaman aşımına uğradı."));
+        }, timeoutMs);
+      });
+      expired.catch(() => {});
+      const attempt = () =>
+        Promise.race([
+          requestContent(complete, params, {
+            timeoutMs: Math.max(1, deadline - Date.now()),
+            signal: controller.signal,
+          }),
+          expired,
+        ]);
+
+      let content: string | null;
+      try {
+        // Boş içerikte bir kez daha dene (spec §5.1 adım 6), yeterli süre kaldıysa.
+        content = await attempt();
+        if (content === null && deadline - Date.now() >= MIN_RETRY_BUDGET_MS) content = await attempt();
+      } finally {
+        clearTimeout(timer);
+      }
       if (content === null) throw new VerifierError("Sağlayıcı boş yanıt döndü.");
 
       let parsed: unknown;
