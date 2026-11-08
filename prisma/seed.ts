@@ -4,13 +4,16 @@ import { hashPassword, validatePasswordStrength } from "../src/lib/auth/password
 import { CATEGORIES, disciplineGroupForDepartment, getDisciplineGroup, labelOf } from "../src/config/taxonomy";
 import type { Category, DisciplineGroupId, Stage, WorkMode } from "../src/config/taxonomy";
 import { LEGAL_VERSION, MASKED_TEXT_RETENTION_DAYS } from "../src/config/legal";
-import { seedProblem } from "../src/lib/seed-guard";
+import { seedProblem, seedWipeProblem } from "../src/lib/seed-guard";
 import { toListJson } from "../src/lib/json-fields";
 import { toSearchText } from "../src/lib/tr";
 
-// Tohum (seed) verisi: `npm run seed`. Önce tüm tabloları siler, sonra tek bir transaction içinde
-// yeniden doldurur; bu yüzden tekrar çalıştırmak güvenlidir (ama mevcut verinin tamamını siler).
-// Parolalar yalnız ortam değişkenlerinden okunur (.env.example'a bakın). Hiçbir parola yazdırılmaz.
+// Tohum (seed) verisi, yalnız geliştirme içindir. Önce TÜM tabloları siler, sonra tek bir transaction
+// içinde demo verisiyle yeniden doldurur. Boş veritabanında (`prisma migrate dev` ile yeni oluşturulan ya
+// da `prisma migrate reset` sonrası) `npm run seed` yeterlidir; veritabanında kullanıcı varsa yalnız
+// `npm run seed -- --wipe` ile çalışır (bkz. src/lib/seed-guard.ts). Üretimde yönetici atamak için
+// `npm run make-admin -- <e-posta>` kullanılır. Parolalar yalnız ortam değişkenlerinden okunur
+// (.env.example'a bakın). Hiçbir parola yazdırılmaz.
 
 const DEMO_USERNAME = "elif.yilmaz";
 const DEMO_DOMAIN = "ornek.edu.tr";
@@ -1335,14 +1338,18 @@ async function main(): Promise<void> {
     if (passwordProblem) throw new Error(`Tohum parolası geçersiz: ${passwordProblem}`);
   }
 
-  // Parola özetleri bir kez hesaplanır. Tohum kullanıcıları ortak geliştirme parolasını kullanır.
-  const hashes: PasswordHashes = {
-    admin: await hashPassword(adminPassword),
-    user: await hashPassword(userPassword),
-  };
-
   const prisma = new PrismaClient();
   try {
+    // Dolu bir veritabanı (ör. canlı veri) yalnız açık --wipe bayrağıyla silinir.
+    const wipeProblem = seedWipeProblem(await prisma.user.count(), process.argv.slice(2));
+    if (wipeProblem) throw new Error(wipeProblem);
+
+    // Parola özetleri bir kez hesaplanır. Tohum kullanıcıları ortak geliştirme parolasını kullanır.
+    const hashes: PasswordHashes = {
+      admin: await hashPassword(adminPassword),
+      user: await hashPassword(userPassword),
+    };
+
     console.log("Tohum verisi yazılıyor. Mevcut tüm veriler silinir.");
     const counts = await prisma.$transaction(
       async (tx) => {
@@ -1362,7 +1369,7 @@ async function main(): Promise<void> {
     console.log("Demo giriş e-postaları:");
     console.log(`- Yönetici: ${adminEmail}`);
     console.log(`- Demo kullanıcı (bildirim ve davet içerir): ${DEMO_USERNAME}@${DEMO_DOMAIN}`);
-    console.log("Parolalar .env.example dosyasındaki SEED_ADMIN_PASSWORD ve SEED_USER_PASSWORD değerleridir.");
+    console.log("Parolalar .env dosyasındaki SEED_ADMIN_PASSWORD ve SEED_USER_PASSWORD değerleridir.");
   } finally {
     await prisma.$disconnect();
   }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { createUser, resetDb } from "../../../tests/helpers/db";
@@ -89,6 +89,11 @@ describe("şifre sıfırlama", () => {
     (globalThis as unknown as { __rateLimitEntries?: Map<string, unknown> }).__rateLimitEntries?.clear();
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
   it("kayıtlı olmayan e-posta için de başarılı yanıt döner, jeton ve e-posta üretilmez", async () => {
     const result = await requestPasswordResetAction(null, form({ email: "yok@ornek.test" }));
 
@@ -123,6 +128,70 @@ describe("şifre sıfırlama", () => {
     const stored = await db.passwordResetToken.findFirstOrThrow({ where: { userId: user.id } });
     expect(stored.tokenHash).toBe(hashToken(token));
     expect(stored.tokenHash).not.toBe(token);
+  });
+
+  it("bağlantının kökü APP_URL'den gelir ve bağlantı geliştirme konsolu için devLink olarak da verilir", async () => {
+    vi.stubEnv("APP_URL", "https://proje.ornek.test/");
+    const user = await createUser({ email: "kok@ornek.test" });
+    await requestPasswordResetAction(null, form({ email: user.email }));
+    await flushAfter();
+
+    const token = tokenFromLastMail();
+    const input = vi.mocked(sendMail).mock.calls[0][0];
+    expect(input.devLink).toBe(`https://proje.ornek.test/sifre-sifirla/${token}`);
+    expect(input.text).toContain(input.devLink);
+  });
+
+  it("geliştirmede SMTP yoksa konsol tam sıfırlama bağlantısını bir kez yazar, e-posta gövdesi gizli kalır", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SMTP_URL", "");
+    vi.stubEnv("APP_URL", "");
+    const actual = await vi.importActual<typeof import("@/lib/mailer")>("@/lib/mailer");
+    vi.mocked(sendMail).mockImplementationOnce(actual.sendMail);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    const user = await createUser({ email: "yerel@ornek.test" });
+    await requestPasswordResetAction(null, form({ email: user.email }));
+    await flushAfter();
+
+    const token = tokenFromLastMail();
+    const lines = info.mock.calls.map((call) => String(call[0]));
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain("[gizlendi]");
+    expect(lines[0]).not.toContain(token);
+    expect(lines[1]).toBe(`Geliştirme bağlantısı: http://localhost:3000/sifre-sifirla/${token}`);
+    expect(lines.join("\n").split(token)).toHaveLength(2);
+  });
+
+  it("üretimde APP_URL yoksa jeton ve e-posta üretmez; adres ve jeton loglanmaz", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_URL", "");
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const user = await createUser({ email: "uretim@ornek.test" });
+
+    const result = await requestPasswordResetAction(null, form({ email: user.email }));
+    await flushAfter();
+
+    expect(result).toEqual({ ok: true });
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(await db.passwordResetToken.count()).toBe(0);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith("[şifre sıfırlama] APP_URL tanımlı değil; bağlantı gönderilmedi");
+  });
+
+  it("üretimde APP_URL tanımlıysa bağlantı o adresle gönderilir", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_URL", "https://proje.ornek.test");
+    const user = await createUser({ email: "uretim-tamam@ornek.test" });
+
+    await requestPasswordResetAction(null, form({ email: user.email }));
+    await flushAfter();
+
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMail).mock.calls[0][0].text).toContain(
+      `https://proje.ornek.test/sifre-sifirla/${tokenFromLastMail()}`,
+    );
+    expect(await db.passwordResetToken.count({ where: { userId: user.id } })).toBe(1);
   });
 
   it("geçerli jetonla şifreyi değiştirir, jetonu kullanılmış yapar ve oturumları kapatır", async () => {

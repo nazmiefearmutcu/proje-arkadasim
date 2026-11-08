@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
-import { LEGAL, LEGAL_VERSION } from "@/config/legal";
+import { LEGAL_VERSION, hasLegalPlaceholders } from "@/config/legal";
 import { PageHeader } from "@/components/ui/page-header";
 
-/** Operatör bilgisi hâlâ köşeli parantez içindeyse (şablon) uyarı gösterir. */
+/**
+ * Zorunlu operatör bilgilerinden biri (unvan, adres, e-posta, KEP, barındırma ülkesi) hâlâ köşeli
+ * parantez içindeyse (şablon) uyarı gösterir. Yalnız biri doldurulunca uyarı kaybolmaz.
+ */
 export function DraftNotice() {
-  if (!LEGAL.controllerName.startsWith("[")) return null;
+  if (!hasLegalPlaceholders()) return null;
   return (
     <div role="note" className="rounded-control bg-warn-soft px-3.5 py-3 t-meta text-warn">
       Bu metin şablondur; yayımlanmadan önce hukuk danışmanınca gözden geçirilmelidir.

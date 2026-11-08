@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { AI_CONSENT_STATEMENT } from "@/config/legal";
+import { AiConsentTextLink } from "@/components/legal/ai-consent-link";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ActionResult } from "@/lib/action-result";
@@ -64,11 +66,14 @@ function InactiveConsent() {
         </ButtonLink>
       </div>
       <form action={action} noValidate className="flex flex-col gap-3">
-        <Checkbox
-          name="aiConsent"
-          label="Maskelenmiş belge metnimin yapay zeka incelemesi için yurt dışına (DeepSeek, Çin Halk Cumhuriyeti) aktarılmasına açık rıza veriyorum."
-          description="Rıza isteğe bağlıdır ve hizmet şartı değildir."
-        />
+        <div className="flex flex-col">
+          <Checkbox
+            name="aiConsent"
+            label={AI_CONSENT_STATEMENT}
+            description="Rıza isteğe bağlıdır ve hizmet şartı değildir."
+          />
+          <AiConsentTextLink />
+        </div>
         {error ? (
           <p role="alert" className="t-meta text-danger">
             {error}

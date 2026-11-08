@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
+import { AI_CONSENT_STATEMENT } from "@/config/legal";
+import { AiConsentTextLink } from "@/components/legal/ai-consent-link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,17 +28,9 @@ export function ConsentPanel() {
           required
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "rıza-hata" : undefined}
-          label={
-            <>
-              Belgemin maskelenmiş metninin yapay zeka incelemesi için yurt dışına gönderilmesine açık rıza
-              veriyorum. Ayrıntılar için{" "}
-              <Link href="/kvkk/acik-riza" className="text-pen underline underline-offset-2">
-                açık rıza metnini
-              </Link>{" "}
-              oku.
-            </>
-          }
+          label={AI_CONSENT_STATEMENT}
         />
+        <AiConsentTextLink />
         {error ? (
           <p id="rıza-hata" role="alert" className="t-meta text-danger">
             {error}

@@ -5,6 +5,8 @@ import { startTransition, useActionState, useState, type FormEvent, type ReactNo
 import { registerAction } from "@/lib/auth/register-action";
 import { registerAccountSchema } from "@/lib/auth/schemas";
 import { zodFieldErrors, type ActionResult } from "@/lib/action-result";
+import { AI_CONSENT_STATEMENT } from "@/config/legal";
+import { AiConsentTextLink } from "@/components/legal/ai-consent-link";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
@@ -27,6 +29,8 @@ const EMPTY_VALUES: AccountValues = {
 };
 
 const STEPS = ["Hesap", "Onaylar", "Belge"] as const;
+
+const CONSENT_ERROR_ID = "reg-consent-error";
 
 function Stepper({ current }: { current: 1 | 2 }) {
   return (
@@ -151,6 +155,8 @@ export function RegisterForm() {
   }
 
   const consentError = errorFor("privacyNotice") ?? errorFor("terms");
+  // Hata görünürken zorunlu kutular hata metnine bağlanır; ekran okuyucu kutuda hatayı da okur.
+  const consentDescribedBy = consentError ? CONSENT_ERROR_ID : undefined;
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
@@ -244,7 +250,7 @@ export function RegisterForm() {
           </Field>
 
           <Button type="submit" className="w-full">
-            Devam et
+            Onaylara geç
           </Button>
         </div>
       ) : (
@@ -283,17 +289,27 @@ export function RegisterForm() {
           <div className="flex flex-col gap-1 border-t border-line pt-5">
             <Checkbox
               name="privacyNotice"
+              required
               checked={consents.privacyNotice}
               onChange={(event) => setConsent("privacyNotice", event.target.checked)}
+              aria-invalid={errorFor("privacyNotice") ? true : undefined}
+              aria-describedby={consentDescribedBy}
               label="Aydınlatma metnini okudum."
             />
             <Checkbox
               name="terms"
+              required
               checked={consents.terms}
               onChange={(event) => setConsent("terms", event.target.checked)}
+              aria-invalid={errorFor("terms") ? true : undefined}
+              aria-describedby={consentDescribedBy}
               label="Kullanım koşullarını kabul ediyorum."
             />
-            {consentError ? <p className="t-meta text-danger">{consentError}</p> : null}
+            {consentError ? (
+              <p id={CONSENT_ERROR_ID} role="alert" className="t-meta text-danger">
+                {consentError}
+              </p>
+            ) : null}
           </div>
 
           <section className="flex flex-col gap-3 rounded-card border border-line bg-surface-2 p-4">
@@ -302,7 +318,7 @@ export function RegisterForm() {
               name="crossBorderAi"
               checked={consents.crossBorderAi}
               onChange={(event) => setConsent("crossBorderAi", event.target.checked)}
-              label="Maskelenmiş belge metnimin yapay zeka incelemesi için yurt dışına (DeepSeek, Çin Halk Cumhuriyeti) aktarılmasına açık rıza veriyorum."
+              label={AI_CONSENT_STATEMENT}
             />
             <ul className="flex list-disc flex-col gap-2 pl-5">
               <Explanation>
@@ -322,14 +338,7 @@ export function RegisterForm() {
                 istediğin zaman geri alabilirsin.
               </Explanation>
             </ul>
-            <Link
-              href="/kvkk/acik-riza"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex min-h-11 w-fit items-center rounded-control t-label text-pen ${focusRing}`}
-            >
-              Açık rıza metnini oku
-            </Link>
+            <AiConsentTextLink />
           </section>
 
           {generalError ? <FormAlert tone="danger">{generalError}</FormAlert> : null}
