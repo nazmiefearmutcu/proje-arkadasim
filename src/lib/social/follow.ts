@@ -14,6 +14,8 @@ import { isBlockedEitherWay } from "@/lib/permissions";
 
 const NOT_VERIFIED = "Bu işlem için belgeni doğrulaman gerekiyor.";
 const NOT_FOUND = "Kişi bulunamadı.";
+/** Aynı kişiden aynı kişiye ikinci FOLLOW bildirimi için beklenecek süre (takip/bırak döngüsüne karşı). */
+const FOLLOW_NOTIFY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Doğrulanmış oturum sahibi. Değilse null. */
 async function verifiedViewer(): Promise<CurrentUser | null> {
@@ -34,7 +36,8 @@ function revalidateFollowPaths(username: string | null): void {
 
 /**
  * Kişiyi takip eder. Hedef doğrulanmış olmalı; kendisi ya da engel ilişkisi olan biri takip edilemez.
- * FOLLOW bildirimi yalnız takip ilişkisi yeni oluştuğunda gider.
+ * FOLLOW bildirimi yalnız takip ilişkisi yeni oluştuğunda gider; aynı kişiye son 7 günde bu görüntüleyenden
+ * FOLLOW bildirimi gittiyse yenisi yazılmaz (takip et / bırak döngüsü hedefi bildirime boğmaz).
  */
 export async function followUserAction(targetUserId: string): Promise<ActionResult> {
   const viewer = await verifiedViewer();
@@ -60,7 +63,16 @@ export async function followUserAction(targetUserId: string): Promise<ActionResu
   if (!existing) {
     try {
       await db.follow.create({ data: { followerId: viewer.id, followingId: target.id } });
-      await notify({ userId: target.id, actorId: viewer.id, type: "FOLLOW" });
+      const recentNotice = await db.notification.findFirst({
+        where: {
+          userId: target.id,
+          actorId: viewer.id,
+          type: "FOLLOW",
+          createdAt: { gte: new Date(Date.now() - FOLLOW_NOTIFY_WINDOW_MS) },
+        },
+        select: { id: true },
+      });
+      if (!recentNotice) await notify({ userId: target.id, actorId: viewer.id, type: "FOLLOW" });
     } catch (error) {
       // Aynı anda iki istek geldiyse ikincisi benzersizlik hatasına düşer: takip zaten var.
       if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;

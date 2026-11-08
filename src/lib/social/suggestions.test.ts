@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { createUser, resetDb } from "../../../tests/helpers/db";
 import { createIntroductions, getSuggestions, scoreCandidate, WEIGHTS, type SuggestionProfile } from "./suggestions";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function profile(overrides: Partial<SuggestionProfile> = {}): SuggestionProfile {
   return {
     id: "x",
@@ -114,31 +116,73 @@ describe("getSuggestions ve createIntroductions (veritabanı)", () => {
     expect(suggestions[0]?.reason).toBe("Farklı disiplin: Tasarım ile tamamlayıcı");
   });
 
-  it("tanıştırmaları en fazla 3 satır ve 3 bildirimle yazar; 24 saat içinde ikinci çağrı hiçbir şey yazmaz", async () => {
+  it("tanıştırmaları en fazla 3 satır ve 3 bildirimle yazar; 7 gün dolmadan ikinci parti yazılmaz", async () => {
     const viewer = await createUser({ disciplineGroup: "yazilim" });
     for (let i = 0; i < 5; i += 1) {
       await createUser({ disciplineGroup: "tasarim" });
     }
+    const start = new Date();
 
-    const first = await createIntroductions(viewer.id);
+    const first = await createIntroductions(viewer.id, start);
     expect(first).toBe(3);
     expect(await db.introduction.count({ where: { userId: viewer.id } })).toBe(3);
     expect(await db.notification.count({ where: { userId: viewer.id, type: "INTRODUCTION" } })).toBe(3);
 
-    const second = await createIntroductions(viewer.id);
-    expect(second).toBe(0);
+    // Ertesi gün ve 7. günün hemen öncesi: bekleme süresi dolmadı (eskiden 24 saatte bir parti yazılıyordu).
+    expect(await createIntroductions(viewer.id, new Date(start.getTime() + DAY_MS))).toBe(0);
+    expect(await createIntroductions(viewer.id, new Date(start.getTime() + 7 * DAY_MS - 1))).toBe(0);
+    expect(await db.introduction.count({ where: { userId: viewer.id } })).toBe(3);
+    expect(await db.notification.count({ where: { userId: viewer.id, type: "INTRODUCTION" } })).toBe(3);
+
+    // 7 gün dolunca yalnız ilk kez önerilecek kalan iki kişi tanıştırılır.
+    expect(await createIntroductions(viewer.id, new Date(start.getTime() + 7 * DAY_MS))).toBe(2);
+    expect(await db.introduction.count({ where: { userId: viewer.id } })).toBe(5);
+    expect(await db.notification.count({ where: { userId: viewer.id, type: "INTRODUCTION" } })).toBe(5);
+  });
+
+  it("partiyi gizlemek 7 günlük bekleme süresini atlatmaz", async () => {
+    const viewer = await createUser({ disciplineGroup: "yazilim" });
+    for (let i = 0; i < 6; i += 1) {
+      await createUser({ disciplineGroup: "tasarim" });
+    }
+    const start = new Date();
+
+    expect(await createIntroductions(viewer.id, start)).toBe(3);
+    await db.introduction.updateMany({ where: { userId: viewer.id }, data: { dismissed: true } });
+
+    expect(await createIntroductions(viewer.id, start)).toBe(0);
+    expect(await createIntroductions(viewer.id, new Date(start.getTime() + 3 * DAY_MS))).toBe(0);
     expect(await db.introduction.count({ where: { userId: viewer.id } })).toBe(3);
     expect(await db.notification.count({ where: { userId: viewer.id, type: "INTRODUCTION" } })).toBe(3);
   });
 
-  it("7 gün içinde tanıştırılan kişiyi bir daha önermez", async () => {
+  it("8 gün önce tanıştırılan kişiyi yeniden tanıştırmaz ve bildirmez; satırın tarihi yenilenmez", async () => {
     const viewer = await createUser({ disciplineGroup: "yazilim" });
-    const candidate = await createUser({ disciplineGroup: "tasarim" });
+    const old = await createUser({ disciplineGroup: "tasarim" });
+    const fresh = await createUser({ disciplineGroup: "tasarim" });
+    const now = new Date();
+    const eightDaysAgo = new Date(now.getTime() - 8 * DAY_MS);
     await db.introduction.create({
-      data: { userId: viewer.id, suggestedUserId: candidate.id, reason: "eski" },
+      data: { userId: viewer.id, suggestedUserId: old.id, reason: "eski", createdAt: eightDaysAgo },
     });
 
-    const created = await createIntroductions(viewer.id, new Date(Date.now() + 2 * 24 * 60 * 60 * 1000));
-    expect(created).toBe(0);
+    expect(await createIntroductions(viewer.id, now)).toBe(1);
+
+    const notes = await db.notification.findMany({ where: { userId: viewer.id, type: "INTRODUCTION" } });
+    expect(notes.map((note) => note.actorId)).toEqual([fresh.id]);
+    const oldRow = await db.introduction.findUniqueOrThrow({
+      where: { userId_suggestedUserId: { userId: viewer.id, suggestedUserId: old.id } },
+    });
+    expect(oldRow.createdAt.getTime()).toBe(eightDaysAgo.getTime());
+    expect(oldRow.reason).toBe("eski");
+  });
+
+  it("tanıştırılmış ama gizlenmemiş kişi Tanıştırmalar listesinde kalır", async () => {
+    const viewer = await createUser({ disciplineGroup: "yazilim" });
+    const candidate = await createUser({ disciplineGroup: "tasarim" });
+
+    expect(await createIntroductions(viewer.id)).toBe(1);
+    const ids = (await getSuggestions(viewer.id, 10)).map((suggestion) => suggestion.person.id);
+    expect(ids).toEqual([candidate.id]);
   });
 });

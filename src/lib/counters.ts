@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { blockedUserIds } from "@/lib/messaging/service";
 
 export interface Counters {
   /** Okunmamış bildirim sayısı. */
@@ -20,9 +21,15 @@ const MAX_CONVERSATIONS_SCANNED = 50;
  * - requests: REQUEST sohbetleri, kullanıcı alıcıysa (başlatan o değilse).
  * - messages: etkin sohbetlerden, karşı tarafın son okunma zamanından sonra mesajı olanlar.
  *   Okuma kaydı yoksa karşı tarafın her mesajı okunmamış sayılır.
+ * Engel ilişkisi olan kişilerle sohbetler (iki yön) sayılmaz: rozet, `/mesajlar` listesinin gösterdiğini sayar.
  */
 export async function getCounters(userId: string): Promise<Counters> {
-  const participant = { OR: [{ userAId: userId }, { userBId: userId }] };
+  const blockedIds = await blockedUserIds(userId);
+  const participant = {
+    OR: [{ userAId: userId }, { userBId: userId }],
+    userAId: { notIn: blockedIds },
+    userBId: { notIn: blockedIds },
+  };
 
   const [notifications, invites, requests, conversations] = await Promise.all([
     db.notification.count({ where: { userId, readAt: null } }),

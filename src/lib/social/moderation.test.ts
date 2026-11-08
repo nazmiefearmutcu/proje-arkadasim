@@ -13,6 +13,16 @@ vi.mock("next/cache", () => ({
   revalidatePath: () => undefined,
 }));
 
+import { getCounters } from "@/lib/counters";
+import {
+  MSG_BLOCKED,
+  MSG_DECLINED_BY_YOU,
+  MSG_PENDING,
+  acceptRequest,
+  getConversationForUser,
+  listConversations,
+  sendMessage,
+} from "@/lib/messaging/service";
 import { blockUserAction, reportAction, unblockUserAction } from "./moderation";
 import { REPORT_OK_MESSAGE } from "./report-reasons";
 
@@ -50,7 +60,7 @@ describe("blockUserAction", () => {
     await resetDb();
   });
 
-  it("takipleri iki yönde kaldırır, bekleyen istekleri reddeder ve bekleyen davetleri iptal eder", async () => {
+  it("takipleri iki yönde kaldırır, engellenenin bekleyen isteğini reddeder ve bekleyen davetleri iptal eder", async () => {
     const viewer = await createUser();
     const target = await createUser();
     const other = await createUser();
@@ -84,6 +94,85 @@ describe("blockUserAction", () => {
     expect((await db.conversation.findUniqueOrThrow({ where: { id: active.id } })).status).toBe("ACTIVE");
 
     expect((await db.projectInvite.findUniqueOrThrow({ where: { id: invite.id } })).status).toBe("CANCELLED");
+  });
+
+  it("iki yönde bekleyen başvuruları geri çeker; başka projelerin başvurularına dokunmaz", async () => {
+    const viewer = await createUser();
+    const target = await createUser();
+    const other = await createUser();
+    await asViewer(viewer);
+
+    const viewerProject = await seedProject(viewer.id);
+    const targetProject = await seedProject(target.id);
+    const otherProject = await seedProject(other.id);
+    // Engellenen kişinin, engelleyenin projesine başvurusu.
+    const intoViewers = await db.joinRequest.create({
+      data: { projectId: viewerProject.id, userId: target.id, message: "Katılmak isterim." },
+    });
+    // Engelleyenin, engellenenin projesine başvurusu.
+    const intoTargets = await db.joinRequest.create({
+      data: { projectId: targetProject.id, userId: viewer.id, message: "Katılmak isterim." },
+    });
+    // İlgisiz: engellenenin üçüncü kişinin projesine başvurusu ve önceden karara bağlanmış başvuru.
+    const unrelated = await db.joinRequest.create({
+      data: { projectId: otherProject.id, userId: target.id, message: "Katılmak isterim." },
+    });
+    const decided = await db.joinRequest.create({
+      data: { projectId: viewerProject.id, userId: target.id, message: "Eski", status: "REJECTED" },
+    });
+
+    expect(await blockUserAction(target.id)).toEqual({ ok: true });
+
+    for (const id of [intoViewers.id, intoTargets.id]) {
+      const row = await db.joinRequest.findUniqueOrThrow({ where: { id } });
+      expect(row.status).toBe("WITHDRAWN");
+      expect(row.decidedAt).not.toBeNull();
+    }
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: unrelated.id } })).status).toBe("PENDING");
+    expect((await db.joinRequest.findUniqueOrThrow({ where: { id: decided.id } })).status).toBe("REJECTED");
+  });
+
+  it("engelleyenin başlattığı istek REQUEST kalır, engel sürerken görünmez ve engel kalkınca kabul edilebilir", async () => {
+    const viewer = await createUser();
+    const target = await createUser();
+    const [userAId, userBId] = viewer.id < target.id ? [viewer.id, target.id] : [target.id, viewer.id];
+    const request = await db.conversation.create({
+      data: { userAId, userBId, initiatorId: viewer.id, status: "REQUEST", lastMessageAt: new Date() },
+    });
+    await db.message.create({ data: { conversationId: request.id, senderId: viewer.id, body: "Merhaba" } });
+    await asViewer(viewer);
+
+    expect(await blockUserAction(target.id)).toEqual({ ok: true });
+    expect((await db.conversation.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("REQUEST");
+    expect(await listConversations(target.id, "requests")).toHaveLength(0);
+    expect((await getCounters(target.id)).requests).toBe(0);
+    expect(await acceptRequest(target.id, request.id)).toEqual({ ok: false, error: MSG_BLOCKED });
+
+    expect(await unblockUserAction(target.id)).toEqual({ ok: true });
+    expect(await listConversations(target.id, "requests")).toHaveLength(1);
+    expect((await getCounters(target.id)).requests).toBe(1);
+    expect((await acceptRequest(target.id, request.id)).ok).toBe(true);
+    expect((await sendMessage(target.id, request.id, "Selam")).ok).toBe(true);
+  });
+
+  it("engellenenin başlattığı istek reddedilir; engel kalkınca başlatan yine 'bekliyor' görür", async () => {
+    const viewer = await createUser();
+    const target = await createUser();
+    const [userAId, userBId] = viewer.id < target.id ? [viewer.id, target.id] : [target.id, viewer.id];
+    const request = await db.conversation.create({
+      data: { userAId, userBId, initiatorId: target.id, status: "REQUEST", lastMessageAt: new Date() },
+    });
+    await asViewer(viewer);
+
+    expect(await blockUserAction(target.id)).toEqual({ ok: true });
+    expect(await unblockUserAction(target.id)).toEqual({ ok: true });
+
+    expect((await db.conversation.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("DECLINED");
+    // Ret, başlatana gösterilmez (spec §4.7); engelleyen isteği reddetmiş sayılır.
+    expect((await getConversationForUser(target.id, request.id))?.status).toBe("REQUEST");
+    expect((await getConversationForUser(viewer.id, request.id))?.status).toBe("DECLINED");
+    expect(await sendMessage(target.id, request.id, "Tekrar")).toEqual({ ok: false, error: MSG_PENDING });
+    expect(await sendMessage(viewer.id, request.id, "Yanıt")).toEqual({ ok: false, error: MSG_DECLINED_BY_YOU });
   });
 
   it("kendini engelleyemez", async () => {

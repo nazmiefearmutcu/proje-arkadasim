@@ -40,8 +40,11 @@ const reportSchema = z.object({
 });
 
 /**
- * Engeller. Her iki yönde: takipler kalkar, bekleyen mesaj istekleri reddedilir, bekleyen davetler
- * iptal edilir. Engel satırı tek kez yazılır; tekrar çağrı zararsızdır.
+ * Engeller. Her iki yönde: takipler kalkar, bekleyen davetler iptal edilir, iki tarafın birbirinin
+ * projesine bekleyen başvuruları geri çekilir (WITHDRAWN). Mesaj isteklerinden yalnız engellenen kişinin
+ * başlattıkları reddedilir; engelleyenin başlattığı istek REQUEST kalır (engel sürdükçe listelerde
+ * görünmez, kabul edilemez) ve engel kalkınca yeniden yanıtlanabilir. Engel satırı tek kez yazılır;
+ * tekrar çağrı zararsızdır.
  */
 export async function blockUserAction(targetId: string): Promise<ActionResult> {
   const viewer = await verifiedViewer();
@@ -70,6 +73,7 @@ export async function blockUserAction(targetId: string): Promise<ActionResult> {
     db.conversation.updateMany({
       where: {
         status: "REQUEST",
+        initiatorId: target.id,
         OR: [
           { userAId: viewer.id, userBId: target.id },
           { userAId: target.id, userBId: viewer.id },
@@ -87,11 +91,22 @@ export async function blockUserAction(targetId: string): Promise<ActionResult> {
       },
       data: { status: "CANCELLED", decidedAt: now },
     }),
+    db.joinRequest.updateMany({
+      where: {
+        status: "PENDING",
+        OR: [
+          { userId: target.id, project: { ownerId: viewer.id } },
+          { userId: viewer.id, project: { ownerId: target.id } },
+        ],
+      },
+      data: { status: "WITHDRAWN", decidedAt: now },
+    }),
   ]);
 
   revalidatePath("/");
   revalidatePath("/network");
   revalidatePath("/mesajlar");
+  revalidatePath("/projeler");
   revalidatePath(`/u/${target.username}`);
   return ok();
 }
