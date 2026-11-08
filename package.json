@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "seed": "tsx prisma/seed.ts",
     "purge": "tsx scripts/purge.ts",
+    "make-admin": "tsx scripts/make-admin.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
