@@ -115,3 +115,47 @@ No schema change, no migration, no new dependencies. Nothing under `src/componen
   mount, which is intended.
 - **Task 8 coupling.** When task 8 lands, the overflow sheet should gain "Engelle" and "Şikayet et", and the
   block button should hide the composer as well.
+
+## Fix round 1
+
+- BASE: `604749ec4e85d3bd16fcb1c6bd39d12a8000bdb8` (`git rev-parse HEAD` before any change, branch `task-9`)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made, given in the final reply)
+
+### Findings addressed
+
+1. **Important, optimistic send has no rollback on a thrown action** (`src/components/messaging/chat.tsx`, `send()`).
+   Fixed. The `sendMessageAction` await is now wrapped in try/catch. A throw is converted to a failed result with
+   "Mesaj gönderilemedi. Bağlantını kontrol edip tekrar dene.". The existing failure path then removes the pending
+   bubble, restores the draft when the composer is empty, and shows the error. The `ActionResult` type import was added.
+2. **Same gap in the accept and decline transitions** (`src/components/messaging/request-actions.tsx`).
+   Fixed. `acceptRequestAction` and `declineRequestAction` are each wrapped in try/catch inside the transition. A throw
+   shows "İstek kabul edilemedi. …" or "İstek reddedilemedi. …" in the existing `role="alert"` line. The success path
+   (`router.refresh()`, and the server-side redirect on decline) is unchanged. No `redirect()` call sits inside a try block.
+
+### Findings disputed
+
+None. Both findings were valid and were fixed as described.
+
+### Spec gaps
+
+None were reported for this round.
+
+### Files changed
+
+- `src/components/messaging/chat.tsx`
+- `src/components/messaging/request-actions.tsx`
+- `docs/superpowers/sdd/task-09-report.md` (this section)
+
+No schema change, no new dependencies, nothing under `src/components/social/` or `src/lib/social/`, and no change to the main checkout.
+
+### Test results (run in this worktree)
+
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run`: 22 files, 194 tests, all passed (the amended components have no unit tests of their own, so the full suite was run).
+
+### Attribution
+
+Commits in this round use the `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>` trailer from the session attribution
+reminder. The computed task asks for `Claude Opus 5.5` on every commit. These conflict, and the conflict was already raised in
+the original report's Concerns. Please confirm which trailer is wanted.

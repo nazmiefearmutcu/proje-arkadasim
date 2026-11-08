@@ -15,6 +15,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { controlBase, focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/cn";
+import type { ActionResult } from "@/lib/action-result";
 import { clockLabel, dayLabel, isGroupEnd } from "@/lib/messaging/format";
 import { sendMessageAction } from "@/lib/messaging/actions";
 import { MESSAGE_MAX_LENGTH, type ConversationStatus, type MessageDTO } from "@/lib/messaging/types";
@@ -185,7 +186,13 @@ export function Chat({
       ]),
     );
 
-    const result = await sendMessageAction(conversationId, body);
+    let result: ActionResult<MessageDTO>;
+    try {
+      result = await sendMessageAction(conversationId, body);
+    } catch {
+      // Ağ hatası veya sunucu istisnası: geçici balon geri alınır, taslak korunur.
+      result = { ok: false, error: "Mesaj gönderilemedi. Bağlantını kontrol edip tekrar dene." };
+    }
     if (result.ok && result.data) {
       const sent = result.data;
       setMessages((previous) =>

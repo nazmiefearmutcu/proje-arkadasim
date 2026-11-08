@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import type { ActionResult } from "@/lib/action-result";
 import { acceptRequestAction, declineRequestAction } from "@/lib/messaging/actions";
 
 export interface RequestActionsProps {
@@ -20,7 +21,13 @@ export function RequestActions({ conversationId, onAccepted }: RequestActionsPro
   function accept() {
     setError(null);
     startTransition(async () => {
-      const result = await acceptRequestAction(conversationId);
+      let result: ActionResult;
+      try {
+        result = await acceptRequestAction(conversationId);
+      } catch {
+        setError("İstek kabul edilemedi. Bağlantını kontrol edip tekrar dene.");
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;
@@ -33,7 +40,13 @@ export function RequestActions({ conversationId, onAccepted }: RequestActionsPro
   function decline() {
     setError(null);
     startTransition(async () => {
-      const result = await declineRequestAction(conversationId);
+      let result: ActionResult;
+      try {
+        result = await declineRequestAction(conversationId);
+      } catch {
+        setError("İstek reddedilemedi. Bağlantını kontrol edip tekrar dene.");
+        return;
+      }
       if (!result.ok) setError(result.error);
     });
   }
