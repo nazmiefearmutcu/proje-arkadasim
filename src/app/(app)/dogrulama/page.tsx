@@ -5,7 +5,7 @@ import { Uploader } from "@/components/verification/uploader";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { ACADEMIC_STATUSES, DEGREE_LEVELS, labelOf } from "@/config/taxonomy";
+import { ACADEMIC_STATUSES, DEGREE_LEVELS, VERIFICATION_STATUSES, labelOf } from "@/config/taxonomy";
 import { MASKED_TEXT_RETENTION_DAYS } from "@/config/legal";
 import { requireUser } from "@/lib/auth/guards";
 import { hasActiveConsent } from "@/lib/consent";
@@ -116,7 +116,8 @@ export default async function Page({
 
         {status === "MANUAL_REVIEW" || status === "PENDING" ? (
           <section className="flex flex-col gap-2 rounded-card bg-warn-soft p-4">
-            <p className="t-label text-warn">İnceleniyor</p>
+            {/* MANUAL_REVIEW "Manuel incelemede", PENDING "İnceleniyor" (spec §4.2); sonuç kartıyla aynı ad. */}
+            <p className="t-label text-warn">{labelOf(VERIFICATION_STATUSES, status)}</p>
             <p className="t-body text-ink">
               Belgen inceleniyor. En geç 24 saat içinde sonucu bildireceğiz.
             </p>
@@ -129,9 +130,12 @@ export default async function Page({
             <p className="t-body text-ink">
               {lastDecision?.rejectReason ?? "Belgen doğrulanamadı. Daha net bir kopya yükleyebilirsin."}
             </p>
-            <ButtonLink href="#belge-yukle" variant="secondary" className="self-start">
-              Yeni belge yükle
-            </ButtonLink>
+            {/* Deneme hakkı bittiyse yükleyici yerine sınır kartı görünür; bağlantı gösterilmez. */}
+            {remaining > 0 ? (
+              <ButtonLink href="#belge-yukle" variant="secondary" className="self-start">
+                Yeni belge yükle
+              </ButtonLink>
+            ) : null}
           </section>
         ) : null}
 
@@ -164,9 +168,10 @@ export default async function Page({
               <p className="t-meta text-ink-2">Bugün {remaining} deneme hakkın kaldı.</p>
             </Card>
 
-            <Uploader remaining={remaining} />
-
+            {/* Rıza kararı yüklemeden önce verilir; yükleyicinin adım listesi bu karara göre değişir. */}
             {showConsent ? <ConsentPanel /> : null}
+
+            <Uploader aiConsent={aiConsent} remaining={remaining} />
           </>
         ) : null}
 
