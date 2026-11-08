@@ -10,7 +10,15 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ACADEMIC_STATUSES, CITIES, DEGREE_LEVELS } from "@/config/taxonomy";
 import type { ActionResult } from "@/lib/action-result";
-import { BIO_MAX, DEPARTMENT_MAX, FACULTY_MAX, INTERESTS_MAX, SKILLS_MAX } from "@/lib/settings/limits";
+import {
+  BIO_MAX,
+  CLASS_YEAR_MAX,
+  DEPARTMENT_MAX,
+  FACULTY_MAX,
+  GRADUATION_YEAR_MIN,
+  INTERESTS_MAX,
+  SKILLS_MAX,
+} from "@/lib/settings/limits";
 import { updateProfileAction } from "@/lib/settings/actions";
 import { ChipInput } from "./chip-input";
 
@@ -32,7 +40,11 @@ export interface ProfileFormProps {
   graduationYear: number | null;
 }
 
-const CLASS_YEARS = [1, 2, 3, 4, 5, 6] as const;
+const CLASS_YEARS = Array.from({ length: CLASS_YEAR_MAX }, (_, index) => index + 1);
+
+// Belgeden gelen kurum ve durum bilgisi doğrulanmış hesapta yeniden belge yüklenerek
+// değiştirilemez (/dogrulama doğrulanmış kullanıcıya yükleme alanı göstermez).
+const DOCUMENT_FIELD_HINT = "Belgenden alındı; buradan değiştirilemez. Hatalıysa KVKK başvuru adresine yaz.";
 
 /** Profil formu. Ad, soyad ve üniversite yalnız okunur; eğitim alanları yalnız doğrulanmış hesapta düzenlenir. */
 export function ProfileForm(props: ProfileFormProps) {
@@ -53,6 +65,10 @@ export function ProfileForm(props: ProfileFormProps) {
 
   const errors = state && !state.ok ? (state.fieldErrors ?? {}) : {};
   const isGraduate = props.academicStatus === "GRADUATE";
+  // Kayıtlı sınıf listede yoksa (ör. belgeden ya da yöneticiden gelen 10) yine seçenek olarak
+  // gösterilir; böylece kayıt değişmeden geri gönderilir.
+  const storedClassYearOutsideList =
+    props.classYear !== null && !CLASS_YEARS.includes(props.classYear) ? props.classYear : null;
   const statusLabel = ACADEMIC_STATUSES.find((status) => status.value === props.academicStatus)?.label ?? "";
 
   return (
@@ -121,11 +137,11 @@ export function ProfileForm(props: ProfileFormProps) {
         <div className="flex flex-col gap-4 border-t border-line pt-5">
           <h3 className="t-section text-ink">Eğitim bilgileri</h3>
 
-          <Field id="university" label="Üniversite" hint="Belgenden alındı. Değiştirmek için yeni belge yükle.">
+          <Field id="university" label="Üniversite" hint={DOCUMENT_FIELD_HINT}>
             <Input id="university" value={props.university ?? ""} readOnly aria-readonly="true" />
           </Field>
 
-          <Field id="academicStatus" label="Durum" hint="Belgenden alındı. Değiştirmek için yeni belge yükle.">
+          <Field id="academicStatus" label="Durum" hint={DOCUMENT_FIELD_HINT}>
             <Input id="academicStatus" value={statusLabel} readOnly aria-readonly="true" />
           </Field>
 
@@ -168,25 +184,28 @@ export function ProfileForm(props: ProfileFormProps) {
           </Field>
 
           {isGraduate ? (
-            <Field id="graduationYear" label="Mezuniyet yılı" error={errors.graduationYear}>
+            <Field id="graduationYear" label="Mezuniyet yılı" hint="İsteğe bağlı." error={errors.graduationYear}>
               <Input
                 name="graduationYear"
                 type="number"
                 inputMode="numeric"
-                min={1950}
+                min={GRADUATION_YEAR_MIN}
                 value={graduationYear}
                 onChange={(event) => setGraduationYear(event.target.value)}
               />
             </Field>
           ) : (
-            <Field id="classYear" label="Sınıf" error={errors.classYear}>
+            <Field id="classYear" label="Sınıf" hint="İsteğe bağlı." error={errors.classYear}>
               <Select name="classYear" value={classYear} onChange={(event) => setClassYear(event.target.value)}>
-                <option value="">Sınıf seç</option>
+                <option value="">Belirtilmemiş</option>
                 {CLASS_YEARS.map((year) => (
                   <option key={year} value={String(year)}>
                     {year}. sınıf
                   </option>
                 ))}
+                {storedClassYearOutsideList !== null ? (
+                  <option value={String(storedClassYearOutsideList)}>{storedClassYearOutsideList}. sınıf</option>
+                ) : null}
               </Select>
             </Field>
           )}

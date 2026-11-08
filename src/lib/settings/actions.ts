@@ -12,6 +12,7 @@ import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { hasActiveConsent, recordConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
 import { toListJson } from "@/lib/json-fields";
+import { LIMITS, rateLimit } from "@/lib/rate-limit";
 import { toSearchText } from "@/lib/tr";
 import { INTERESTS_MAX, SKILLS_MAX } from "./limits";
 import { deleteAccountSchema, parseProfileForm, passwordFormSchema, readText } from "./validation";
@@ -20,6 +21,24 @@ import { deleteAccountSchema, parseProfileForm, passwordFormSchema, readText } f
 // formdan gelen kimlik ya da kurum alanları asla kullanılmaz.
 
 const SESSION_EXPIRED = "Oturumun süresi dolmuş. Tekrar giriş yap.";
+
+/**
+ * Mevcut şifre denetimlerinin hız sınırı (kullanıcı başına, şifre değiştirme ve hesap silme
+ * ortak). Çalınmış bir oturum çereziyle şifrenin deneme yanılmayla bulunmasını engeller.
+ * Sınır aşıldıysa kullanıcıya gösterilecek hata metnini, aşılmadıysa null döner.
+ */
+function passwordCheckLimited(userId: string): string | null {
+  const [limit, windowMs] = LIMITS.passwordCheck;
+  const limited = rateLimit(`passwordCheck:${userId}`, limit, windowMs);
+  if (limited.ok) return null;
+  const minutes = Math.ceil(limited.retryAfterSec / 60);
+  return `Çok fazla deneme yaptın. ${minutes} dakika sonra tekrar dene.`;
+}
+
+/** Onay alanına "@kullanici" yazılırsa baştaki tek "@" yok sayılır. */
+function normalizeUsernameConfirm(value: string): string {
+  return value.startsWith("@") ? value.slice(1) : value;
+}
 
 /** Profil: ad, soyad ve üniversite değiştirilemez; eğitim alanları yalnız doğrulanmış hesapta yazılır. */
 export async function updateProfileAction(
@@ -33,6 +52,8 @@ export async function updateProfileAction(
   const parsed = parseProfileForm(formData, {
     verified,
     academicStatus: viewer.academicStatus,
+    // Kayıtlı (belgeden ya da yöneticiden gelen) değerler aralık dışında olsa da kaydı engellemez.
+    stored: { classYear: viewer.classYear, graduationYear: viewer.graduationYear },
   });
   if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
   const input = parsed.data;
@@ -108,6 +129,9 @@ export async function changePasswordAction(
   if (Object.keys(fieldErrors).length > 0) {
     return fail("Şifreni değiştirmek için alanları kontrol et.", fieldErrors);
   }
+
+  const limitedError = passwordCheckLimited(viewer.id);
+  if (limitedError) return fail(limitedError);
 
   const row = await db.user.findUnique({ where: { id: viewer.id }, select: { passwordHash: true } });
   if (!row || !(await verifyPassword(currentPassword, row.passwordHash))) {
@@ -190,13 +214,16 @@ export async function deleteAccountAction(
       fieldErrors[key] ??= issue.message;
     }
   }
-  const usernameConfirm = parsed.success ? parsed.data.usernameConfirm : "";
+  const usernameConfirm = normalizeUsernameConfirm(parsed.success ? parsed.data.usernameConfirm : "");
   if (usernameConfirm !== viewer.username) {
     fieldErrors.usernameConfirm = `Onaylamak için kullanıcı adını yaz: ${viewer.username}`;
   }
   if (Object.keys(fieldErrors).length > 0) {
     return fail("Hesabını silmek için bilgileri doldur.", fieldErrors);
   }
+
+  const limitedError = passwordCheckLimited(viewer.id);
+  if (limitedError) return fail(limitedError);
 
   const password = parsed.success ? parsed.data.password : "";
   const row = await db.user.findUnique({ where: { id: viewer.id }, select: { passwordHash: true } });

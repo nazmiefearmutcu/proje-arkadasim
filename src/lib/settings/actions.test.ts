@@ -76,6 +76,7 @@ describe("ayarlar Server Action'ları", () => {
   beforeEach(async () => {
     await resetDb();
     state.cookie = undefined;
+    (globalThis as unknown as { __rateLimitEntries?: Map<string, unknown> }).__rateLimitEntries?.clear();
   });
 
   describe("updateProfileAction", () => {
@@ -152,6 +153,65 @@ describe("ayarlar Server Action'ları", () => {
       const result = await updateProfileAction(null, form({ bio: "x" }));
       expect(result).toMatchObject({ ok: false });
     });
+
+    it("sınıfı boş (null) doğrulanmış öğrenci yalnız biyografisini kaydedebilir", async () => {
+      const user = await createUser({ academicStatus: "STUDENT", classYear: null });
+      await signIn(user.id);
+
+      const result = await updateProfileAction(null, form({ bio: "Yüksek lisans öğrencisiyim.", classYear: "" }));
+
+      expect(result).toEqual({ ok: true });
+      const row = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(row.bio).toBe("Yüksek lisans öğrencisiyim.");
+      expect(row.classYear).toBeNull();
+    });
+
+    it("akademik durumu boş (ör. tohum yöneticisi) doğrulanmış hesap kaydedebilir", async () => {
+      const user = await createUser({ academicStatus: null, classYear: null, graduationYear: null, role: "ADMIN" });
+      await signIn(user.id);
+
+      const result = await updateProfileAction(null, form({ bio: "Platform yöneticisi.", city: "İzmir" }));
+
+      expect(result).toEqual({ ok: true });
+      const row = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(row.bio).toBe("Platform yöneticisi.");
+      expect(row.city).toBe("İzmir");
+    });
+
+    it("mezuniyet yılı boş mezun kaydedebilir", async () => {
+      const user = await createUser({ academicStatus: "GRADUATE", graduationYear: null, classYear: null });
+      await signIn(user.id);
+
+      const result = await updateProfileAction(null, form({ bio: "Mezunum.", graduationYear: "" }));
+
+      expect(result).toEqual({ ok: true });
+      expect((await db.user.findUniqueOrThrow({ where: { id: user.id } })).graduationYear).toBeNull();
+    });
+
+    it("listede olmayan kayıtlı sınıfı (10) değiştirmeden kabul eder, yeni aralık dışı seçimi reddeder", async () => {
+      const user = await createUser({ academicStatus: "STUDENT", classYear: 10, bio: "eski" });
+      await signIn(user.id);
+
+      const kept = await updateProfileAction(null, form({ bio: "yeni", classYear: "10" }));
+      expect(kept).toEqual({ ok: true });
+      let row = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(row.classYear).toBe(10);
+      expect(row.bio).toBe("yeni");
+
+      const outOfRange = (await updateProfileAction(null, form({ bio: "daha yeni", classYear: "9" }))) as {
+        ok: boolean;
+        fieldErrors?: Record<string, string>;
+      };
+      expect(outOfRange.ok).toBe(false);
+      expect(outOfRange.fieldErrors?.classYear).toBeTruthy();
+      row = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(row.classYear).toBe(10);
+      expect(row.bio).toBe("yeni");
+
+      const changed = await updateProfileAction(null, form({ bio: "daha yeni", classYear: "2" }));
+      expect(changed).toEqual({ ok: true });
+      expect((await db.user.findUniqueOrThrow({ where: { id: user.id } })).classYear).toBe(2);
+    });
   });
 
   describe("changePasswordAction", () => {
@@ -209,6 +269,28 @@ describe("ayarlar Server Action'ları", () => {
       );
       expect(result).toMatchObject({ ok: false, fieldErrors: { newPasswordRepeat: "Şifreler eşleşmiyor." } });
     });
+
+    it("15 dakikada 10 denemeden sonra doğru şifreyi de denetlemeden reddeder", async () => {
+      const user = await createUser({ passwordHash: await hashPassword(PASSWORD) });
+      await signIn(user.id);
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const wrong = await changePasswordAction(
+          null,
+          form({ currentPassword: `Yanlis-Sifre-${attempt}`, newPassword: NEW_PASSWORD, newPasswordRepeat: NEW_PASSWORD }),
+        );
+        expect(wrong).toMatchObject({ ok: false, fieldErrors: { currentPassword: expect.any(String) } });
+      }
+
+      const limited = await changePasswordAction(
+        null,
+        form({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD, newPasswordRepeat: NEW_PASSWORD }),
+      );
+      expect(limited.ok).toBe(false);
+      expect(limited.ok === false && limited.error).toMatch(/^Çok fazla deneme yaptın\. \d+ dakika sonra tekrar dene\.$/);
+      const row = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(await verifyPassword(PASSWORD, row.passwordHash)).toBe(true);
+    });
   });
 
   describe("rıza işlemleri", () => {
@@ -265,6 +347,51 @@ describe("ayarlar Server Action'ları", () => {
       );
       expect(wrongPassword).toMatchObject({ ok: false, fieldErrors: { password: expect.any(String) } });
 
+      expect(await db.user.count({ where: { id: user.id } })).toBe(1);
+    });
+
+    it("onay alanına baştaki '@' ile yazılan kullanıcı adını kabul eder", async () => {
+      const user = await createUser({ passwordHash: await hashPassword(PASSWORD) });
+      await signIn(user.id);
+
+      const error = await errorOf(
+        deleteAccountAction(null, form({ password: PASSWORD, usernameConfirm: `@${user.username}` })),
+      );
+
+      expect((error as Error).message).toBe("REDIRECT:/?hesap=silindi");
+      expect(await db.user.count({ where: { id: user.id } })).toBe(0);
+    });
+
+    it("yalnız tek bir baştaki '@' yok sayılır", async () => {
+      const user = await createUser({ passwordHash: await hashPassword(PASSWORD) });
+      await signIn(user.id);
+
+      const result = await deleteAccountAction(null, form({ password: PASSWORD, usernameConfirm: `@@${user.username}` }));
+
+      expect(result).toMatchObject({ ok: false, fieldErrors: { usernameConfirm: expect.any(String) } });
+      expect(await db.user.count({ where: { id: user.id } })).toBe(1);
+    });
+
+    it("şifre değiştirmeyle ortak sınırı aşınca hesabı silmez", async () => {
+      const user = await createUser({ passwordHash: await hashPassword(PASSWORD) });
+      await signIn(user.id);
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await changePasswordAction(
+          null,
+          form({ currentPassword: `Yanlis-Sifre-${attempt}`, newPassword: NEW_PASSWORD, newPasswordRepeat: NEW_PASSWORD }),
+        );
+      }
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const wrong = await deleteAccountAction(
+          null,
+          form({ password: `Yanlis-Sifre-${attempt}`, usernameConfirm: user.username }),
+        );
+        expect(wrong).toMatchObject({ ok: false, fieldErrors: { password: expect.any(String) } });
+      }
+
+      const limited = await deleteAccountAction(null, form({ password: PASSWORD, usernameConfirm: user.username }));
+      expect(limited.ok === false && limited.error).toMatch(/^Çok fazla deneme yaptın\. \d+ dakika sonra tekrar dene\.$/);
       expect(await db.user.count({ where: { id: user.id } })).toBe(1);
     });
 
