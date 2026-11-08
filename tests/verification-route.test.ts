@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_DOCUMENT_BYTES } from "@/lib/verification/sniff";
 
 // Oturum ve belge hattı taklit edilir: bu testler yalnızca route'un HTTP sözleşmesini sınar.
-const session = vi.hoisted(() => ({ user: null as null | { id: string } }));
+const session = vi.hoisted(() => ({
+  user: null as null | { id: string; verificationStatus?: string },
+}));
 const verify = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/guards", async (importOriginal) => {
@@ -89,6 +91,16 @@ describe("POST /api/verification", () => {
     const response = await POST(buildRequest({ file: pdfFile(), contentLength: tooLarge }));
 
     expect(response.status).toBe(413);
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("inceleme bekleyen hesap ikinci belge yükleyemez: 409 döner, doğrulama çalışmaz", async () => {
+    session.user = { id: "user-1", verificationStatus: "MANUAL_REVIEW" };
+
+    const response = await POST(buildRequest({ file: pdfFile() }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ status: "MANUAL_REVIEW", consumedAttempt: false });
     expect(verify).not.toHaveBeenCalled();
   });
 

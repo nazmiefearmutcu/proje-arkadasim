@@ -93,6 +93,13 @@ async function currentAdmin(): Promise<CurrentUser | null> {
   return user && isAdmin(user) ? user : null;
 }
 
+/** Koşullu yazım tutmadığında işlemi geri almak için kullanılan iç hata. Dışarı sızmaz. */
+class ClaimLost extends Error {
+  constructor(readonly scope: "attempt" | "user") {
+    super(`claim lost: ${scope}`);
+  }
+}
+
 function validId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= ID_MAX;
 }
@@ -152,50 +159,60 @@ export async function approveAttemptAction(
     parseList(user.interestsJson),
   );
 
-  const claimed = await db.$transaction(async (tx) => {
-    const updated = await tx.verificationAttempt.updateMany({
-      where: { id: attempt.id, status: "MANUAL_REVIEW" },
-      data: {
-        status: "APPROVED",
-        reviewedById: admin.id,
-        reviewedAt: now,
-        maskedText: null,
-        maskedTextExpiresAt: null,
-        extractedJson: JSON.stringify(data),
-        rejectReason: null,
-      },
-    });
-    if (updated.count === 0) return false;
+  try {
+    // Belge ve kullanıcı koşullu yazılır; biri tutmazsa işlem geri alınır, hiçbir şey değişmez.
+    await db.$transaction(async (tx) => {
+      const updated = await tx.verificationAttempt.updateMany({
+        where: { id: attempt.id, status: "MANUAL_REVIEW" },
+        data: {
+          status: "APPROVED",
+          reviewedById: admin.id,
+          reviewedAt: now,
+          maskedText: null,
+          maskedTextExpiresAt: null,
+          extractedJson: JSON.stringify(data),
+          rejectReason: null,
+        },
+      });
+      if (updated.count === 0) throw new ClaimLost("attempt");
 
-    await tx.user.update({
-      where: { id: attempt.userId },
-      data: {
-        verificationStatus: "VERIFIED",
-        verifiedAt: now,
-        academicStatus: data.academicStatus,
-        university: data.university,
-        faculty: data.faculty,
-        department: data.department,
-        degreeLevel: data.degreeLevel,
-        classYear: data.classYear,
-        graduationYear: data.graduationYear,
-        disciplineGroup,
-        searchText,
-      },
-    });
+      // Kullanıcı yalnızca inceleme bekliyorsa doğrulanır. Başka bir belge onaylanmış ya da
+      // reddedilmişse bu belge onaylanamaz; profil üzerine yazılmaz.
+      const userUpdated = await tx.user.updateMany({
+        where: { id: attempt.userId, verificationStatus: "MANUAL_REVIEW" },
+        data: {
+          verificationStatus: "VERIFIED",
+          verifiedAt: now,
+          academicStatus: data.academicStatus,
+          university: data.university,
+          faculty: data.faculty,
+          department: data.department,
+          degreeLevel: data.degreeLevel,
+          classYear: data.classYear,
+          graduationYear: data.graduationYear,
+          disciplineGroup,
+          searchText,
+        },
+      });
+      if (userUpdated.count === 0) throw new ClaimLost("user");
 
-    await tx.adminAuditLog.create({
-      data: {
-        adminId: admin.id,
-        action: "APPROVE_VERIFICATION",
-        targetUserId: attempt.userId,
-        targetId: attempt.id,
-      },
+      await tx.adminAuditLog.create({
+        data: {
+          adminId: admin.id,
+          action: "APPROVE_VERIFICATION",
+          targetUserId: attempt.userId,
+          targetId: attempt.id,
+        },
+      });
     });
-    return true;
-  });
-
-  if (!claimed) return fail("Bu belge artık inceleme bekleyen durumda değil.");
+  } catch (error) {
+    if (error instanceof ClaimLost) {
+      return error.scope === "attempt"
+        ? fail("Bu belge artık inceleme bekleyen durumda değil.")
+        : fail("Bu kullanıcı artık inceleme bekleyen durumda değil. Belgeyi reddedebilirsin.");
+    }
+    throw error;
+  }
 
   await notify({
     userId: attempt.userId,
@@ -233,43 +250,52 @@ export async function rejectAttemptAction(attemptId: string, reason: string): Pr
   }
 
   const now = new Date();
-  const claimed = await db.$transaction(async (tx) => {
-    const updated = await tx.verificationAttempt.updateMany({
-      where: { id: attempt.id, status: "MANUAL_REVIEW" },
-      data: {
-        status: "REJECTED",
-        rejectReason: parsed.data,
-        reviewedById: admin.id,
-        reviewedAt: now,
-        maskedText: null,
-        maskedTextExpiresAt: null,
-      },
+  let userUpdated: boolean;
+  try {
+    userUpdated = await db.$transaction(async (tx) => {
+      const updated = await tx.verificationAttempt.updateMany({
+        where: { id: attempt.id, status: "MANUAL_REVIEW" },
+        data: {
+          status: "REJECTED",
+          rejectReason: parsed.data,
+          reviewedById: admin.id,
+          reviewedAt: now,
+          maskedText: null,
+          maskedTextExpiresAt: null,
+        },
+      });
+      if (updated.count === 0) throw new ClaimLost("attempt");
+
+      // Kullanıcı başka bir belgeyle zaten doğrulanmışsa durumu değişmez; bildirim de gitmez.
+      const userResult = await tx.user.updateMany({
+        where: { id: attempt.userId, verificationStatus: "MANUAL_REVIEW" },
+        data: { verificationStatus: "REJECTED" },
+      });
+
+      await tx.adminAuditLog.create({
+        data: {
+          adminId: admin.id,
+          action: "REJECT_VERIFICATION",
+          targetUserId: attempt.userId,
+          targetId: attempt.id,
+        },
+      });
+      return userResult.count > 0;
     });
-    if (updated.count === 0) return false;
+  } catch (error) {
+    if (error instanceof ClaimLost) {
+      return fail("Bu belge artık inceleme bekleyen durumda değil.");
+    }
+    throw error;
+  }
 
-    await tx.user.update({
-      where: { id: attempt.userId },
-      data: { verificationStatus: "REJECTED" },
+  if (userUpdated) {
+    await notify({
+      userId: attempt.userId,
+      type: "VERIFICATION_RESULT",
+      data: { status: "REJECTED" },
     });
-
-    await tx.adminAuditLog.create({
-      data: {
-        adminId: admin.id,
-        action: "REJECT_VERIFICATION",
-        targetUserId: attempt.userId,
-        targetId: attempt.id,
-      },
-    });
-    return true;
-  });
-
-  if (!claimed) return fail("Bu belge artık inceleme bekleyen durumda değil.");
-
-  await notify({
-    userId: attempt.userId,
-    type: "VERIFICATION_RESULT",
-    data: { status: "REJECTED" },
-  });
+  }
 
   revalidatePath("/admin");
   revalidatePath("/admin/dogrulamalar");

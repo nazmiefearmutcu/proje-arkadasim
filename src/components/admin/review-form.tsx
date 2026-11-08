@@ -79,10 +79,8 @@ export function ReviewForm({ attemptId, defaults }: { attemptId: string; default
   return (
     <form
       className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        approve();
-      }}
+      // Enter tuşu formu gönderip onaylamasın: onay yalnızca "Onayla" düğmesiyle yapılır.
+      onSubmit={(event) => event.preventDefault()}
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id={idFor("university")} label="Üniversite" error={errorFor("university")}>
@@ -164,7 +162,7 @@ export function ReviewForm({ attemptId, defaults }: { attemptId: string; default
       ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Button type="submit" loading={pending}>
+        <Button type="button" loading={pending} onClick={approve}>
           Onayla
         </Button>
         <Button variant="danger" disabled={pending} onClick={reject}>

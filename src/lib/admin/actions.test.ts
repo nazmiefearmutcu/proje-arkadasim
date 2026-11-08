@@ -248,3 +248,42 @@ describe("purgeMaskedTextAction", () => {
     expect(row.maskedText).toBeNull();
   });
 });
+
+describe("aynı kullanıcıya ait eski inceleme kayıtları", () => {
+  it("doğrulanmış kullanıcının eski bekleyen belgesi reddedilince kullanıcı REJECTED olmaz, bildirim gitmez", async () => {
+    await loginAs("ADMIN");
+    const pending = await createPendingUser();
+    const older = await createReviewAttempt(pending.id);
+    const newer = await createReviewAttempt(pending.id);
+
+    expect((await approveAttemptAction(newer.id, VALID_FIELDS)).ok).toBe(true);
+    const rejected = await rejectAttemptAction(older.id, "Eski belge, yeni belge onaylandı.");
+
+    expect(rejected).toEqual({ ok: true });
+    const row = await db.verificationAttempt.findUniqueOrThrow({ where: { id: older.id } });
+    expect(row.status).toBe("REJECTED");
+    const user = await db.user.findUniqueOrThrow({ where: { id: pending.id } });
+    expect(user.verificationStatus).toBe("VERIFIED");
+    expect(user.university).toBe("Orta Doğu Teknik Üniversitesi");
+    const rejectNotices = await db.notification.count({
+      where: { userId: pending.id, type: "VERIFICATION_RESULT", dataJson: { contains: "REJECTED" } },
+    });
+    expect(rejectNotices).toBe(0);
+  });
+
+  it("doğrulanmış kullanıcının ikinci bekleyen belgesi onaylanamaz ve kayıt değişmez", async () => {
+    await loginAs("ADMIN");
+    const pending = await createPendingUser();
+    const first = await createReviewAttempt(pending.id);
+    const second = await createReviewAttempt(pending.id);
+
+    expect((await approveAttemptAction(first.id, VALID_FIELDS)).ok).toBe(true);
+    const result = await approveAttemptAction(second.id, VALID_FIELDS);
+
+    expect(result.ok).toBe(false);
+    const row = await db.verificationAttempt.findUniqueOrThrow({ where: { id: second.id } });
+    expect(row.status).toBe("MANUAL_REVIEW");
+    expect(row.reviewedById).toBeNull();
+    expect(await db.adminAuditLog.count({ where: { action: "APPROVE_VERIFICATION" } })).toBe(1);
+  });
+});

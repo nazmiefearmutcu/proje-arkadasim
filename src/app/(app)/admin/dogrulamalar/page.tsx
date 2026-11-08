@@ -95,9 +95,8 @@ export default async function Page() {
                 <Card className="flex flex-col gap-4 p-4">
                   <header className="flex flex-col gap-1">
                     <h2 className="t-card text-ink">{name}</h2>
-                    <p className="t-meta text-ink-3">
-                      @{item.user.username} · {item.user.email}
-                    </p>
+                    <p className="t-meta text-ink-3">@{item.user.username}</p>
+                    <p className="t-meta text-ink-3">{item.user.email}</p>
                     <p className="t-meta text-ink-3">{relativeTimeTr(item.createdAt)}</p>
                   </header>
 

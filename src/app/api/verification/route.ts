@@ -13,6 +13,7 @@ const BODY_OVERHEAD_BYTES = 64 * 1024;
 const TOO_LARGE_MESSAGE = "Dosya 10 MB'tan büyük olamaz.";
 const NO_FILE_MESSAGE = "Yüklenecek bir belge seçmedin.";
 const GENERIC_ERROR_MESSAGE = "Belge şu an işlenemedi. Birazdan tekrar dene.";
+const IN_REVIEW_MESSAGE = "Belgen zaten inceleniyor. İnceleme bitene kadar yeni belge yükleyemezsin.";
 
 /**
  * Belge yükleme ve doğrulama. Dosya, istek bitene kadar yalnızca bellekte tutulur; adı ve içeriği
@@ -29,6 +30,14 @@ export async function POST(req: Request): Promise<Response> {
   const user = await getCurrentUser();
   if (!user) {
     return Response.json({ error: "Önce giriş yapmalısın." }, { status: 401 });
+  }
+
+  // İnceleme bekleyen hesap ikinci belge yükleyemez; eski bir sekmeden gelen istek de burada durur.
+  if (user.verificationStatus === "MANUAL_REVIEW") {
+    return Response.json(
+      { status: "MANUAL_REVIEW", message: IN_REVIEW_MESSAGE, consumedAttempt: false },
+      { status: 409 },
+    );
   }
 
   // Gövde okunmadan önce boyut sınırı: büyük istekler belleğe alınmaz.

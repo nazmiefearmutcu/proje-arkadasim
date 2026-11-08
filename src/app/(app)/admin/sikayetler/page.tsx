@@ -174,10 +174,13 @@ export default async function Page() {
             {openReports.map((report) => (
               <li key={report.id}>
                 <Card className="flex flex-col gap-3 p-4">
-                  <div className="flex flex-wrap items-center gap-2 t-meta text-ink-3">
-                    <span>{targetTypeLabel[report.targetType] ?? report.targetType}</span>
-                    <span aria-hidden="true">•</span>
-                    <span>{relativeTimeTr(report.createdAt)}</span>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-control bg-surface-2 px-2 py-0.5 t-meta text-ink-2">
+                      {targetTypeLabel[report.targetType] ?? report.targetType}
+                    </span>
+                    <span className="rounded-control bg-surface-2 px-2 py-0.5 t-meta text-ink-3">
+                      {relativeTimeTr(report.createdAt)}
+                    </span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <p className="t-meta text-ink-3">Hedef</p>
@@ -209,9 +212,8 @@ export default async function Page() {
             <ul className="mt-3 flex flex-col gap-3">
               {resolvedReports.map((report) => (
                 <li key={report.id} className="flex flex-col gap-1 border-t border-line pt-3">
-                  <p className="t-meta text-ink-3">
-                    {targetTypeLabel[report.targetType] ?? report.targetType} · {relativeTimeTr(report.createdAt)}
-                  </p>
+                  <p className="t-meta text-ink-2">{targetTypeLabel[report.targetType] ?? report.targetType}</p>
+                  <p className="t-meta text-ink-3">{relativeTimeTr(report.createdAt)}</p>
                   {renderTarget(report.targetType, report.targetId)}
                   <p className="t-body text-ink-2">{report.reason}</p>
                 </li>
