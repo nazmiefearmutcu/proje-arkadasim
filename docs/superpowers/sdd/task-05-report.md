@@ -86,3 +86,33 @@ The name tokens were already removed by the labeled "Adı Soyadı" rule, so the 
 - **OCR tessdata** is downloaded at runtime into `storage/tessdata`, which is gitignored (`/storage`). Nothing is committed. OCR itself is not exercised by any test (mocked in the DB suite), so real Tesseract behaviour, including webp input, is unverified.
 - **No browser or dev-server check** was run (per the isolation rules). No UI exists in this task.
 - **Shared test DB**: the file-content check in service test case 1 reads `prisma/test.db`. It passes now. If a future test ever stores raw text, it will fail, which is the intent.
+
+## Fix round 1
+
+- BASE (`git rev-parse HEAD` before this round): `4022ab5c2ad95f5f4322474c2aac9896af3277d6`
+- Code commit: `c5212a13d9d67065d29457a1d9099631c8d1d74a` (fix: stabilise PDF reuse test and mask PDF producer/creator before AI)
+- HEAD: the commit that adds this section (`git rev-parse HEAD`)
+
+### Findings fixed
+
+1. **Reuse test flakiness** (`tests/verification-service.test.ts`, "aynı belge ..."). Both verifications now use a single PDF built once, each receiving `bytes.slice()`, because `verifyDocument` zeroes its input. pdf-lib's CreationDate/ModDate can no longer change the docHash between the two runs.
+2. **PDF producer and creator sent unmasked to the AI** (`src/lib/verification/service.ts`). New exported helper `maskPdfSignals(signals, person)` runs `producer` and `creator` through `maskDocumentText` before `analyze()`. Dates and the other signal fields are unchanged. New test: a PDF whose Creator is "Ayse Nur Kilic" reaches the provider with no "ayse" or "kilic" in the serialized input, and the creator reads `[SOYAD]`. The test spies on the provider input through a `vi.mock` wrapper around `getVerifierProvider`.
+
+### Findings disputed
+
+None. Both findings were accurate and both are fixed.
+
+### Spec gaps
+
+None were raised in this round beyond the two findings. The Concerns from the first round still stand (startup validation for `VERIFIER_PROVIDER=mock` in production, OCR not exercised for real, and the unknown-provider behaviour).
+
+### Test results
+
+- `npx vitest run tests/verification-service.test.ts`: 8/8 passed (the new case included).
+- `npx tsc --noEmit`: clean.
+- `npm run lint`: clean.
+- `npx vitest run` (full suite): 22 files, 197 tests, all passing. Run twice in a row, both green, to check for the reuse flake.
+
+### Attribution note
+
+The commit trailer is `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`. The session's attribution instruction names Haiku 5.5 for commits. The orchestrator's ruling named Opus 5.5. I followed the session instruction, which is the higher-authority source. If Opus 5.5 is required, it is a trailer change only.
