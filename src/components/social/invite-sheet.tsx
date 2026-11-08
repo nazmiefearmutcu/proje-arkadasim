@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -43,7 +43,17 @@ function InviteForm({
   const [state, formAction, isPending] = useActionState(inviteToProjectAction, null);
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [roleId, setRoleId] = useState("");
+  const [message, setMessage] = useState("");
   const project = projects.find((candidate) => candidate.id === projectId) ?? projects[0];
+
+  // Alanlar denetimlidir ve eylem `onSubmit` ile başlatılır: `<form action>` React 19'da her eylemden
+  // sonra formu sıfırlar (denetimli `select` bile ilk seçeneğe döner). Sunucu reddinde (bekleyen davet,
+  // oturum süresi) proje, rol ve yazılan mesaj korunur. Başarıda form kapanır, durum panelle birlikte gider.
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => formAction(formData));
+  }
 
   if (state?.ok) {
     return (
@@ -62,7 +72,7 @@ function InviteForm({
   const formError = state && !state.ok && !state.fieldErrors ? state.error : null;
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 px-2 pt-2 pb-2">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4 px-2 pt-2 pb-2">
       <input type="hidden" name="username" value={username} readOnly />
       <p className="t-body text-ink-2">{name} için proje ve rol seç.</p>
       {formError ? (
@@ -98,7 +108,13 @@ function InviteForm({
         </Select>
       </Field>
       <Field id="invite-message" label="Mesaj" hint="İsteğe bağlı, en fazla 500 karakter." error={fieldErrors.message}>
-        <Textarea name="message" rows={3} maxLength={500} />
+        <Textarea
+          name="message"
+          rows={3}
+          maxLength={500}
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+        />
       </Field>
       <Button type="submit" loading={isPending}>
         Davet gönder

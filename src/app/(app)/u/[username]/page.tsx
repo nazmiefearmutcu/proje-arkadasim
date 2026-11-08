@@ -137,8 +137,18 @@ export default async function Page({ params }: { params: Promise<{ username: str
               <ProjectCard key={project.id} project={project} viewer={viewer} />
             ))}
           </div>
+        ) : isSelf ? (
+          <EmptyState
+            title="Henüz proje paylaşmadın."
+            text="Bir proje paylaşınca burada görünür."
+            action={
+              <ButtonLink href="/paylas" variant="secondary">
+                İlk projeni paylaş
+              </ButtonLink>
+            }
+          />
         ) : (
-          <EmptyState title="Henüz proje paylaşmadı" text={isSelf ? "Bir proje paylaşınca burada görünür." : undefined} />
+          <EmptyState title="Henüz proje paylaşmadı" />
         )}
       </Section>
 

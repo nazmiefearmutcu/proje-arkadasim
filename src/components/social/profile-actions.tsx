@@ -6,6 +6,8 @@ import { useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
+import { focusRing } from "@/components/ui/styles";
+import { cn } from "@/lib/cn";
 import type { OpenProjectForInvite } from "@/lib/projects/queries";
 import { BlockButton } from "./block-button";
 import { FollowButton } from "./follow-button";
@@ -65,7 +67,13 @@ export function ProfileActions({
         ) : (
           <div className="flex w-full flex-col gap-2 rounded-card border border-line p-3">
             <p className="t-body text-ink-2">Davet etmek için önce bir proje paylaş.</p>
-            <Link href="/paylas" className="t-label w-fit text-pen underline-offset-2 hover:underline">
+            <Link
+              href="/paylas"
+              className={cn(
+                "t-label inline-flex min-h-11 w-fit items-center rounded-control text-pen underline-offset-2 hover:underline",
+                focusRing,
+              )}
+            >
               Projeyi paylaş
             </Link>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -36,7 +36,17 @@ interface ReportFormProps {
 
 function ReportForm({ targetType, targetId, subject, onClose }: ReportFormProps) {
   const [state, formAction, isPending] = useActionState(reportAction, null);
+  const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
+
+  // Alanlar denetimlidir ve eylem `onSubmit` ile başlatılır: `<form action>` React 19'da her eylemden
+  // sonra formu sıfırlar (denetimli `select` bile ilk seçeneğe döner). Sunucu reddinde seçilen neden ve
+  // açıklama korunur. Başarıda form kapanır, durum panelle birlikte gider.
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => formAction(formData));
+  }
 
   if (state?.ok) {
     return (
@@ -55,7 +65,7 @@ function ReportForm({ targetType, targetId, subject, onClose }: ReportFormProps)
   const formError = state && !state.ok && !state.fieldErrors ? state.error : null;
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 px-2 pt-2 pb-2">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4 px-2 pt-2 pb-2">
       <input type="hidden" name="targetType" value={targetType} readOnly />
       <input type="hidden" name="targetId" value={targetId} readOnly />
       <p className="t-body text-ink-2">{subject} için bir neden seç. Şikayetin ekibimiz tarafından incelenir.</p>
@@ -65,7 +75,7 @@ function ReportForm({ targetType, targetId, subject, onClose }: ReportFormProps)
         </p>
       ) : null}
       <Field id="report-reason" label="Neden" error={fieldErrors.reason}>
-        <Select name="reason" defaultValue="">
+        <Select name="reason" value={reason} onChange={(event) => setReason(event.target.value)}>
           <option value="" disabled>
             Bir neden seç
           </option>
