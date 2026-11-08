@@ -1,7 +1,8 @@
+import { createRequire } from "node:module";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SESSION_COOKIE } from "./lib/auth/cookie";
-import { middleware } from "./middleware";
+import { config, middleware } from "./middleware";
 
 const mocks = vi.hoisted(() => ({
   renewSessionByToken: vi.fn(),
@@ -63,5 +64,35 @@ describe("middleware kayan oturum yenilemesi", () => {
     const response = await middleware(request("jeton"));
 
     expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+  });
+});
+
+// Eşleştirici, Next'in derleme sırasında kullandığı işlevle düzenli ifadeye çevrilir (iç API; Next
+// sürümü değişirse bu test görünür biçimde kırılır).
+const nodeRequire = createRequire(import.meta.url);
+const { getMiddlewareMatchers } = nodeRequire("next/dist/build/analysis/get-page-static-info") as {
+  getMiddlewareMatchers: (matchers: string[], nextConfig: object) => Array<{ regexp: string }>;
+};
+
+describe("middleware eşleştiricisi", () => {
+  const patterns = getMiddlewareMatchers(config.matcher, {}).map((m) => new RegExp(m.regexp));
+  const matches = (pathname: string) => patterns.some((pattern) => pattern.test(pathname));
+
+  it("sayfa gezintilerinde ve diğer API rotalarında çalışır", () => {
+    for (const pathname of ["/", "/projeler", "/projeler/abc", "/dogrulama", "/ayarlar", "/api/conversations", "/api/me/export"]) {
+      expect(matches(pathname), pathname).toBe(true);
+    }
+  });
+
+  it("belge yükleme ve avatar rotalarında çalışmaz (gövde kesilmez, açık önbelleğe çerez yazılmaz)", () => {
+    for (const pathname of ["/api/verification", "/api/avatar", "/api/avatar/abc123.webp"]) {
+      expect(matches(pathname), pathname).toBe(false);
+    }
+  });
+
+  it("statik dosyalarda ve uygulama simgesinde çalışmaz", () => {
+    for (const pathname of ["/_next/static/chunks/app.js", "/_next/image", "/favicon.ico", "/icon.svg"]) {
+      expect(matches(pathname), pathname).toBe(false);
+    }
   });
 });

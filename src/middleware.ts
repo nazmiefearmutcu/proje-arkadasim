@@ -8,8 +8,12 @@ import { renewSessionByToken } from "@/lib/auth/renew";
 export const runtime = "nodejs";
 
 export const config = {
-  // Statik dosyalar ve görseller hariç her istek.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Statik dosyalar, uygulama simgesi ve iki rota hariç her istek:
+  // - /api/verification: Node middleware'i gövdeyi kopyalar ve varsayılan 10 MB sınırında keser; bu,
+  //   MAX_DOCUMENT_BYTES'a eşit olduğu için sınıra yakın belgeler bozuk multipart'a dönüşürdü.
+  // - /api/avatar: herkese açık, "immutable" önbelleğe alınan yanıtlara Set-Cookie eklenmemeli.
+  // İki rota da oturumu kendisi okur (getCurrentUser).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|api/avatar|api/verification).*)"],
 };
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {

@@ -1,5 +1,6 @@
 import { disciplineGroupForDepartment } from "@/config/taxonomy";
 import type { AcademicStatus, DegreeLevel, DisciplineGroupId } from "@/config/taxonomy";
+import { CLASS_YEAR_MAX, GRADUATION_YEAR_MIN } from "@/lib/settings/limits";
 import type { AiAnalysis } from "./providers/types";
 
 // Karar motoru (spec §5.1 adım 7). Saf fonksiyonlar; kuralların sırası önemlidir.
@@ -95,8 +96,16 @@ export interface EducationProfile {
   disciplineGroup: DisciplineGroupId | null;
 }
 
-/** AI analizinden profile yazılacak eğitim alanlarını çıkarır. */
-export function profileFromAnalysis(analysis: AiAnalysis): EducationProfile {
+/** Değer [min, max] aralığında bir tam sayıysa onu, değilse null döndürür. */
+function intInRange(value: number | null, min: number, max: number): number | null {
+  return value !== null && Number.isInteger(value) && value >= min && value <= max ? value : null;
+}
+
+/**
+ * AI analizinden profile yazılacak eğitim alanlarını çıkarır. Sınıf ve mezuniyet yılı, ayarlar
+ * formunun kabul ettiği aralığın dışındaysa yazılmaz (null); yoksa kullanıcı profilini kaydedemez.
+ */
+export function profileFromAnalysis(analysis: AiAnalysis, now: Date = new Date()): EducationProfile {
   const department = analysis.department;
 
   let academicStatus: AcademicStatus | null = null;
@@ -114,8 +123,8 @@ export function profileFromAnalysis(analysis: AiAnalysis): EducationProfile {
     department,
     academicStatus,
     degreeLevel: analysis.degreeLevel === "UNKNOWN" ? null : analysis.degreeLevel,
-    classYear: analysis.classYear,
-    graduationYear: analysis.graduationYear,
+    classYear: intInRange(analysis.classYear, 1, CLASS_YEAR_MAX),
+    graduationYear: intInRange(analysis.graduationYear, GRADUATION_YEAR_MIN, now.getFullYear() + 1),
     disciplineGroup: disciplineGroupForDepartment(department),
   };
 }

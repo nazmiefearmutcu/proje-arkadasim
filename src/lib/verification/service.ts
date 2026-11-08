@@ -1,13 +1,21 @@
 import { createHmac } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { MASKED_TEXT_RETENTION_DAYS } from "@/config/legal";
 import { hasActiveConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
 import { parseList } from "@/lib/json-fields";
 import { notify } from "@/lib/notify";
 import { toSearchText } from "@/lib/tr";
-import { decide, profileFromAnalysis, REASON_REVIEW } from "./decision";
-import type { DecisionStatus } from "./decision";
-import { extractFromImage, extractFromPdf, MIN_OCR_CONFIDENCE, MIN_PDF_TEXT_CHARS } from "./extract";
+import { decide, profileFromAnalysis, REASON_REUSED, REASON_REVIEW } from "./decision";
+import type { Decision, DecisionStatus } from "./decision";
+import {
+  DocumentTooLargeError,
+  extractFromImage,
+  extractFromPdf,
+  MIN_OCR_CONFIDENCE,
+  MIN_PDF_TEXT_CHARS,
+  OcrUnavailableError,
+} from "./extract";
 import type { PdfSignals } from "./extract";
 import { maskDocumentText } from "./mask";
 import { matchName } from "./name-match";
@@ -31,6 +39,11 @@ export interface VerificationOutcome {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ATTEMPT_WINDOW_MS = DAY_MS;
 const MAX_ATTEMPTS_PER_WINDOW = 5;
+/**
+ * ERROR kayıtları 5 denemelik sınıra sayılmaz (spec §5.1 adım 3), ama her biri yerel OCR/PDF işi
+ * demektir. Bu ayrı ve yüksek sınır, okunamayan dosyalarla CPU tüketmeyi durdurur.
+ */
+export const MAX_ERROR_ATTEMPTS_PER_WINDOW = 20;
 
 export const MESSAGES = {
   ALREADY_VERIFIED: "Belgen zaten doğrulanmış.",
@@ -45,6 +58,11 @@ export const MESSAGES = {
   UNAVAILABLE: "Belge doğrulama şu an kullanılamıyor. Daha sonra tekrar dene.",
   NO_USER: "Oturumun süresi dolmuş. Tekrar giriş yap.",
   APPROVED: "Belgen doğrulandı. Eğitim bilgilerin profiline yazıldı.",
+  IN_PROGRESS: "Önceki belgen hâlâ işleniyor. Sonucu bekle.",
+  ERROR_LIMIT: "Çok fazla okunamayan dosya yükledin. 24 saat sonra tekrar dene.",
+  PDF_TOO_MANY_PAGES: "PDF en fazla 5 sayfa olabilir. e-Devlet PDF'ini yükle.",
+  IMAGE_TOO_LARGE: "Fotoğraf çok büyük. Daha küçük bir fotoğraf yükle.",
+  OCR_UNAVAILABLE: "Fotoğraf okuma şu an kullanılamıyor. e-Devlet PDF'ini yükle.",
 } as const;
 
 type Source = "PDF_TEXT" | "OCR";
@@ -86,15 +104,62 @@ async function recordError(
   return outcome("ERROR", message, false, run.started);
 }
 
+/** Çıkarım hatasını kullanıcıya gösterilecek, eyleme dönük mesaja çevirir. */
+function extractionErrorMessage(error: unknown): string {
+  if (error instanceof DocumentTooLargeError) {
+    return error.kind === "pdf-pages" ? MESSAGES.PDF_TOO_MANY_PAGES : MESSAGES.IMAGE_TOO_LARGE;
+  }
+  if (error instanceof OcrUnavailableError) return MESSAGES.OCR_UNAVAILABLE;
+  return MESSAGES.READ_FAILED;
+}
+
+/**
+ * İşlenmekte olan kullanıcılar. Uygulama tek Node süreci olarak çalışır; aynı kullanıcının ikinci
+ * yüklemesi ilk bitene kadar reddedilir. Böylece sayma-sonra-yazma yarışı (deneme sınırı) ve
+ * paralel yüklemelerle CPU tüketimi kapanır.
+ */
+const inFlight = new Set<string>();
+
+/**
+ * Belge özeti başına kilit zinciri. Tekrar kullanım denetimi ile sonucun yazılması bu kilit altında
+ * yapılır: aynı belge iki hesapta aynı anda onaylanamaz (SQLite iki ertelenmiş işlemin ikisinin de
+ * yazmadan önce okumasına izin verebilir).
+ */
+const docHashLocks = new Map<string, Promise<void>>();
+
+async function withDocHashLock<T>(docHash: string, fn: () => Promise<T>): Promise<T> {
+  const previous = docHashLocks.get(docHash) ?? Promise.resolve();
+  let release: () => void = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  docHashLocks.set(docHash, tail);
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (docHashLocks.get(docHash) === tail) docHashLocks.delete(docHash);
+  }
+}
+
 /** Belgeyi doğrular ve sonucu kalıcılaştırır. Çağıranın `bytes` dizisi işlem sonunda sıfırlanır. */
 export async function verifyDocument(params: {
   userId: string;
   bytes: Uint8Array;
 }): Promise<VerificationOutcome> {
   const { userId, bytes } = params;
+  // Denetim ve ekleme aynı eşzamanlı adımda (ilk await'ten önce) yapılır; araya başka istek giremez.
+  if (inFlight.has(userId)) {
+    bytes.fill(0);
+    return outcome("ERROR", MESSAGES.IN_PROGRESS, false, Date.now());
+  }
+  inFlight.add(userId);
   try {
     return await runVerification(userId, bytes);
   } finally {
+    inFlight.delete(userId);
     bytes.fill(0);
   }
 }
@@ -114,6 +179,7 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
       verificationStatus: true,
       skillsJson: true,
       interestsJson: true,
+      city: true,
     },
   });
   if (!user) return outcome("ERROR", MESSAGES.NO_USER, false, started);
@@ -133,6 +199,14 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
     return outcome("ERROR", MESSAGES.ATTEMPT_LIMIT, false, started);
   }
 
+  // Adım 2b: okunamayan dosyalar için ayrı üst sınır. Sınırda çıkarım yapılmaz, kayıt eklenmez.
+  const recentErrors = await db.verificationAttempt.count({
+    where: { userId, status: "ERROR", createdAt: { gte: windowStart } },
+  });
+  if (recentErrors >= MAX_ERROR_ATTEMPTS_PER_WINDOW) {
+    return outcome("ERROR", MESSAGES.ERROR_LIMIT, false, started);
+  }
+
   // Adım 3: boyut ve gerçek dosya türü.
   const tooLarge = bytes.byteLength > MAX_DOCUMENT_BYTES;
   const fileType = tooLarge ? null : sniffFileType(bytes);
@@ -142,18 +216,10 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
     return recordError(run, documentHash(pepper, bytes), earlySource, MESSAGES.UNSUPPORTED_TYPE);
   }
 
-  // Adım 4: belge özeti ve başka bir doğrulanmış hesapta onaylı kullanım.
+  // Adım 4: belge özeti ve başka bir doğrulanmış hesapta onaylı kullanım. Onay yazılmadan hemen
+  // önce, kilit altında bir kez daha bakılır (adım 9).
   const docHash = documentHash(pepper, bytes);
-  const reusedElsewhere = await db.verificationAttempt.findFirst({
-    where: {
-      docHash,
-      status: "APPROVED",
-      userId: { not: userId },
-      user: { verificationStatus: "VERIFIED" },
-    },
-    select: { id: true },
-  });
-  const docHashUsedByOtherVerifiedUser = reusedElsewhere !== null;
+  const docHashUsedByOtherVerifiedUser = await isReusedByOtherVerifiedUser(db, docHash, userId);
 
   // Adım 5: yerel metin çıkarımı.
   let text: string;
@@ -178,8 +244,8 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
         return recordError(run, docHash, source, MESSAGES.OCR_FAILED);
       }
     }
-  } catch {
-    return recordError(run, docHash, fileType === "pdf" ? "PDF_TEXT" : "OCR", MESSAGES.READ_FAILED);
+  } catch (error) {
+    return recordError(run, docHash, fileType === "pdf" ? "PDF_TEXT" : "OCR", extractionErrorMessage(error));
   }
 
   // Adım 6: yerel ad eşleştirme ve maskeleme.
@@ -222,35 +288,37 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
     today: new Date(),
   });
 
-  // Adım 9 ve 10: sonucu kalıcılaştır, kullanıcı durumunu güncelle (tek işlemde).
-  const isManual = decision.status === "MANUAL_REVIEW";
+  // Adım 9 ve 10: sonucu kalıcılaştır, kullanıcı durumunu güncelle (tek işlemde, belge kilidi altında).
   const now = new Date();
-  const profile = analysis ? profileFromAnalysis(analysis) : null;
+  const profile = analysis ? profileFromAnalysis(analysis, now) : null;
 
-  const attemptData = {
-    userId,
-    status: decision.status,
-    source,
-    docHash,
-    nameMatch,
-    documentType: analysis?.documentType ?? null,
-    aiUsed: analysis !== null,
-    aiModel: analysis && provider ? provider.model : null,
-    aiConfidence: analysis?.confidence ?? null,
-    aiSummary: analysis?.summary ?? null,
-    redFlagsJson: JSON.stringify(analysis?.redFlags ?? []),
-    extractedJson: profile ? JSON.stringify(profile) : "{}",
-    maskedText: isManual ? maskedText : null,
-    maskedTextExpiresAt: isManual
-      ? new Date(now.getTime() + MASKED_TEXT_RETENTION_DAYS * DAY_MS)
-      : null,
-    rejectReason: decision.reason,
-    processingMs: Date.now() - started,
+  const attemptDataFor = (final: Decision): Prisma.VerificationAttemptUncheckedCreateInput => {
+    const isManual = final.status === "MANUAL_REVIEW";
+    return {
+      userId,
+      status: final.status,
+      source,
+      docHash,
+      nameMatch,
+      documentType: analysis?.documentType ?? null,
+      aiUsed: analysis !== null,
+      aiModel: analysis && provider ? provider.model : null,
+      aiConfidence: analysis?.confidence ?? null,
+      aiSummary: analysis?.summary ?? null,
+      redFlagsJson: JSON.stringify(analysis?.redFlags ?? []),
+      extractedJson: profile ? JSON.stringify(profile) : "{}",
+      maskedText: isManual ? maskedText : null,
+      maskedTextExpiresAt: isManual
+        ? new Date(now.getTime() + MASKED_TEXT_RETENTION_DAYS * DAY_MS)
+        : null,
+      rejectReason: final.reason,
+      processingMs: Date.now() - started,
+    };
   };
 
   // APPROVED yalnız AI analizi varken çıkar; bu yüzden profil her zaman dolu olur.
-  const userData =
-    decision.status === "APPROVED" && profile
+  const userDataFor = (final: Decision): Prisma.UserUpdateManyMutationInput =>
+    final.status === "APPROVED" && profile
       ? {
           verificationStatus: "VERIFIED",
           verifiedAt: now,
@@ -262,6 +330,8 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
           degreeLevel: profile.degreeLevel,
           classYear: profile.classYear,
           graduationYear: profile.graduationYear,
+          // Sıra ayarlar kaydıyla aynı (settings/actions.ts): ad, soyad, kullanıcı adı, üniversite,
+          // fakülte, bölüm, beceriler, ilgi alanları, şehir.
           searchText: toSearchText(
             user.firstName,
             user.lastName,
@@ -271,21 +341,74 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
             profile.department,
             parseList(user.skillsJson),
             parseList(user.interestsJson),
+            user.city,
           ),
         }
-      : { verificationStatus: decision.status };
+      : { verificationStatus: final.status };
 
-  await db.$transaction([
-    db.verificationAttempt.create({ data: attemptData }),
-    db.user.update({ where: { id: userId }, data: userData }),
-  ]);
+  const committed = await withDocHashLock(docHash, () =>
+    db.$transaction(async (tx) => {
+      let final: Decision = decision;
+      // Analiz sürerken aynı belge başka bir hesapta onaylanmış olabilir: onay öncesi son denetim.
+      if (final.status === "APPROVED" && (await isReusedByOtherVerifiedUser(tx, docHash, userId))) {
+        final = { status: "REJECTED", reason: REASON_REUSED };
+      }
+
+      // Deneme her durumda kaydedilir (sınıra sayılır ve admin geçmişinde görünür).
+      await tx.verificationAttempt.create({ data: attemptDataFor(final) });
+
+      // Uzun süren analiz sırasında başka bir yükleme sonucu yazmış olabilir. Doğrulanmış kullanıcı
+      // hiçbir sonuçla düşürülmez; ret de bekleyen bir manuel incelemeyi ezmez.
+      const guard = final.status === "REJECTED" ? ["VERIFIED", "MANUAL_REVIEW"] : ["VERIFIED"];
+      const { count } = await tx.user.updateMany({
+        where: { id: userId, verificationStatus: { notIn: guard } },
+        data: userDataFor(final),
+      });
+      if (count > 0) return { final, applied: true, currentStatus: final.status as string | null };
+
+      const current = await tx.user.findUnique({
+        where: { id: userId },
+        select: { verificationStatus: true },
+      });
+      return { final, applied: false, currentStatus: current?.verificationStatus ?? null };
+    }),
+  );
+
+  if (!committed.applied) {
+    // Kullanıcının durumu değişmedi: bildirim yok, mesaj güncel durumu anlatır.
+    if (committed.currentStatus === "VERIFIED") {
+      return outcome("APPROVED", MESSAGES.ALREADY_VERIFIED, true, started);
+    }
+    return outcome("MANUAL_REVIEW", REASON_REVIEW, true, started);
+  }
+
+  const final = committed.final;
 
   // Adım 11: bildirim.
-  await notify({ userId, type: "VERIFICATION_RESULT", data: { status: decision.status } });
+  await notify({ userId, type: "VERIFICATION_RESULT", data: { status: final.status } });
 
-  const message =
-    decision.status === "APPROVED" ? MESSAGES.APPROVED : decision.reason ?? REASON_REVIEW;
-  return outcome(decision.status, message, true, started);
+  const message = final.status === "APPROVED" ? MESSAGES.APPROVED : final.reason ?? REASON_REVIEW;
+  return outcome(final.status, message, true, started);
+}
+
+type AttemptReader = Pick<Prisma.TransactionClient, "verificationAttempt">;
+
+/** Aynı belge özeti, VERIFIED durumdaki başka bir hesapta APPROVED olarak kayıtlı mı (spec §5.1 adım 2). */
+async function isReusedByOtherVerifiedUser(
+  client: AttemptReader,
+  docHash: string,
+  userId: string,
+): Promise<boolean> {
+  const reused = await client.verificationAttempt.findFirst({
+    where: {
+      docHash,
+      status: "APPROVED",
+      userId: { not: userId },
+      user: { verificationStatus: "VERIFIED" },
+    },
+    select: { id: true },
+  });
+  return reused !== null;
 }
 
 /**
@@ -319,7 +442,10 @@ export function maskPdfSignals(signals: PdfSignals | undefined): PdfSignals | un
   };
 }
 
-/** Sağlayıcı seçimi; yapılandırma hatası (ör. üretimde mock) AI'ı devre dışı bırakır, belgeyi düşürmez. */
+/**
+ * Sağlayıcı seçimi; yapılandırma hatası (ör. üretimde mock) AI'ı devre dışı bırakır, belgeyi düşürmez.
+ * Üretimde mock zaten başlangıçta durdurulur (src/instrumentation.ts); bu, ikinci savunma hattıdır.
+ */
 function resolveProvider(): VerifierProvider | null {
   try {
     return getVerifierProvider();
