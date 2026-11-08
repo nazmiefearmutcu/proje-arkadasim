@@ -18,15 +18,13 @@ export interface TopBarProps {
   user: TopBarUser | null;
   counters: Counters | null;
   logout: () => Promise<void>;
-  /** `/ara` sayfasındaki sorgu, arama kutusunda gösterilir. */
-  initialQuery?: string;
 }
 
 /**
  * Üst bar (60 px, yapışkan): profil menüsü, büyük arama kutusu ve bildirim zili.
  * Sunucu bileşenidir; öneriler ve kullanıcı alanları burada hazırlanıp istemci bileşenlerine verilir.
  */
-export function TopBar({ user, counters, logout, initialQuery }: TopBarProps) {
+export function TopBar({ user, counters, logout }: TopBarProps) {
   const suggestions = getSearchSuggestions(user);
 
   return (
@@ -47,7 +45,7 @@ export function TopBar({ user, counters, logout, initialQuery }: TopBarProps) {
           isAdmin={user?.isAdmin ?? false}
           logout={logout}
         />
-        <SearchBar suggestions={suggestions} initialQuery={initialQuery} />
+        <SearchBar suggestions={suggestions} />
         <NotificationBell initial={counters} />
       </div>
     </header>

@@ -1,7 +1,8 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 
 const ROTATE_INTERVAL_MS = 3500;
@@ -9,21 +10,42 @@ const FADE_MS = 400;
 
 export interface SearchBarProps {
   suggestions: string[];
-  /** `/ara` sayfasındaki mevcut sorgu. */
-  initialQuery?: string;
 }
 
 /**
- * Üst bar arama kutusu. Boşken yarı saydam öneriler 3,5 sn'de bir yumuşakça değişir (hareket
- * azaltma tercihinde değişmez). Odaklanınca tüm öneriler listelenir; birine dokunmak arar.
+ * Üst bar arama kutusu. `useSearchParams` için bir Suspense sınırı içinde çalışır; yer tutucu
+ * arama kutusunun boyutunu korur.
  */
-export function SearchBar({ suggestions, initialQuery = "" }: SearchBarProps) {
-  const [value, setValue] = useState(initialQuery);
+export function SearchBar(props: SearchBarProps) {
+  return (
+    <Suspense
+      fallback={<div aria-hidden="true" className="h-11 min-w-0 flex-1 rounded-chip bg-surface-2" />}
+    >
+      <SearchField {...props} />
+    </Suspense>
+  );
+}
+
+/**
+ * Boşken yarı saydam öneriler 3,5 sn'de bir yumuşakça değişir (hareket azaltma tercihinde değişmez).
+ * Odaklanınca tüm öneriler listelenir; birine dokunmak kutuyu doldurur ve aramayı gönderir.
+ * `/ara` sayfasındayken kutu, URL'deki `q` değerini gösterir.
+ */
+function SearchField({ suggestions }: SearchBarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlQuery = pathname === "/ara" ? (searchParams.get("q") ?? "") : "";
+  const [value, setValue] = useState(urlQuery);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   const [open, setOpen] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
   const count = suggestions.length;
+
+  // URL'deki sorgu değişince (ör. arama yapılınca ya da başka sayfaya geçilince) kutuyu eşitle.
+  useEffect(() => {
+    setValue(urlQuery);
+  }, [urlQuery]);
 
   useEffect(() => {
     if (count < 2 || value.length > 0) return;
@@ -54,7 +76,7 @@ export function SearchBar({ suggestions, initialQuery = "" }: SearchBarProps) {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
       }}
     >
-      <form ref={formRef} action="/ara" role="search">
+      <form action="/ara" role="search">
         <Search
           aria-hidden="true"
           strokeWidth={1.75}
@@ -95,9 +117,10 @@ export function SearchBar({ suggestions, initialQuery = "" }: SearchBarProps) {
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
+                  // Yönlendirmeyi doğrudan kuruyoruz: state henüz işlenmeden form okunursa eski değer gider.
                   setValue(suggestion);
                   setOpen(false);
-                  formRef.current?.requestSubmit();
+                  router.push(`/ara?q=${encodeURIComponent(suggestion)}`);
                 }}
                 className="t-body flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen"
               >

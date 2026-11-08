@@ -141,3 +141,43 @@ Each renders `PageHeader` with a Turkish title, metadata title, and "Bu sayfa ha
 - **`sm` buttons** are 36 px, below the 44 px touch rule. Nothing uses them yet.
 - **Route stubs.** The admin stubs (`/admin`, `/admin/dogrulamalar`, `/admin/sikayetler`) have no
   `requireAdmin()` guard yet. Later tasks replace these files and must add the guard.
+
+## Fix round 1
+
+BASE: `6f32d0a0935a41aad316be4e73e5e74c56a986ec`. HEAD: see the commit that adds this section (`git log -1 --format=%H` on branch `task-3`).
+
+### Findings fixed
+
+1. **Suggestion tap submitted the stale value** (`src/components/shell/search-bar.tsx`, Important).
+   The suggestion button now calls `router.push("/ara?q=" + encodeURIComponent(suggestion))` after
+   `setValue(suggestion)`. The form is no longer submitted from the click handler, so React state
+   timing cannot send the old input value. The `formRef` was removed because nothing uses it now.
+   The suggestion text (for example "Endüstriyel tasarımcı ara…") is the query, as brief §3.1 says
+   ("tap fills the input and submits").
+
+2. **`/ara` query was never shown in the search box** (`search-bar.tsx`, `top-bar.tsx`, Important).
+   `SearchBar` now reads `q` with `useSearchParams` and only on `/ara` (via `usePathname`). The
+   hook sits inside a `Suspense` boundary in `SearchBar`, with a `surface-2` placeholder of the same
+   height as the fallback. A `useEffect` keeps the input in sync with the URL query, so a suggestion
+   tap or a new search updates the box, and leaving `/ara` clears it. The unused `initialQuery`
+   prop was removed from `SearchBar`, `TopBar` and `TopBarProps`. The layout never passed it.
+   It cannot pass it, because layouts cannot read `searchParams`.
+
+### Findings disputed
+
+None. Both findings were correct and both are fixed.
+
+### Verification
+
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run`: see the result line at the end of this section.
+- No component tests exist for the shell, so the two fixes are checked by typecheck, lint and code
+  reading. They are not browser-verified. The orchestrator's browser check should type a query on
+  `/ara?q=...`, tap a suggestion from an empty box, and confirm that the box shows the tapped text.
+
+### Files changed
+
+- `src/components/shell/search-bar.tsx`
+- `src/components/shell/top-bar.tsx`
+- `docs/superpowers/sdd/task-03-report.md` (this section)
