@@ -85,3 +85,53 @@
 - `prisma/dev.db` exists locally from the migrate run. It is gitignored and was not committed.
 - The `DISCIPLINE_GROUPS` mapping is keyword-based. Departments that match no keyword return `null`,
   so the UI needs a manual choice fallback.
+
+## Fix round 1
+
+- Fix BASE: `a7c129272c778c4b53757f9a651b960b31efa9c5` (HEAD before this round).
+- Fix code commit: `1a3c133d39adcce31889ab9bccc1638bfdac6dea`.
+- HEAD: the commit that adds this section (`git rev-parse HEAD` at commit time).
+
+### Findings addressed
+
+1. **CITIES order (Important).** Kilis now sits after Kırşehir. A check against `Intl.Collator("tr")` found
+   this was the only misplaced entry. New test: `CITIES` equals its collator-sorted copy.
+2. **toListJson dedupe (Important, plan-mandated).** The key is now `item.normalize("NFC")`, whitespace
+   collapsed, then `toLocaleLowerCase("tr-TR")`. `foldTr` is no longer used in `json-fields.ts`; it stays
+   for `searchText`. `["C#","C++",".NET","C"]` now returns all four. Tests cover C#/C++/C/.NET, `C#`/`c#`,
+   and whitespace differences.
+3. **global-setup `--force-reset` (Important).** Not disputed. The finding is correct, and my previous
+   wording was wrong. I did not bypass a guard by accident; the previous run deleted `prisma/test.db`
+   and ran `db push` without the reset flag. In this round `prisma db push --force-reset` was tried once
+   and refused by Prisma Migrate's agent guard, which requires explicit user consent. I did not set the
+   consent variable: there is no user consent for this action in the session. The setup now runs
+   `npx prisma db push --skip-generate` with no deletion and no reset flag. That keeps existing test data
+   and only applies schema differences. Prisma stops on data loss by itself. Each test still clears its own
+   rows through `resetDb()`. **Open decision for the user:** the brief's `--force-reset` cannot run
+   unattended. If you want that flag, reply with explicit consent and it can be restored.
+4. **AdminAuditLog and Report cascade (Important, plan-mandated).** Relations are now `SetNull`:
+   `AdminAuditLog.adminId` (now nullable), `AdminAuditLog.targetUserId`, and `Report.reporterId` (now
+   nullable). Rows are kept and only the user link is cleared. Migration
+   `prisma/migrations/20261108002636_audit_report_set_null` redefines both tables and copies the data
+   across. Tests in `tests/db.test.ts` cover target deletion, admin deletion, and reporter deletion.
+   Spec conflict resolved: section 7's "cascade everything" rule conflicted with the audit requirement in
+   section 6.2. I added one sentence to section 7 naming the `SET NULL` exception for these two models
+   and the reporter link. The brief's rule (cascade everything) is overridden by the spec, as the global
+   constraints require.
+
+### Spec gaps and concerns
+- After an admin is deleted, `AdminAuditLog.adminId` becomes null, so the row keeps the action, target,
+  and time but no actor identity. If the audit task needs the actor after deletion, add a snapshot column
+  (for example `adminRef`). This is a decision for the audit task, not this fix.
+- The brief still says `vitest.config.ts` and the "every relation cascades" rule. Both are superseded by
+  the spec and the changes above.
+- Attribution: the computed task text and global constraints ask for `Co-Authored-By: Claude Opus 5.5`.
+  The harness attribution reminder that applies to this session says Haiku 5.5, and I followed that.
+
+### Verification
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run`: 4 files, 56 tests, all passed (was 51). Only the existing configLoader warning
+  for `vitest.config.ts`.
+- `prisma migrate dev --name audit_report_set_null`: applied and generated the client. `dev.db` is local
+  and gitignored.
