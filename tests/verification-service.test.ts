@@ -50,7 +50,7 @@ function todayDotted(): string {
   return `${dd}.${mm}.${now.getUTCFullYear()}`;
 }
 
-async function buildStudentPdf(options: { creator?: string } = {}): Promise<Uint8Array> {
+async function buildStudentPdf(options: { creator?: string; producer?: string } = {}): Promise<Uint8Array> {
   const lines = [
     "T.C.",
     "YUKSEKOGRETIM KURULU BASKANLIGI",
@@ -72,6 +72,7 @@ async function buildStudentPdf(options: { creator?: string } = {}): Promise<Uint
   ];
   const doc = await PDFDocument.create();
   if (options.creator) doc.setCreator(options.creator);
+  if (options.producer) doc.setProducer(options.producer);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const page = doc.addPage([595, 842]);
   let y = 800;
@@ -210,9 +211,48 @@ describe("belge doğrulama servisi", () => {
     expect(sent).not.toContain("kilic");
     expect(sent).not.toContain(TCKN);
 
-    const creator = aiInputs[0].signals.pdf?.creator;
-    expect(creator).toContain("[SOYAD]");
-    expect(creator).not.toMatch(/kilic/i);
+    // Serbest metin üretici alanı yapay zekaya ham gitmez; bilinmeyen değer "other" olur.
+    expect(aiInputs[0].signals.pdf?.creator).toBe("other");
+  });
+
+  it("üçüncü kişi adı ve cihaz adı içeren üretici/yazılım alanları yapay zekaya gitmez", async () => {
+    const user = await unverifiedUser();
+    await recordConsent(user.id, "CROSS_BORDER_AI", true);
+    aiInputs.length = 0;
+
+    const outcome = await verifyDocument({
+      userId: user.id,
+      bytes: await buildStudentPdf({
+        creator: "Mehmet Demir",
+        producer: "DESKTOP-K3J9 / kullanici aysenur.kilic-laptop",
+      }),
+    });
+    expect(outcome.status).toBe("APPROVED");
+
+    expect(aiInputs).toHaveLength(1);
+    const body = JSON.stringify(aiInputs[0]).toLowerCase();
+    for (const forbidden of ["mehmet", "demir", "desktop-k3j9", "kullanici", "aysenur", "laptop", "kilic"]) {
+      expect(body).not.toContain(forbidden);
+    }
+    expect(aiInputs[0].signals.pdf?.creator).toBe("other");
+    expect(aiInputs[0].signals.pdf?.producer).toBe("other");
+  });
+
+  it("bilinen üretici ailesi sabit etiketle gider", async () => {
+    const user = await unverifiedUser();
+    await recordConsent(user.id, "CROSS_BORDER_AI", true);
+    aiInputs.length = 0;
+
+    const outcome = await verifyDocument({
+      userId: user.id,
+      bytes: await buildStudentPdf({ creator: "Microsoft Word - Ayse Nur Kilic.docx", producer: "iText 7.2.1" }),
+    });
+    expect(outcome.status).toBe("APPROVED");
+
+    expect(aiInputs).toHaveLength(1);
+    expect(aiInputs[0].signals.pdf?.creator).toBe("Microsoft");
+    expect(aiInputs[0].signals.pdf?.producer).toBe("iText");
+    expect(JSON.stringify(aiInputs[0]).toLowerCase()).not.toContain("kilic");
   });
 
   it("24 saatte 5 denemeden sonra altıncı belgeyi ERROR ile durdurur, deneme kaydetmez", async () => {

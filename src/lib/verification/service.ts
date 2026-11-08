@@ -202,7 +202,7 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
           maskedText,
           signals:
             source === "PDF_TEXT"
-              ? { source, pdf: maskPdfSignals(pdfSignals, { firstName: user.firstName, lastName: user.lastName }) }
+              ? { source, pdf: maskPdfSignals(pdfSignals) }
               : { source, ocrConfidence },
           today: new Date().toISOString().slice(0, 10),
         });
@@ -289,20 +289,33 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
 }
 
 /**
- * PDF üretici alanları (producer, creator) serbest metindir ve kişi adı ya da cihaz adı taşıyabilir.
- * Yapay zekaya gitmeden önce aynı ad maskeleme kurallarından geçirilir. Tarih alanları olduğu gibi kalır.
+ * Bilinen PDF üretici aileleri. Eşleşen alan bu sabit etiketlerden birine indirgenir.
  */
-export function maskPdfSignals(
-  signals: PdfSignals | undefined,
-  person: { firstName: string; lastName: string },
-): PdfSignals | undefined {
+const KNOWN_PDF_GENERATORS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/microsoft/i, "Microsoft"],
+  [/libreoffice|openoffice/i, "LibreOffice"],
+  [/itext/i, "iText"],
+  [/pdf-?lib/i, "pdf-lib"],
+  [/skia/i, "Skia"],
+  [/adobe|acrobat/i, "Adobe"],
+];
+
+/**
+ * PDF üretici alanları (producer, creator) serbest metindir ve kişi adı, cihaz adı ya da kullanıcı adı
+ * taşıyabilir. Bu yüzden ham metin yapay zekaya HİÇ gönderilmez: yalnızca bilinen bir üretici ailesi
+ * sabit etiketiyle, bilinmeyen her değer ise "other" olarak gider. Tarih ve sayısal alanlar olduğu gibi kalır.
+ */
+export function maskPdfSignals(signals: PdfSignals | undefined): PdfSignals | undefined {
   if (!signals) return undefined;
-  const maskField = (value: string | null): string | null =>
-    value === null ? null : maskDocumentText(value, person).masked;
+  const coarse = (value: string | null): string | null => {
+    if (value === null) return null;
+    const hit = KNOWN_PDF_GENERATORS.find(([pattern]) => pattern.test(value));
+    return hit ? hit[1] : "other";
+  };
   return {
     ...signals,
-    producer: maskField(signals.producer),
-    creator: maskField(signals.creator),
+    producer: coarse(signals.producer),
+    creator: coarse(signals.creator),
   };
 }
 
