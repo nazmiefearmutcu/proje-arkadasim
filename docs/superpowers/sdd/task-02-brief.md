@@ -20,7 +20,7 @@ No UI in this task.
 4. `src/lib/auth/guards.ts`
    - `export const currentUserSelect` — Prisma select with: id, email, firstName, lastName, username, avatarPath, role, verificationStatus, academicStatus, university, faculty, department, disciplineGroup, degreeLevel, classYear, graduationYear, city, skillsJson, interestsJson, lookingForProject, createdAt. Export `type CurrentUser`.
    - `getCurrentUser(): Promise<CurrentUser | null>`.
-   - `isVerified(user)`, `isAdmin(user)` (role "ADMIN" or email listed in `ADMIN_EMAILS`, comma separated, case-insensitive).
+   - `isVerified(user)`, `isAdmin(user)` — SUPERSEDED (ruling in fix round 2 of task-02-report.md, kept in fix round 3): `isAdmin` is role-only (`role === "ADMIN"`). `ADMIN_EMAILS` grants nothing, because email ownership is not verified (spec §11) and the spec defines role as USER|ADMIN (spec line 234). Admins are created by the seed or set by an operator.
    - `requireUser(next?: string)` → redirect to `/giris?next=<encoded>` when no user.
    - `requireVerified(next?: string)` → requireUser, then redirect `/dogrulama` when not verified.
    - `requireAdmin()` → `notFound()` unless admin.
@@ -47,7 +47,7 @@ No UI in this task.
 
 ## Tests (Vitest; DB tests use `tests/helpers/db.ts`, call `resetDb()` in beforeEach)
 - `src/lib/auth/password.test.ts`: hash/verify roundtrip, wrong password false, malformed stored string false, two hashes of same password differ, strength rules.
-- `src/lib/auth/guards.test.ts`: `safeNextPath` cases ("/projeler" ok, "//evil.com" → fallback, "https://x" → fallback, "/\\evil" → fallback, undefined → fallback); `isAdmin` with ADMIN_EMAILS.
+- `src/lib/auth/guards.test.ts`: `safeNextPath` cases ("/projeler" ok, "//evil.com" → fallback, "https://x" → fallback, "/\\evil" → fallback, undefined → fallback); `isAdmin` role-only (an `ADMIN_EMAILS` entry must NOT grant admin; superseded brief case).
 - `src/lib/rate-limit.test.ts`: allows up to limit, blocks after, resets after window (use `vi.useFakeTimers`).
 - `src/lib/permissions.test.ts`: displayName variants; canMessageDirectly true for mutual follow, true for shared project, false for one-way follow, false when blocked even if mutual.
 - `src/lib/notify.test.ts`: self-notification skipped; blocked actor skipped; normal creates a row with dataJson.

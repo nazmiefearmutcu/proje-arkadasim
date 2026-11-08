@@ -249,3 +249,9 @@ New: `src/lib/auth/cookie.ts`, `src/lib/auth/renew.ts`, `src/lib/auth/renew.test
 - The rate limiter is in-process (unchanged from round 1). With `TRUST_PROXY=false` the register limit is global.
 - The app was not run and `next build` was not run in this round.
 - Email ownership is not verified at registration (spec §11, out of scope). Admin takeover through `ADMIN_EMAILS` is closed.
+
+## Fix round 3 (finished by the orchestrator)
+The round-3 implementer was stopped mid-round when the run moved to a parallel workflow; its uncommitted work (seed production guard `src/lib/seed-guard.ts` + test, brief wording for the role-only `isAdmin` ruling) was kept and finished by the orchestrator.
+- Ruling: `isAdmin` is role-only; `ADMIN_EMAILS` grants nothing (email ownership is not verified, spec §11). The task-02 and task-06 briefs record this.
+- Ruling: the seed refuses `NODE_ENV=production` unless `SEED_ALLOW_PRODUCTION=true`, and in production it refuses the published example admin password. In development the example password from `.env.example` is accepted so `npm run seed` works out of the box.
+- Open Minors carried to the final review: `loginKey` must be used by the login action (task 4); seed admin username `yonetici` clash; renewCookie catch breadth; x-real-ip fallback; dev mail log prints recipient; isSameOrigin header precedence.

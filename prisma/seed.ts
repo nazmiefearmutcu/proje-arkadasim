@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword, validatePasswordStrength } from "../src/lib/auth/password";
+import { seedProblem } from "../src/lib/seed-guard";
 import { toSearchText } from "../src/lib/tr";
 
 const prisma = new PrismaClient();
@@ -46,6 +47,8 @@ async function bootstrapAdmin(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const problem = seedProblem(process.env);
+  if (problem) throw new Error(problem);
   await bootstrapAdmin();
   // Sonraki görevler örnek veriyi burada üretecek.
   console.log("Seed henüz hazır değil");
