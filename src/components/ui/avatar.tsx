@@ -1,6 +1,8 @@
-import { DISCIPLINE_GROUP_IDS, isDisciplineGroupId } from "@/config/taxonomy";
 import { avatarUrl } from "@/lib/avatar";
 import { cn } from "@/lib/cn";
+import { avatarColorsFor } from "./avatar-colors";
+
+export { avatarColorsFor, paletteColorFor, paletteGroupFor } from "./avatar-colors";
 
 export type AvatarSize = 28 | 36 | 48 | 72 | 96;
 
@@ -11,16 +13,6 @@ const fontSize: Record<AvatarSize, string> = {
   72: "24px",
   96: "32px",
 };
-
-/** Kullanıcı adından deterministik bir disiplin rengi seçer (djb2 özeti). */
-export function paletteColorFor(seed: string): string {
-  let hash = 5381;
-  for (const char of seed) {
-    hash = ((hash << 5) + hash + char.charCodeAt(0)) >>> 0;
-  }
-  const id = DISCIPLINE_GROUP_IDS[hash % DISCIPLINE_GROUP_IDS.length];
-  return `var(--d-${id})`;
-}
 
 /** Görünen addan baş harfler: "Ayşe Kılıç" -> "AK". Tek kelimede ilk harf. */
 export function initialsOf(name: string): string {
@@ -44,7 +36,7 @@ export interface AvatarProps {
 
 /**
  * Profil resmi, yoksa baş harfler. Arka plan disiplin grubunun rengidir; grup yoksa tohuma
- * göre paletten bir renk seçilir.
+ * göre paletten bir renk seçilir. Baş harfler ham `text-white` değil, rengin `--d-<id>-ink` mürekkebidir.
  */
 export function Avatar({
   name,
@@ -55,17 +47,15 @@ export function Avatar({
   className,
 }: AvatarProps) {
   const src = avatarUrl(avatarPath);
-  const background = isDisciplineGroupId(disciplineGroup)
-    ? `var(--d-${disciplineGroup})`
-    : paletteColorFor(seed ?? name);
+  const { background, color } = avatarColorsFor(disciplineGroup, seed ?? name);
 
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-[650] text-white select-none",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-[650] select-none",
         className,
       )}
-      style={{ width: size, height: size, background, fontSize: fontSize[size] }}
+      style={{ width: size, height: size, background, color, fontSize: fontSize[size] }}
     >
       {src ? (
         // Resim, kimlik doğrulamalı rota işleyicisinden gelir; next/image optimizasyonu gerekmez.

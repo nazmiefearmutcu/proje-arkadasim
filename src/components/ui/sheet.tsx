@@ -16,6 +16,7 @@ export interface SheetProps {
 /**
  * Alttan açılan panel. Yerel `<dialog>` kullanır: odak tuzağı, Escape ve modal arka plan tarayıcıdan gelir.
  * Arka plana dokunmak, Escape ve Kapat düğmesi `onClose` çağırır; açık durum çağıran tarafta tutulur.
+ * Arka plan perdesi temadan bağımsız `--scrim` tokenıdır (`--ink` koyu temada açık renktir).
  */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -41,7 +42,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
         if (event.target === event.currentTarget) onClose();
       }}
       className={cn(
-        "fixed inset-x-0 bottom-0 m-0 mx-auto h-auto max-h-[85dvh] w-full max-w-[640px] overflow-y-auto rounded-t-sheet bg-surface p-0 text-ink shadow-sheet backdrop:bg-ink/40",
+        "fixed inset-x-0 bottom-0 m-0 mx-auto h-auto max-h-[85dvh] w-full max-w-[640px] overflow-y-auto rounded-t-sheet bg-surface p-0 text-ink shadow-sheet backdrop:bg-scrim",
       )}
     >
       <div className="flex flex-col pb-[calc(16px+env(safe-area-inset-bottom))]">

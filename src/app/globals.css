@@ -11,16 +11,19 @@
   --surface-2: #eef1f6;
   --ink: #161a33;
   --ink-2: #4b5070;
-  --ink-3: #7a7f9a;
+  /* AA küçük metin: paper 4.83, surface 5.23, surface-2 4.62 (eski #7a7f9a 3.6–3.9 idi). */
+  --ink-3: #666b86;
   --line: #dfe3ec;
   --pen: #2340c8;
   --pen-ink: #ffffff;
   --pen-soft: #e6eafb;
   --stamp: #7a3fa8;
   --stamp-soft: #f1e9f8;
-  --ok: #1e7f4f;
+  /* ok-soft üzerinde 4.64, surface üzerinde 5.33 (eski #1e7f4f ok-soft üzerinde 4.35 idi). */
+  --ok: #1d7a4c;
   --ok-soft: #e3f3ea;
-  --warn: #a86a00;
+  /* warn-soft üzerinde 4.65, surface üzerinde 5.21 (eski #a86a00 warn-soft üzerinde 3.96 idi). */
+  --warn: #996000;
   --warn-soft: #fbf1dc;
   --danger: #c2362e;
   --danger-soft: #fbe6e4;
@@ -37,6 +40,36 @@
   --d-sosyal: #845ef7;
   --d-temel: #74b816;
   --d-sanat: #ae3ec9;
+
+  /*
+   * Avatar baş harfleri (fotoğrafsız avatar). Tek bir mürekkep açık temada her disiplin renginde 4.5:1
+   * sağlayamaz (beyaz sarıda 2.2:1, koyu mürekkep gri ve mavide 2–3:1). Bu yüzden her disiplin rengi
+   * kendi mürekkebini seçer: koyu renklerde --avatar-ink, açık renklerde --avatar-ink-dark.
+   * Açık tema en düşük: tasarım 4.62 (beyaz), sosyal 4.57 (#0a0c18). Koyu temada hepsi koyu mürekkep.
+   */
+  --avatar-ink: #ffffff;
+  --avatar-ink-dark: #0a0c18;
+  --d-yazilim-ink: var(--avatar-ink);
+  --d-elektronik-ink: var(--avatar-ink-dark);
+  --d-makine-ink: var(--avatar-ink);
+  --d-endustri-ink: var(--avatar-ink-dark);
+  --d-mimarlik-ink: var(--avatar-ink);
+  --d-tasarim-ink: var(--avatar-ink);
+  --d-isletme-ink: var(--avatar-ink-dark);
+  --d-saglik-ink: var(--avatar-ink);
+  --d-hukuk-ink: var(--avatar-ink);
+  --d-sosyal-ink: var(--avatar-ink-dark);
+  --d-temel-ink: var(--avatar-ink-dark);
+  --d-sanat-ink: var(--avatar-ink);
+}
+
+/*
+ * Modal arka planı (sheet). Temadan bağımsız koyu perde: --ink koyu temada neredeyse beyaz olduğu için
+ * kullanılmaz. ::backdrop eski tarayıcılarda :root değişkenlerini miras almaz; orada da tanımlanır.
+ */
+:root,
+::backdrop {
+  --scrim: rgb(10 12 24 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -72,6 +105,10 @@
     --d-sosyal: #9775fa;
     --d-temel: #94d82d;
     --d-sanat: #da77f2;
+
+    /* Koyu temadaki disiplin renklerinin hepsi açık: baş harfler koyu mürekkeple (en düşük sosyal 5.52). */
+    --avatar-ink: #0f1222;
+    --avatar-ink-dark: #0f1222;
   }
 }
 
@@ -94,6 +131,7 @@
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-scrim: var(--scrim);
 
   /* next/font değişkeni --font-geologica olarak tanımlanır; --font-sans ona bağlanır (döngü olmasın). */
   --font-sans: var(--font-geologica), system-ui, sans-serif;
@@ -118,7 +156,21 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * Metin sınıfları. t-hero dışındakiler kullanıcı metni taşıyabilir (açıklama, biyografi, mesaj, rol ve
+ * proje adı, e-posta): overflow-wrap: anywhere boşluksuz uzun bir parçayı (URL, e-posta) satıra böler ve
+ * min-content genişliğini küçültür; 375 px'te sayfa yana kaymaz. truncate (nowrap) satırları etkilenmez.
+ */
 @layer components {
+  .t-meta,
+  .t-body,
+  .t-label,
+  .t-card,
+  .t-section,
+  .t-page,
+  .t-prose {
+    overflow-wrap: anywhere;
+  }
   .t-meta {
     font-size: 13px;
     line-height: 1.4;

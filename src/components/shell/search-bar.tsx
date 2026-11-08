@@ -3,6 +3,8 @@
 import { Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { chipClasses } from "@/components/ui/chip-classes";
+import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/cn";
 import { suggestionToQuery } from "@/lib/search-suggestions";
 
@@ -29,8 +31,10 @@ export function SearchBar(props: SearchBarProps) {
 
 /**
  * Boşken yarı saydam öneriler 3,5 sn'de bir yumuşakça değişir (hareket azaltma tercihinde değişmez).
- * Odaklanınca tüm öneriler listelenir; birine dokunmak kutuyu doldurur ve aramayı gönderir.
+ * Odaklanınca tüm öneriler çip olarak görünür; birine dokunmak kutuyu doldurur ve aramayı gönderir.
  * `/ara` sayfasındayken kutu, URL'deki `q` değerini gösterir.
+ * Kutuda `outline-none` kullanılmaz: Tailwind 4'te `--tw-outline-style` değerini de `none` yapar ve
+ * `focusRing` halkası görünmez olur.
  */
 function SearchField({ suggestions }: SearchBarProps) {
   const router = useRouter();
@@ -95,7 +99,10 @@ function SearchField({ suggestions }: SearchBarProps) {
           onKeyDown={(event) => {
             if (event.key === "Escape") setOpen(false);
           }}
-          className="h-11 w-full rounded-chip border border-transparent bg-surface-2 pr-4 pl-11 text-[16px] text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen [&::-webkit-search-cancel-button]:appearance-none"
+          className={cn(
+            "h-11 w-full rounded-chip border border-transparent bg-surface-2 pr-4 pl-11 text-[16px] text-ink [&::-webkit-search-cancel-button]:appearance-none",
+            focusRing,
+          )}
         />
         {value.length === 0 && hint ? (
           <span
@@ -111,9 +118,13 @@ function SearchField({ suggestions }: SearchBarProps) {
       </form>
 
       {open && count > 0 ? (
-        <ul className="absolute inset-x-0 top-full z-40 mt-2 flex flex-col gap-1 rounded-card border border-line bg-surface p-2">
+        // Spec §3.1: odaklanınca öneri çipleri görünür. Çipler satır kırarak dizilir; her biri 44 px dokunma hedefi.
+        <ul
+          aria-label="Önerilen aramalar"
+          className="absolute inset-x-0 top-full z-40 mt-2 flex flex-wrap gap-2 rounded-card border border-line bg-surface p-3"
+        >
           {suggestions.map((suggestion) => (
-            <li key={suggestion}>
+            <li key={suggestion} className="flex max-w-full">
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -125,10 +136,9 @@ function SearchField({ suggestions }: SearchBarProps) {
                   setOpen(false);
                   router.push(`/ara?q=${encodeURIComponent(query)}`);
                 }}
-                className="t-body flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen"
+                className={chipClasses(false, "text-left hover:text-ink", { interactive: true })}
               >
-                <Search aria-hidden="true" strokeWidth={1.75} className="size-4 shrink-0 text-ink-3" />
-                <span className="min-w-0 truncate">{suggestion}</span>
+                {suggestion}
               </button>
             </li>
           ))}
