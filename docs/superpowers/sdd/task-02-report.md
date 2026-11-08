@@ -98,3 +98,75 @@ No existing files were changed. No schema change, no migration, no new dependenc
 - The `ADMIN_EMAILS` admin check is on every request. That is cheap, but the list should stay short.
 - `consent.ts` ordering uses `createdAt` then `id`. Two rows written in the same millisecond rely on cuid order. The
   test waits 5 ms between writes to avoid depending on this.
+
+## Fix round 1
+
+- BASE: `7d81be9beb9d8d14b02964409b828c71ec77a1b132` (`git rev-parse HEAD` at the start of this round)
+- Code commit: `9c4438b0ae7d3be86b89732a67d1bca8b25f8c8c` (fix: task 2 review round 1)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made)
+
+### Findings and changes
+
+1. **Important, `src/lib/rate-limit.ts`: spoofable `x-forwarded-for`. Fixed.**
+   `clientIp()` now reads forwarded headers only when `TRUST_PROXY=true`. In that case it uses the
+   last `x-forwarded-for` entry, which the trusted proxy appends, and not the first one. `x-real-ip` is
+   used next, then "local". With `TRUST_PROXY` unset, `clientIp()` returns "local" and the client cannot
+   change its bucket. The cost is that all requests then share one bucket, so a deployment behind a
+   proxy must set `TRUST_PROXY=true`. The limitation is documented in `.env.example`.
+   The brief's "socket address" fallback is not possible here: Next.js server code cannot read the socket
+   address through `headers()`.
+   Tests (`src/lib/rate-limit.test.ts`): ignored when untrusted; a spoofed first value (`6.6.6.6, 203.0.113.9`
+   and `7.7.7.7, 203.0.113.9`) resolves to the same key; `x-real-ip` and `local` fallbacks.
+
+2. **Important, `src/lib/auth/guards.ts`: `ADMIN_EMAILS` grants admin without email proof. Fixed.**
+   `isAdmin` now checks `role === "ADMIN"` only. The spec has no email verification step (§11), so an
+   operator's email could be registered by someone else first. Admins are set by seed or operator action.
+   Task 6 depends on the old behaviour (its brief says "email in `ADMIN_EMAILS`"). It must be changed to
+   role-based admins. `ADMIN_EMAILS` is kept only as a bootstrap input. `.env.example` says so.
+   Tests: the `ADMIN_EMAILS` case now asserts `false`. The brief's `ADMIN_EMAILS`-grants-admin test is
+   intentionally removed. The `isAdmin` parameter type is now `Pick<CurrentUser, "role">`.
+   Registration gap (for the report to the operator): any visitor can register with an email that is not
+   theirs. Ownership of that email is never checked. Email verification is out of scope (spec §11), so
+   this stays until a verification step is added.
+
+3. **Important, `src/lib/auth/session.ts`: sliding renewal diverged from the cookie. Fixed (partly).**
+   The cookie is now written first. The DB expiry is extended only when that write succeeds. In a Server
+   Component the write throws, so neither the cookie nor the DB row changes. The cookie and the DB
+   expiry therefore stay equal, and no session dies early.
+   Limitation: renewal happens only in writable requests (Server Actions, Route Handlers) inside the
+   15-day window. Plain page browsing does not extend a session. Full sliding renewal needs a Route
+   Handler or middleware refresh path. That is a follow-up and is not part of this round. Spec §8 is
+   therefore met only partly.
+   Tests (`src/lib/auth/session.test.ts`, new): renewal in a writable context updates the cookie and DB;
+   a read-only context updates neither and still returns the user; no renewal outside the window; expired
+   sessions are deleted.
+
+### Minor findings
+None were given in this round.
+
+### Disputed findings
+None. All three findings were valid and were fixed.
+
+### Attribution
+The task text asked for `Co-Authored-By: Claude Opus 5.5`. The session attribution reminder says
+Haiku 5.5 and replaces earlier guidance, so the commit uses the Haiku 5.5 trailer, as in Task 2 round 0.
+Please confirm which trailer you want.
+
+### Verification (after the fixes, before commit)
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run`: 12 files, 108 tests, all passed. The earlier 102 tests changed as follows: the
+  `isAdmin` `ADMIN_EMAILS` cases went from 3 to 1 (-1 test), and rate-limit `clientIp` (+3) and
+  session renewal (+4) were added, which gives 108.
+- The configLoader and Prisma `package.json#prisma` deprecation warnings are unchanged and not related.
+
+### Files changed in this round
+`src/lib/rate-limit.ts`, `src/lib/rate-limit.test.ts`, `src/lib/auth/guards.ts`, `src/lib/auth/guards.test.ts`,
+`src/lib/auth/session.ts`, `src/lib/auth/session.test.ts` (new), `.env.example` (`TRUST_PROXY`,
+`ADMIN_EMAILS` comment; this file was not in the brief).
+
+### Open items
+- Task 6 brief: admin must be role-based, not email-based (see finding 2).
+- Full sliding renewal (spec §8) still needs a Route Handler or middleware path (see finding 3).
+- Email ownership is not verified at registration (spec §11 out of scope). Admin email takeover is
+  blocked by finding 2, but the registration gap itself remains.
