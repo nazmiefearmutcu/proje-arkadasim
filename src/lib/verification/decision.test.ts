@@ -176,4 +176,36 @@ describe("profileFromAnalysis", () => {
   it("bölüm tanınmazsa disiplin grubu null olur", () => {
     expect(profileFromAnalysis(analysis({ department: "Bilinmeyen Bölüm" })).disciplineGroup).toBeNull();
   });
+
+  it("sınıf 1 ile 8 arasındaysa korunur, dışındaysa null olur", () => {
+    expect(profileFromAnalysis(analysis({ classYear: 1 }), TODAY).classYear).toBe(1);
+    expect(profileFromAnalysis(analysis({ classYear: 8 }), TODAY).classYear).toBe(8);
+    for (const classYear of [0, -1, 9, 12]) {
+      expect(profileFromAnalysis(analysis({ classYear }), TODAY).classYear, String(classYear)).toBeNull();
+    }
+    expect(profileFromAnalysis(analysis({ classYear: null }), TODAY).classYear).toBeNull();
+  });
+
+  it("mezuniyet yılı 1950 ile gelecek yıl arasındaysa korunur, dışındaysa null olur", () => {
+    const graduate = (graduationYear: number | null) =>
+      profileFromAnalysis(
+        analysis({ documentType: "MEZUN_BELGESI", academicStatus: "GRADUATE", classYear: null, graduationYear }),
+        TODAY,
+      ).graduationYear;
+    expect(graduate(1950)).toBe(1950);
+    expect(graduate(2023)).toBe(2023);
+    expect(graduate(2027)).toBe(2027); // TODAY 2026: gelecek yıl kabul (ayarlar formuyla aynı).
+    expect(graduate(1949)).toBeNull();
+    expect(graduate(2028)).toBeNull();
+    expect(graduate(0)).toBeNull();
+    expect(graduate(null)).toBeNull();
+  });
+
+  it("aralık dışı yıllar profilin geri kalanını etkilemez", () => {
+    const profile = profileFromAnalysis(analysis({ classYear: 9, graduationYear: 3000 }), TODAY);
+    expect(profile.university).toBe("ORTA DOĞU TEKNİK ÜNİVERSİTESİ");
+    expect(profile.academicStatus).toBe("STUDENT");
+    expect(profile.classYear).toBeNull();
+    expect(profile.graduationYear).toBeNull();
+  });
 });

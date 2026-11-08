@@ -290,7 +290,7 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
 
   // Adım 9 ve 10: sonucu kalıcılaştır, kullanıcı durumunu güncelle (tek işlemde, belge kilidi altında).
   const now = new Date();
-  const profile = analysis ? profileFromAnalysis(analysis) : null;
+  const profile = analysis ? profileFromAnalysis(analysis, now) : null;
 
   const attemptDataFor = (final: Decision): Prisma.VerificationAttemptUncheckedCreateInput => {
     const isManual = final.status === "MANUAL_REVIEW";
