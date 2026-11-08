@@ -1,0 +1,41 @@
+# Task 8 — Social: home feed, guest landing, profiles, follow, Network (invites + introductions), block/report
+
+Read `docs/superpowers/sdd/global-constraints.md` and `docs/design-system.md` first. Spec sections: §2, §3.2, §4.5, §4.6, §8 (introduction algorithm).
+Available: everything from tasks 1–7, notably `respondToInviteAction`, `inviteToProjectAction`, `getViewerOpenProjectsForInvite`, `listProjects`, `ProjectCard`, `UserRow`, `DisciplineSpine`, `VerifiedStamp`, `notify`, `isBlockedEitherWay`, `displayName`, `projectCardInclude`/`toProjectCardData`, `personSummarySelect`/`toPersonSummary`, taxonomy (`DISCIPLINE_GROUPS` complements, labels). Stubs exist for `/`, `/u/[username]`, `/network` — replace them.
+
+## 1. Library — `src/lib/social/`
+- `follow.ts` (`'use server'` actions + plain helpers in a separate non-action file `follow-queries.ts`):
+  - `followUserAction(targetUserId)` — verified viewer; target VERIFIED; not self; not blocked either way; upsert Follow; notify FOLLOW (only when newly created); revalidate.
+  - `unfollowUserAction(targetUserId)`.
+  - `follow-queries.ts`: `getFollowState(viewerId, targetId)` → `{ following, followsYou }`, `getFollowCounts(userId)`, `listFollowers(userId, viewerId)`, `listFollowing(userId, viewerId)` (person summaries + whether viewer follows each).
+- `suggestions.ts`:
+  - Pure `scoreCandidate(viewer, candidate, ctx: { mutualCount: number })` → `{ score: number; reason: string; factors: Record<string, number> }` with weights from spec §8: 3 × shared interests count, 2 × complementary discipline (candidate.disciplineGroup ∈ complements of viewer's group), 1.5 × same city, 1 × min(mutualCount, 3), 1 × candidate.lookingForProject, 0.5 × same university. Reason from the largest contributing factor, Turkish, e.g. "Farklı disiplin: Endüstriyel tasarım ile tamamlayıcı", "Ortak ilgi: yapay zeka, robotik", "Aynı şehirde: İzmir", "3 ortak bağlantı", "Proje arıyor", "Aynı üniversite". Interests compared with `foldTr`.
+  - `getSuggestions(viewerId, limit = 10)` → candidates = VERIFIED users excluding self, already followed, blocked either way, dismissed Introductions; load up to 300 most recently verified candidates, compute mutualCount (people the viewer follows who follow the candidate), score, drop score 0, sort desc, return `{ person: PersonSummary; reason; score }[]`.
+  - `createIntroductions(viewerId)` — from top suggestions, take up to 3 with no Introduction row for (viewer, candidate) created in the last 7 days; upsert Introduction (reason) and `notify({ userId: viewerId, type: "INTRODUCTION", actorId: candidateId, data: { reason } })`. Call it at most once per viewer per 24 h (check latest Introduction createdAt).
+  - `dismissIntroductionAction(candidateId)` — sets/creates Introduction dismissed true.
+- `moderation.ts` (`'use server'`): `blockUserAction(targetId)` (create Block; delete follows both ways; decline pending conversation requests between them by setting Conversation status "DECLINED"; cancel pending invites between them), `unblockUserAction(targetId)`, `reportAction(prev, formData)` — targetType USER | PROJECT | MESSAGE, targetId, reason from a fixed list (Sahte belge veya kimlik, Spam veya reklam, Uygunsuz içerik, Taciz veya hakaret, Gerçek olmayan proje, Diğer), details 0–500; rate limit `LIMITS.report`; returns ok with message "Şikayetin alındı. Ekibimiz inceleyecek."
+
+## 2. Pages
+- `/` — `src/app/(app)/page.tsx`:
+  - Verified user: PageHeader "Ana sayfa" with description "Takip ettiğin kişilerin paylaştığı projeler". Feed = projects (any status, newest first) whose ownerId is in the viewer's following list — **never** the viewer's own projects, never anyone else's. Page size 10, "Daha fazla göster" via `?sayfa=`. Empty feed → EmptyState "Henüz kimseyi takip etmiyorsun" (or "Takip ettiklerin henüz proje paylaşmadı") + up to 5 suggestions as UserRows with Follow buttons + ButtonLink "Projeleri keşfet" to `/projeler`.
+  - Guest or unverified: landing. Hero: headline `.t-hero` "Bölümünün dışında bir ekip kur." — the type is the hero; directly under it a full-width horizontal DisciplineSpine with all 12 discipline groups (the band is the visual, no illustration). Body (`.t-body`, ink-2, ≤ 52ch): "Proje Arkadaşım, Türkiye'deki üniversite öğrencileri ve mezunları için. Herkesin belgesi doğrulanmış; projeni paylaş, farklı bölümlerden ekip arkadaşı bul." Buttons: guest → "Hesap oluştur" (primary) + "Projeleri keşfet" (secondary); unverified → banner "Belgeni doğrula, proje paylaşmaya başla" + "Belgeni yükle" (primary). Then section "Son paylaşılan projeler" with the 3 newest OPEN projects (ProjectCard) and a link "Tüm projeler". Then a 3-item "Nasıl çalışır" list — this is a real sequence (1 Hesabını oluştur ve belgeni yükle, 2 Projeni paylaş veya bir projeye başvur, 3 Ekibinle mesajlaş ve üretmeye başla), so numbering is appropriate. Keep it to these three short lines.
+- `/u/[username]` — `requireVerified("/u/<username>")`; notFound if user missing or not VERIFIED (unless it's the viewer). If either has blocked the other: show only a minimal card "Bu profili görüntüleyemezsin." (the blocker still sees an "Engeli kaldır" button).
+  Header: Avatar 96, full name `.t-page`, `VerifiedStamp size="lg"` with academicStatus, line: department (discipline chip) + university; faculty; class year or graduation year ("3. sınıf" / "2024 mezunu"); city; bio; "Proje arıyor" chip if lookingForProject; follower/following counts (links to `/network?sekme=takipciler&u=<username>` — for simplicity only the viewer's own lists are shown on Network, so make the counts plain text for other users).
+  Actions (others' profile): Takip et / Takibi bırak (shows "Seni takip ediyor" chip when followsYou), "Mesaj gönder" (ButtonLink to `/mesajlar/yeni?kime=<username>`), "Projeye davet et" (Sheet: choose one of viewer's open projects + role + optional message → `inviteToProjectAction`; if viewer has no open project: "Davet etmek için önce bir proje paylaş." + link `/paylas`), overflow menu (Sheet): Engelle / Engeli kaldır (confirm), Şikayet et (report form Sheet).
+  Own profile: "Profili düzenle" → `/ayarlar`, "Belge durumu" → `/dogrulama`.
+  Sections: Beceriler (chips), İlgi alanları (chips), Projeler (owned, OPEN first then closed) and Katıldığı projeler (member, not owner) as ProjectCards.
+- `/network` — `requireVerified("/network")`. Tabs via `?sekme=`: `davetler` (default), `tanistirmalar`, `takipciler`, `takip`. Tab labels show counts where relevant (Davetler (2)).
+  - Davetler: pending ProjectInvites to viewer: project title (link), DisciplineSpine horizontal mini band, inviter UserRow, role, message, "Kabul et" / "Reddet" (→ `respondToInviteAction`). Empty: "Bekleyen davetin yok. Projelere göz atıp başvurabilirsin." + link.
+  - Tanıştırmalar: call `createIntroductions(viewer.id)` on render, then show `getSuggestions(viewer.id, 12)` as UserRows with the reason line, "Takip et" and "Gizle" (dismiss). Intro text: "Farklı disiplinlerden, ilgi alanların ve şehrine göre seçtiğimiz kişiler."
+  - Takipçiler / Takip: lists with follow buttons.
+
+Shared client components in `src/components/social/`: `follow-button.tsx` (optimistic toggle with `useTransition`), `report-sheet.tsx`, `block-button.tsx`, `invite-sheet.tsx`, `dismiss-button.tsx`.
+
+## Tests
+- `src/lib/social/suggestions.test.ts`: pure scoring weights and reasons; `getSuggestions` (DB) excludes self, followed, blocked, dismissed, unverified; `createIntroductions` creates ≤ 3 rows + notifications and does nothing on a second call within 24 h.
+- `src/lib/social/follow.test.ts` (DB, mock auth/cache): follow creates row + FOLLOW notification once; cannot follow self or blocked; unfollow.
+- `src/lib/social/moderation.test.ts`: block removes follows both ways, declines pending REQUEST conversations, cancels pending invites; report rate limit.
+- `tests/home-feed.test.ts`: extract the feed query to `src/lib/social/feed.ts` `getHomeFeed(viewerId, page)` and test that it returns only followed users' projects (not own, not others).
+
+## Done when
+Home feed, landing, profile, follow, Network tabs, invites accept/decline, block, report all work in `npm run dev`; checks pass; committed; report written.
