@@ -39,6 +39,12 @@ describe("toListJson", () => {
     );
   });
 
+  it("ASCII 'I' içeren etiketleri küçük harfli eşleriyle tekilleştirir", () => {
+    expect(parseList(toListJson(["AI", "ai"]))).toEqual(["AI"]);
+    expect(parseList(toListJson(["IoT", "iot"]))).toEqual(["IoT"]);
+    expect(parseList(toListJson(["ROBOTIK", "Robotik", "robotık"]))).toEqual(["ROBOTIK"]);
+  });
+
   it("sembolü farklı etiketleri (C#, C++, C, .NET) birbirinden ayırır", () => {
     expect(parseList(toListJson(["C#", "C++", ".NET", "C"]))).toEqual([
       "C#",

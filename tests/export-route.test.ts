@@ -79,4 +79,129 @@ describe("GET /api/me/export", () => {
     expect(json.notes).toContain("saklanmaz");
     expect(Number.isNaN(Date.parse(json.exportedAt))).toBe(false);
   });
+
+  it("saklanan bütün giriş kayıtlarını 100 ile sınırlamadan aktarır", async () => {
+    const user = await createUser();
+    await db.loginEvent.createMany({
+      data: Array.from({ length: 140 }, (_, index) => ({
+        userId: user.id,
+        ip: "203.0.113.7",
+        userAgent: "test",
+        success: index % 3 !== 0,
+        createdAt: new Date(Date.now() - index * 60_000),
+      })),
+    });
+    session.userId = user.id;
+
+    const json = (await (await GET()).json()) as { loginEvents: unknown[] };
+    expect(json.loginEvents).toHaveLength(140);
+  });
+
+  it("sohbetleri, engellemeleri, şikayetleri, oturumları ve tanıştırmaları sırsız aktarır", async () => {
+    const user = await createUser({ username: "ihracat.sahibi" });
+    const partner = await createUser({ username: "sohbet.ortagi" });
+    const starter = await createUser({ username: "sohbet.baslatan" });
+    const blocked = await createUser({ username: "engellenen.kisi" });
+    const reported = await createUser({ username: "sikayet.edilen" });
+    const suggested = await createUser({ username: "onerilen.kisi" });
+    const stranger = await createUser({ username: "baska.biri" });
+
+    const lastMessageAt = new Date("2026-11-07T10:00:00.000Z");
+    await db.conversation.create({
+      data: {
+        userAId: user.id,
+        userBId: partner.id,
+        initiatorId: user.id,
+        status: "ACTIVE",
+        lastMessageAt,
+        createdAt: new Date("2026-11-01T10:00:00.000Z"),
+      },
+    });
+    await db.conversation.create({
+      data: {
+        userAId: starter.id,
+        userBId: user.id,
+        initiatorId: starter.id,
+        status: "REQUEST",
+        createdAt: new Date("2026-11-02T10:00:00.000Z"),
+      },
+    });
+    // Kullanıcının taraf olmadığı sohbet dökümde yer almamalı.
+    await db.conversation.create({
+      data: { userAId: partner.id, userBId: stranger.id, initiatorId: partner.id },
+    });
+    await db.block.create({ data: { blockerId: user.id, blockedId: blocked.id } });
+    // Kullanıcıyı engelleyen kişi (başkasının işlemi) dökümde yer almamalı.
+    await db.block.create({ data: { blockerId: stranger.id, blockedId: user.id } });
+    await db.report.create({
+      data: {
+        reporterId: user.id,
+        targetType: "USER",
+        targetId: reported.id,
+        reason: "SPAM",
+        details: "Sürekli reklam gönderiyor.",
+      },
+    });
+    await db.session.create({
+      data: {
+        tokenHash: "OTURUM-JETON-OZETI-GIZLI",
+        userId: user.id,
+        userAgent: "Mozilla/5.0 Test",
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+    await db.introduction.create({
+      data: { userId: user.id, suggestedUserId: suggested.id, reason: "Aynı bölüm", dismissed: true },
+    });
+    session.userId = user.id;
+
+    const text = await (await GET()).text();
+    expect(text).not.toContain("OTURUM-JETON-OZETI-GIZLI");
+    expect(text).not.toContain("tokenHash");
+    expect(text).not.toContain(reported.id);
+    expect(text).not.toContain("targetId");
+    expect(text).not.toContain(stranger.username);
+
+    const json = JSON.parse(text) as {
+      notes: string;
+      conversations: unknown[];
+      blocksGiven: unknown[];
+      reportsFiled: unknown[];
+      sessions: unknown[];
+      introductions: unknown[];
+    };
+    expect(json.conversations).toEqual([
+      {
+        partnerUsername: "sohbet.ortagi",
+        status: "ACTIVE",
+        initiatedByMe: true,
+        createdAt: expect.any(String),
+        lastMessageAt: lastMessageAt.toISOString(),
+      },
+      {
+        partnerUsername: "sohbet.baslatan",
+        status: "REQUEST",
+        initiatedByMe: false,
+        createdAt: expect.any(String),
+        lastMessageAt: null,
+      },
+    ]);
+    expect(json.blocksGiven).toEqual([{ blockedUsername: "engellenen.kisi", createdAt: expect.any(String) }]);
+    expect(json.reportsFiled).toEqual([
+      {
+        targetType: "USER",
+        reason: "SPAM",
+        details: "Sürekli reklam gönderiyor.",
+        status: "OPEN",
+        createdAt: expect.any(String),
+      },
+    ]);
+    expect(json.sessions).toEqual([
+      { userAgent: "Mozilla/5.0 Test", createdAt: expect.any(String), expiresAt: expect.any(String) },
+    ]);
+    expect(json.introductions).toEqual([
+      { suggestedUsername: "onerilen.kisi", reason: "Aynı bölüm", dismissed: true, createdAt: expect.any(String) },
+    ]);
+    expect(json.notes).toContain("oturum jetonları");
+  });
 });

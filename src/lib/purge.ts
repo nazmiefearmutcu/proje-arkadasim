@@ -20,11 +20,16 @@ export interface PurgeCounts {
   loginEvents: number;
 }
 
-/** LOGIN_LOG_RETENTION_DAYS ortam değişkeni; geçersizse 365 gün. */
+/**
+ * LOGIN_LOG_RETENTION_DAYS ortam değişkeni; yalnız pozitif bir tam sayı (yalnız rakam) kabul
+ * edilir, aksi halde 365 gün. "30d" ya da "1e3" gibi değerler yasal kayıtları erken silmesin
+ * diye kısmen okunmaz, varsayılana düşer.
+ */
 export function loginRetentionDays(): number {
-  const raw = process.env.LOGIN_LOG_RETENTION_DAYS;
-  const value = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
-  return Number.isInteger(value) && value > 0 ? value : DEFAULT_LOGIN_RETENTION_DAYS;
+  const raw = process.env.LOGIN_LOG_RETENTION_DAYS?.trim() ?? "";
+  if (!/^\d+$/.test(raw)) return DEFAULT_LOGIN_RETENTION_DAYS;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value > 0 ? value : DEFAULT_LOGIN_RETENTION_DAYS;
 }
 
 /** Tüm saklama temizliğini çalıştırır ve silinen/temizlenen satır sayılarını döner. */

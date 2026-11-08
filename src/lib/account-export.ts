@@ -3,14 +3,18 @@ import { parseList, parseObject } from "@/lib/json-fields";
 
 // KVKK m.11 "bilgi talep etme" hakkı: kullanıcının kendi verisinin dökümü (spec §6.2).
 // Belge dosyası hiçbir zaman saklanmadığı için dışa aktarılamaz; doğrulama kaydının içinde
-// yalnız belgeden çıkarılan eğitim alanları ve sonuç yer alır. docHash ve maskedText ASLA yazılmaz.
-
-export const LOGIN_EVENT_EXPORT_LIMIT = 100;
+// yalnız belgeden çıkarılan eğitim alanları ve sonuç yer alır. docHash, maskedText, oturum
+// jetonu/özeti ve başka kullanıcıların kimlikleri (ör. şikayet hedefi) ASLA yazılmaz.
+// Giriş kayıtları sınırsız aktarılır: saklama süresinden (LOGIN_LOG_RETENTION_DAYS) eskiler
+// temizlikte silindiği için tutulan her kayıt bu döküme girer.
 
 export const EXPORT_NOTES =
   "Bu dosya hesabındaki kişisel verilerinin dökümüdür. Yüklediğin belgenin kendisi hiçbir zaman " +
   "saklanmaz; doğrulama kaydında yalnızca belgeden çıkarılan eğitim alanları ve sonuç bulunur. " +
-  "Parola özeti, belge parmak izi ve maskeli belge metni güvenlik nedeniyle dışa aktarılmaz. " +
+  "Saklama süresi içindeki bütün giriş kayıtların, sohbetlerin, engellediğin kişiler, gönderdiğin " +
+  "şikayetler, açık oturumların ve tanıştırma önerilerin de dosyadadır. " +
+  "Parola özeti, oturum jetonları, belge parmak izi ve maskeli belge metni güvenlik nedeniyle " +
+  "dışa aktarılmaz; şikayetlerinde başka kullanıcılara ait kimlikler yer almaz. " +
   "Soruların için ayarlardaki KVKK başvuru adresini kullanabilirsin.";
 
 export interface AccountExport {
@@ -29,6 +33,11 @@ export interface AccountExport {
   following: unknown[];
   messagesSent: unknown[];
   notifications: unknown[];
+  conversations: unknown[];
+  blocksGiven: unknown[];
+  reportsFiled: unknown[];
+  sessions: unknown[];
+  introductions: unknown[];
 }
 
 /** Kullanıcının tüm kişisel verisini (parola özeti ve belge parmak izi hariç) tek nesnede toplar. */
@@ -77,6 +86,11 @@ export async function buildAccountExport(userId: string, now: Date = new Date())
     following,
     messages,
     notifications,
+    conversations,
+    blocksGiven,
+    reportsFiled,
+    sessions,
+    introductions,
   ] = await Promise.all([
     db.consent.findMany({
       where: { userId },
@@ -106,7 +120,6 @@ export async function buildAccountExport(userId: string, now: Date = new Date())
     db.loginEvent.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: LOGIN_EVENT_EXPORT_LIMIT,
       select: { ip: true, userAgent: true, success: true, createdAt: true },
     }),
     db.project.findMany({
@@ -190,6 +203,46 @@ export async function buildAccountExport(userId: string, now: Date = new Date())
       orderBy: { createdAt: "asc" },
       select: { type: true, dataJson: true, readAt: true, createdAt: true },
     }),
+    db.conversation.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      orderBy: { createdAt: "asc" },
+      select: {
+        status: true,
+        initiatorId: true,
+        createdAt: true,
+        lastMessageAt: true,
+        userAId: true,
+        userA: { select: { username: true } },
+        userB: { select: { username: true } },
+      },
+    }),
+    db.block.findMany({
+      where: { blockerId: userId },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true, blocked: { select: { username: true } } },
+    }),
+    db.report.findMany({
+      where: { reporterId: userId },
+      orderBy: { createdAt: "asc" },
+      // targetId bilerek seçilmez: başka bir kullanıcının, projenin ya da mesajın kimliğidir.
+      select: { targetType: true, reason: true, details: true, status: true, createdAt: true },
+    }),
+    db.session.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      // tokenHash bilerek seçilmez: oturum jetonunun özeti bir kimlik doğrulama sırrıdır.
+      select: { userAgent: true, createdAt: true, expiresAt: true },
+    }),
+    db.introduction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        reason: true,
+        dismissed: true,
+        createdAt: true,
+        suggestedUser: { select: { username: true } },
+      },
+    }),
   ]);
 
   return {
@@ -259,6 +312,26 @@ export async function buildAccountExport(userId: string, now: Date = new Date())
       data: parseObject<Record<string, unknown>>(notification.dataJson, {}),
       readAt: notification.readAt,
       createdAt: notification.createdAt,
+    })),
+    conversations: conversations.map((conversation) => ({
+      partnerUsername:
+        conversation.userAId === userId ? conversation.userB.username : conversation.userA.username,
+      status: conversation.status,
+      initiatedByMe: conversation.initiatorId === userId,
+      createdAt: conversation.createdAt,
+      lastMessageAt: conversation.lastMessageAt,
+    })),
+    blocksGiven: blocksGiven.map((block) => ({
+      createdAt: block.createdAt,
+      blockedUsername: block.blocked.username,
+    })),
+    reportsFiled,
+    sessions,
+    introductions: introductions.map((introduction) => ({
+      suggestedUsername: introduction.suggestedUser.username,
+      reason: introduction.reason,
+      dismissed: introduction.dismissed,
+      createdAt: introduction.createdAt,
     })),
   };
 }

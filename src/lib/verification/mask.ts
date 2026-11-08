@@ -38,30 +38,52 @@ const SPACE = "[ \\t]+";
 
 // Etiketler katlanmış (küçük harf, Türkçe harfsiz) biçimde yazılır. Düzenli ifadeler
 // katlanmış metin üzerinde çalışır, dolayısıyla "Doğum" ile "DOGUM" aynı şekilde eşleşir.
+// Aynı noktada başlayan etiketlerden en uzunu kazanır (keptLabelHits); yine de okunurluk için
+// uzun biçimler önce yazılır. İyelik biçimleri ("Adresi", "Telefonu", "Numarası") ve önündeki
+// nitelemeler ("İkamet Adresi", "Cep Telefonu") de etiket sayılır: etiket, değerin başladığı
+// yerde biter.
+const OPT_SPACE = "[ \\t]*";
+
 const VALUE_LABEL_SOURCES = [
+  `\\(?t\\.?${OPT_SPACE}c\\.?\\)?${OPT_SPACE}kimlik${SPACE}(?:numarasi|no)`,
+  `kimlik${SPACE}(?:numarasi|no)`,
+  `belge${SPACE}dogrulama${SPACE}kodu`,
+  `dogrulama${SPACE}kodu`,
+  `dogum${SPACE}yeri${OPT_SPACE}/${OPT_SPACE}tarihi`,
+  `dogum${SPACE}yeri`,
+  `dogum${SPACE}tarihi`,
+  `ogrenci${SPACE}(?:numarasi|no)`,
   `baba${SPACE}adi`,
   `anne${SPACE}adi`,
   `ana${SPACE}adi`,
-  `dogum${SPACE}yeri[ \\t]*/[ \\t]*tarihi`,
-  `dogum${SPACE}yeri`,
-  `dogum${SPACE}tarihi`,
-  `ogrenci${SPACE}numarasi`,
-  `ogrenci${SPACE}no`,
+  `seri${SPACE}(?:numarasi|no)`,
+  `barkod${SPACE}(?:numarasi|no)`,
+  "barkod",
+  `e${OPT_SPACE}-?${OPT_SPACE}posta(?:${SPACE}adresi)?`,
+  `telefon(?:${SPACE}(?:numarasi|no)|u)?`,
+  "adres(?:i)?",
   "uyrugu",
   "uyruk",
-  "adres",
-  "telefon",
-  "e[ \\t]*-?[ \\t]*posta",
-  `seri${SPACE}no`,
-  `barkod${SPACE}no`,
-  "barkod",
-  `belge${SPACE}dogrulama${SPACE}kodu`,
-  `dogrulama${SPACE}kodu`,
-  `kimlik${SPACE}no`,
-  `t\\.?[ \\t]*c\\.?[ \\t]*kimlik${SPACE}no`,
 ];
 
-const NAME_LABEL_SOURCES = [`adi${SPACE}soyadi`, `ad${SPACE}soyad`, "adi", "soyadi"];
+// Ad/soyad etiketleri. "Adı Soyadı" ve "Ad Soyad" (araya "/" ya da "-" girse de) her yerde etikettir.
+const NAME_LABEL_SOURCES = [
+  `adi${OPT_SPACE}[-/]?${OPT_SPACE}soyadi`,
+  `ad${OPT_SPACE}[-/]?${OPT_SPACE}soyad`,
+];
+
+// Satır başına bağlı etiketler: yalnız satırın ilk sözcüğü olup ardından ":" geldiğinde etikettir.
+// Böylece "Program Adı : X", "Üniversite Adı : X" ya da "Adı geçen öğrenci" maskelenmez;
+// kayıtlı ad başka yerlerde kural 4 ile yine maskelenir. Katlanmış metin satır sonlarını korur
+// (foldKeepingLength karakter karakter çalışır), "m" bayrağıyla "^" her satır başında eşleşir.
+const LINE_START = `(?<=^${OPT_SPACE})`;
+const BEFORE_COLON = `(?=${OPT_SPACE}:)`;
+const LINE_VALUE_LABEL_SOURCES = [`${LINE_START}kimlik${BEFORE_COLON}`];
+const LINE_NAME_LABEL_SOURCES = [
+  `${LINE_START}(?:soyadi|adi)${BEFORE_COLON}`,
+  // "Soyadı :" satır ortasında da (ör. "Anne Kızlık Soyadı :") yalnız bir ad etiketidir.
+  `soyadi${BEFORE_COLON}`,
+];
 
 type LabelKind = "ETIKET" | "AD_SOYAD";
 
@@ -71,26 +93,37 @@ interface LabelPattern {
 }
 
 function buildLabelPatterns(): LabelPattern[] {
-  const compile = (sources: string[], kind: LabelKind): LabelPattern[] =>
+  const compile = (sources: string[], kind: LabelKind, flags: string): LabelPattern[] =>
     sources.map((source) => ({
       kind,
-      regex: new RegExp(`(?<![a-z])(?:${source})(?![a-z])`, "g"),
+      regex: new RegExp(`(?<![a-z])(?:${source})(?![a-z])`, flags),
     }));
-  return [...compile(VALUE_LABEL_SOURCES, "ETIKET"), ...compile(NAME_LABEL_SOURCES, "AD_SOYAD")];
+  return [
+    ...compile(VALUE_LABEL_SOURCES, "ETIKET", "g"),
+    ...compile(LINE_VALUE_LABEL_SOURCES, "ETIKET", "gm"),
+    ...compile(NAME_LABEL_SOURCES, "AD_SOYAD", "g"),
+    ...compile(LINE_NAME_LABEL_SOURCES, "AD_SOYAD", "gm"),
+  ];
 }
 
 const LABEL_PATTERNS = buildLabelPatterns();
 
-// Kural 1: 11 haneli sayılar (boşluk, nokta ya da tire ile bölünmüş varyantlar dahil).
-const TCKN_RE = /(?<!\d)\d(?:[ .-]?\d){10}(?!\d)/g;
+// Kural 1: 11 haneli sayılar. Haneler arasında en fazla 3 karakterlik boşluk/sekme/nokta/tire
+// olabilir (OCR'daki çift boşluk ya da " - " gibi). Tarih aralıkları (gg.aa.yyyy - gg.aa.yyyy)
+// 11 haneli bir öbek oluşturmaz, korunur.
+const TCKN_RE = /(?<!\d)\d(?:[ \t.\-]{0,3}\d){10}(?!\d)/g;
 // Kural 5: IBAN (TR + 24 hane, boşluklu olabilir), e-posta, Türkiye telefonu.
 const IBAN_RE = /(?<![\p{L}\d])TR(?:[ ]?\d){24}(?!\d)/giu;
 const EMAIL_RE = /[\p{L}\p{N}._%+\-\uE000\uE001\uE100-\uE109]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
 const PHONE_RE = /(?:\+[ ]?90|(?<!\d)0)(?:[ ()-]*\d){10}/g;
 // Kural 6: kalan 6 ve üzeri haneli sayılar. Yıllar (4 hane) ve gg.aa.yyyy tarihleri korunur.
 const LONG_NUMBER_RE = /\d{6,}/g;
-// Kural 4: ad ve soyad sözcükleri.
-const WORD_RE = /\p{L}+/gu;
+// Kural 4: ad ve soyad sözcükleri. matchName ile aynı belirteç ayrımı: harf ve rakamlar birlikte
+// ("K1LIÇ" tek belirteçtir). Kod karakterleri (PUA) harf ya da rakam değildir, sınıfa girmez.
+const WORD_RE = /[\p{L}\p{N}]+/gu;
+const DIGITS_ONLY = /^\p{N}+$/u;
+const HAS_DIGIT = /\p{N}/u;
+const LETTER_RUN_RE = /\p{L}+/gu;
 
 interface Hit {
   start: number;
@@ -174,7 +207,7 @@ function labelReplacements(work: string): Replacement[] {
     if (valueEnd === -1) valueEnd = folded.length;
     const next = kept[index + 1];
     if (next && next.start >= valueStart && next.start < valueEnd) valueEnd = next.start;
-    while (valueEnd > valueStart && /[ \t]/.test(work[valueEnd - 1])) valueEnd--;
+    while (valueEnd > valueStart && /[ \t\r]/.test(work[valueEnd - 1])) valueEnd--;
     if (valueEnd <= valueStart) return;
 
     // Değer zaten bir maske kodu ise (ör. TCKN) etiket korunur, değer olduğu gibi kalır.
@@ -235,10 +268,12 @@ export function maskDocumentText(
   const masks: string[] = [];
 
   // Kod karakterlerinin girdide yer almasını engelle, metni NFC biçimine getir (PDF'lerde
-  // "Ğ" gibi harfler birleşik biçimde gelebilir).
+  // "Ğ" gibi harfler birleşik biçimde gelebilir). Bölünmez boşluklar düz boşluğa çevrilir;
+  // aksi halde PDF metnindeki "Doğum<NBSP>Tarihi" gibi etiketler tanınmazdı.
   let work = text
     .normalize("NFC")
-    .replace(/[\uE000\uE001\uE100-\uE109]/g, " ");
+    .replace(/[\uE000\uE001\uE100-\uE109]/g, " ")
+    .replace(/[\u00a0\u2007\u202f]/g, " ");
 
   // Kural 1: TCKN (sağlama algoritmasından bağımsız, bütün 11 haneli sayılar).
   work = work.replace(TCKN_RE, () => {
@@ -249,12 +284,13 @@ export function maskDocumentText(
   // Kural 2 ve 3: etiketli değerler (ad/soyad etiketleri dahil).
   work = applyReplacements(work, labelReplacements(work), masks, counts);
 
-  // Kural 4: ad ve soyad parçaları (OCR gürültüsü için ≥ 4 harfte Levenshtein ≤ 1).
+  // Kural 4: ad ve soyad parçaları (OCR gürültüsü için ≥ 4 karakterde Levenshtein ≤ 1).
+  // Yalnız rakamdan oluşan belirteçler (yıllar, numaralar) atlanır.
   const firstTokens = foldTr(person.firstName).split(" ").filter((token) => token.length > 0);
   const lastTokens = foldTr(person.lastName).split(" ").filter((token) => token.length > 0);
-  work = work.replace(WORD_RE, (word) => {
+  const maskNameWord = (word: string): string | null => {
     const token = foldTr(word);
-    if (token.length === 0) return word;
+    if (token.length === 0) return null;
     if (matchesNameToken(token, firstTokens)) {
       counts.AD += 1;
       return protect(masks, "[AD]");
@@ -263,7 +299,15 @@ export function maskDocumentText(
       counts.SOYAD += 1;
       return protect(masks, "[SOYAD]");
     }
-    return word;
+    return null;
+  };
+  work = work.replace(WORD_RE, (word) => {
+    if (DIGITS_ONLY.test(word)) return word;
+    const whole = maskNameWord(word);
+    if (whole !== null) return whole;
+    // Rakamla bitişmiş bir ad ("KILIÇ2023") bütün olarak eşleşmez; harf öbekleri ayrıca denenir.
+    if (!HAS_DIGIT.test(word)) return word;
+    return word.replace(LETTER_RUN_RE, (letters) => maskNameWord(letters) ?? letters);
   });
 
   // Kural 5: IBAN, e-posta, telefon. IBAN önce: içindeki "0" telefon kuralına takılmasın.

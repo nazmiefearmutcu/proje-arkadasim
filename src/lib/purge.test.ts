@@ -99,4 +99,37 @@ describe("saklama süresi temizliği", () => {
     process.env.LOGIN_LOG_RETENTION_DAYS = "-5";
     expect(loginRetentionDays()).toBe(365);
   });
+
+  it("yalnız rakamdan oluşan pozitif değerleri kabul eder; kısmen sayısal değerler varsayılana düşer", () => {
+    const cases: Array<[string, number]> = [
+      ["30", 30],
+      [" 30 ", 30],
+      ["30d", 365],
+      ["1e3", 365],
+      ["", 365],
+      ["   ", 365],
+      ["0", 365],
+      ["-5", 365],
+      ["+30", 365],
+      ["30.5", 365],
+      ["0x1E", 365],
+    ];
+    for (const [raw, expected] of cases) {
+      process.env.LOGIN_LOG_RETENTION_DAYS = raw;
+      expect(loginRetentionDays(), JSON.stringify(raw)).toBe(expected);
+    }
+  });
+
+  it("'1e3' değeri bir günden eski giriş kayıtlarını silmez", async () => {
+    const user = await createUser();
+    await db.loginEvent.create({
+      data: { userId: user.id, ip: "local", userAgent: "test", success: true, createdAt: new Date(NOW.getTime() - 2 * DAY) },
+    });
+    process.env.LOGIN_LOG_RETENTION_DAYS = "1e3";
+
+    const counts = await runPurge(NOW);
+
+    expect(counts.loginEvents).toBe(0);
+    expect(await db.loginEvent.count()).toBe(1);
+  });
 });

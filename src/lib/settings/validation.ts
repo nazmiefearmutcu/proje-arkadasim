@@ -65,13 +65,26 @@ function readYear(formData: FormData, key: string): number | null {
 /**
  * Profil formunu doğrular. Doğrulanmamış kullanıcı için eğitim alanları hiç okunmaz; böylece
  * formda gelen değerler kayda geçmez. Üniversite, ad ve soyad bu şemanın kapsamında değildir.
+ *
+ * Sınıf ve mezuniyet yılı isteğe bağlıdır (null olabilir): belge ya da yönetici bu alanları boş
+ * bırakmış olabilir ve bu durum biyografi gibi alanların kaydını engellememelidir. Yeni seçimler
+ * 1..CLASS_YEAR_MAX ile sınırlıdır; kayıtlı değer (`stored`) aralık dışında olsa bile
+ * değiştirilmeden geri gönderildiğinde kabul edilir.
  */
 export function parseProfileForm(
   formData: FormData,
-  options: { verified: boolean; academicStatus: string | null; now?: Date },
+  options: {
+    verified: boolean;
+    academicStatus: string | null;
+    stored?: { classYear: number | null; graduationYear: number | null };
+    now?: Date;
+  },
 ): ProfileParseResult {
   const currentYear = (options.now ?? new Date()).getFullYear();
   const graduates = options.academicStatus === "GRADUATE";
+  const storedClassYear = options.stored?.classYear ?? null;
+  const storedGraduationYear = options.stored?.graduationYear ?? null;
+  const graduationYearMax = currentYear + 1;
 
   const base = z.object({
     bio: z.string().trim().max(BIO_MAX, { message: `Biyografi en fazla ${BIO_MAX} karakter olabilir.` }),
@@ -100,25 +113,26 @@ export function parseProfileForm(
         .trim()
         .refine((value) => value === "" || DEGREE_SET.has(value), { message: "Listeden bir öğrenim düzeyi seç." }),
       classYear: z
-        .number({ message: "Sınıfını seç." })
-        .int({ message: "Sınıfını seç." })
-        .min(1, { message: "Sınıfını seç." })
-        .max(CLASS_YEAR_MAX, { message: "Sınıfını seç." })
-        .nullable(),
+        .number({ message: "Listeden bir sınıf seç." })
+        .int({ message: "Listeden bir sınıf seç." })
+        .nullable()
+        .refine(
+          (value) =>
+            value === null || value === storedClassYear || (value >= 1 && value <= CLASS_YEAR_MAX),
+          { message: "Listeden bir sınıf seç." },
+        ),
       graduationYear: z
         .number({ message: "Mezuniyet yılını rakamla yaz (ör. 2023)." })
         .int({ message: "Mezuniyet yılını rakamla yaz (ör. 2023)." })
-        .min(GRADUATION_YEAR_MIN, { message: `Mezuniyet yılı ${GRADUATION_YEAR_MIN} sonrası olmalı.` })
-        .max(currentYear + 1, { message: "Mezuniyet yılı gelecekte olamaz." })
-        .nullable(),
-    })
-    .superRefine((value, ctx) => {
-      if (graduates && value.graduationYear === null) {
-        ctx.addIssue({ code: "custom", path: ["graduationYear"], message: "Mezuniyet yılını yaz (ör. 2023)." });
-      }
-      if (!graduates && value.classYear === null) {
-        ctx.addIssue({ code: "custom", path: ["classYear"], message: "Sınıfını seç." });
-      }
+        .nullable()
+        .superRefine((value, ctx) => {
+          if (value === null || value === storedGraduationYear) return;
+          if (value < GRADUATION_YEAR_MIN) {
+            ctx.addIssue({ code: "custom", message: `Mezuniyet yılı ${GRADUATION_YEAR_MIN} sonrası olmalı.` });
+          } else if (value > graduationYearMax) {
+            ctx.addIssue({ code: "custom", message: "Mezuniyet yılı gelecekte olamaz." });
+          }
+        }),
     });
 
   const rawBase = {

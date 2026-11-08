@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -102,6 +102,19 @@ describe("profil resmi depolama", () => {
     await expect(deleteAvatarFile("..\\secret.png")).rejects.toBeInstanceOf(AvatarError);
     expect(isAvatarFileName("../clu8w1x2y0000abcd1234efgh-1a2b3c4d.jpg")).toBe(false);
     expect(await readAvatarFile("../secret.png")).toBeNull();
+  });
+
+  it("EXIF (konum) meta verisini diske yazmadan önce atar", async () => {
+    const exif = new TextEncoder().encode("Exif\0\0GPS-41.0082N-28.9784E");
+    const app1 = [0xff, 0xe1, 0x00, exif.length + 2, ...exif];
+    const scan = [0xff, 0xda, 0x00, 0x08, 1, 1, 0, 0, 63, 0, 0x12, 0x34, 0xff, 0xd9];
+    const photo = Uint8Array.from([0xff, 0xd8, ...app1, ...scan]);
+
+    const name = await saveAvatar(USER_ID, photo);
+    const stored = readFileSync(path.join(TEST_DIR, name));
+    expect(stored.toString("latin1")).not.toContain("GPS-41.0082N");
+    expect(stored.toString("latin1")).not.toContain("Exif");
+    expect([...stored]).toEqual([0xff, 0xd8, ...scan]);
   });
 
   it("var olmayan dosyanın silinmesi hata vermez", async () => {

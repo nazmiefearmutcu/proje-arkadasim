@@ -5,6 +5,7 @@ import { useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { dedupeKey } from "@/lib/json-fields";
 import { ITEM_MAX } from "@/lib/settings/limits";
 
 export interface ChipInputProps {
@@ -28,8 +29,9 @@ export function ChipInput({ id, name, label, hint, placeholder, initial, max, er
   function add() {
     const value = draft.trim().slice(0, ITEM_MAX);
     if (value.length === 0) return;
-    const key = value.toLocaleLowerCase("tr-TR");
-    if (items.some((item) => item.toLocaleLowerCase("tr-TR") === key)) {
+    // Sunucudaki tekilleştirmeyle (toListJson) aynı anahtar: "AI" ile "ai" aynı etikettir.
+    const key = dedupeKey(value);
+    if (items.some((item) => dedupeKey(item) === key)) {
       setDraft("");
       return;
     }
@@ -62,7 +64,7 @@ export function ChipInput({ id, name, label, hint, placeholder, initial, max, er
         />
       </Field>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={add}>
+        <Button variant="secondary" onClick={add}>
           Ekle
         </Button>
       </div>
@@ -71,7 +73,7 @@ export function ChipInput({ id, name, label, hint, placeholder, initial, max, er
           {items.map((item, index) => (
             <li
               key={`${item}-${index}`}
-              className="inline-flex min-h-9 items-center gap-1 rounded-chip bg-pen-soft pr-1 pl-3 t-label text-pen"
+              className="inline-flex min-h-11 items-center gap-0.5 rounded-chip bg-pen-soft pl-3 t-label text-pen"
             >
               <span>{item}</span>
               <button
@@ -81,7 +83,7 @@ export function ChipInput({ id, name, label, hint, placeholder, initial, max, er
                   setItems(items.filter((_, position) => position !== index));
                   setLocalError(null);
                 }}
-                className="inline-flex size-9 items-center justify-center rounded-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen"
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen"
               >
                 <X aria-hidden="true" strokeWidth={1.75} className="size-4" />
               </button>

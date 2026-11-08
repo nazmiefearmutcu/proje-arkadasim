@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { stripImageMetadata } from "@/lib/image-metadata";
 import { sniffFileType } from "@/lib/verification/sniff";
 
 // Profil resmi depolama (spec §4.10: en fazla 2 MB, JPEG/PNG/WebP). Dosya adı
@@ -69,9 +70,13 @@ export async function saveAvatar(userId: string, bytes: Uint8Array): Promise<str
     throw new AvatarError("Yalnızca JPEG, PNG veya WebP yükleyebilirsin.");
   }
 
+  // Resim misafirlere de sunulur: EXIF konum/cihaz bilgisi, XMP ve benzeri meta veri yazılmadan
+  // önce atılır (yalnız görüntü yönü korunur).
+  const clean = stripImageMetadata(bytes, type);
+
   const fileName = `${userId}-${randomBytes(4).toString("hex")}.${EXTENSION[type]}`;
   await mkdir(AVATAR_DIR, { recursive: true });
-  await writeFile(path.join(AVATAR_DIR, fileName), bytes, { flag: "wx" });
+  await writeFile(path.join(AVATAR_DIR, fileName), clean, { flag: "wx" });
   await removeUserAvatars(userId, fileName);
   return fileName;
 }

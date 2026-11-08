@@ -21,7 +21,7 @@ export function DeleteAccountForm({ username }: { username: string }) {
       <Field
         id="usernameConfirm"
         label="Kullanıcı adını yaz"
-        hint={`Onaylamak için @${username} yaz.`}
+        hint={`Onaylamak için ${username} yaz.`}
         error={errors.usernameConfirm}
       >
         <Input

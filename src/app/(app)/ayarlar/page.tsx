@@ -114,6 +114,8 @@ export default async function Page() {
             <ul className="flex flex-col">
               <LegalLink href="/kvkk/aydinlatma" label="Aydınlatma metni" />
               <LegalLink href="/kvkk/acik-riza" label="Açık rıza metni" />
+              <LegalLink href="/gizlilik" label="Gizlilik politikası" />
+              <LegalLink href="/kullanim-kosullari" label="Kullanım koşulları" />
               <LegalLink href="/cerezler" label="Çerez politikası" />
               <LegalLink href={`mailto:${LEGAL.email}`} label="KVKK başvurusu" />
             </ul>

@@ -93,11 +93,11 @@ export function AvatarField({ displayName, seed, avatarPath: initialPath, discip
               if (file) void upload(file);
             }}
           />
-          <Button variant="secondary" size="sm" loading={busy} onClick={() => inputRef.current?.click()}>
+          <Button variant="secondary" loading={busy} onClick={() => inputRef.current?.click()}>
             Fotoğraf yükle
           </Button>
           {path ? (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void remove()}>
+            <Button variant="ghost" disabled={busy} onClick={() => void remove()}>
               Kaldır
             </Button>
           ) : null}

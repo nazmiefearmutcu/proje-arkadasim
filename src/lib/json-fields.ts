@@ -3,10 +3,12 @@ const MAX_ITEM_LENGTH = 40;
 /**
  * Tekilleştirme anahtarı: sembolleri (C# / C++ / .NET) korur, yalnız büyük/küçük harf
  * ve boşluk farkını siler. foldTr burada kullanılmaz; sembolleri atıp farklı etiketleri
- * birbirine karıştırır.
+ * birbirine karıştırır. Türkçe küçük harf çevirisi ASCII "I" harfini "ı" yapar; bu yüzden
+ * "ı" ayrıca "i" sayılır, böylece "AI" ile "ai", "ROBOTIK" ile "Robotik" aynı anahtarı alır.
+ * İstemcideki etiket girişi de aynı anahtarı kullanır.
  */
-function dedupeKey(item: string): string {
-  return item.normalize("NFC").replace(/\s+/g, " ").toLocaleLowerCase("tr-TR");
+export function dedupeKey(item: string): string {
+  return item.normalize("NFC").replace(/\s+/g, " ").toLocaleLowerCase("tr-TR").replace(/ı/g, "i");
 }
 
 /** JSON metninden metin listesi okur. Hata vermez; dizi değilse boş liste döner. */
