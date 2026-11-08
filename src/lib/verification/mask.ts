@@ -122,6 +122,8 @@ const LONG_NUMBER_RE = /\d{6,}/g;
 // ("K1LIÇ" tek belirteçtir). Kod karakterleri (PUA) harf ya da rakam değildir, sınıfa girmez.
 const WORD_RE = /[\p{L}\p{N}]+/gu;
 const DIGITS_ONLY = /^\p{N}+$/u;
+const HAS_DIGIT = /\p{N}/u;
+const LETTER_RUN_RE = /\p{L}+/gu;
 
 interface Hit {
   start: number;
@@ -266,10 +268,12 @@ export function maskDocumentText(
   const masks: string[] = [];
 
   // Kod karakterlerinin girdide yer almasını engelle, metni NFC biçimine getir (PDF'lerde
-  // "Ğ" gibi harfler birleşik biçimde gelebilir).
+  // "Ğ" gibi harfler birleşik biçimde gelebilir). Bölünmez boşluklar düz boşluğa çevrilir;
+  // aksi halde PDF metnindeki "Doğum<NBSP>Tarihi" gibi etiketler tanınmazdı.
   let work = text
     .normalize("NFC")
-    .replace(/[\uE000\uE001\uE100-\uE109]/g, " ");
+    .replace(/[\uE000\uE001\uE100-\uE109]/g, " ")
+    .replace(/[\u00a0\u2007\u202f]/g, " ");
 
   // Kural 1: TCKN (sağlama algoritmasından bağımsız, bütün 11 haneli sayılar).
   work = work.replace(TCKN_RE, () => {
@@ -284,10 +288,9 @@ export function maskDocumentText(
   // Yalnız rakamdan oluşan belirteçler (yıllar, numaralar) atlanır.
   const firstTokens = foldTr(person.firstName).split(" ").filter((token) => token.length > 0);
   const lastTokens = foldTr(person.lastName).split(" ").filter((token) => token.length > 0);
-  work = work.replace(WORD_RE, (word) => {
-    if (DIGITS_ONLY.test(word)) return word;
+  const maskNameWord = (word: string): string | null => {
     const token = foldTr(word);
-    if (token.length === 0) return word;
+    if (token.length === 0) return null;
     if (matchesNameToken(token, firstTokens)) {
       counts.AD += 1;
       return protect(masks, "[AD]");
@@ -296,7 +299,15 @@ export function maskDocumentText(
       counts.SOYAD += 1;
       return protect(masks, "[SOYAD]");
     }
-    return word;
+    return null;
+  };
+  work = work.replace(WORD_RE, (word) => {
+    if (DIGITS_ONLY.test(word)) return word;
+    const whole = maskNameWord(word);
+    if (whole !== null) return whole;
+    // Rakamla bitişmiş bir ad ("KILIÇ2023") bütün olarak eşleşmez; harf öbekleri ayrıca denenir.
+    if (!HAS_DIGIT.test(word)) return word;
+    return word.replace(LETTER_RUN_RE, (letters) => maskNameWord(letters) ?? letters);
   });
 
   // Kural 5: IBAN, e-posta, telefon. IBAN önce: içindeki "0" telefon kuralına takılmasın.

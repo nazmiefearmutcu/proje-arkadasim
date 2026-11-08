@@ -312,6 +312,20 @@ describe("maskDocumentText — rakam içeren OCR ad belirteçleri", () => {
     const { masked } = maskDocumentText("Öğrenci MEHMET ÖZT0RK 2023 - 2024", { firstName: "Mehmet", lastName: "Öztürk" });
     expect(masked).toBe("Öğrenci [AD] [SOYAD] 2023 - 2024");
   });
+
+  it("rakamla bitişmiş adı ('KILIÇ2023') harf öbeği olarak yine maskeler", () => {
+    const { masked } = maskDocumentText("AYŞE KILIÇ2023 kaydı", { firstName: "Ayşe", lastName: "Kılıç" });
+    expect(masked).toBe("[AD] [SOYAD]2023 kaydı");
+  });
+});
+
+describe("maskDocumentText — bölünmez boşluk", () => {
+  it("bölünmez boşluklu etiketleri ve TCKN'yi tanır", () => {
+    const nbsp = String.fromCharCode(0xa0);
+    const text = `Doğum${nbsp}Tarihi${nbsp}:${nbsp}01.02.2003\nNo 1000${nbsp}0000${nbsp}146`;
+    const { masked } = maskDocumentText(text, PERSON);
+    expect(masked).toBe("Doğum Tarihi : [GİZLİ]\nNo [TCKN]");
+  });
 });
 
 describe("maskDocumentText — TCKN ayırıcı varyantları", () => {
