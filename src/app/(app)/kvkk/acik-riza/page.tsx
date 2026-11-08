@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AI_PROVIDER, LEGAL_VERSION } from "@/config/legal";
+import { AI_CONSENT_STATEMENT, AI_PROVIDER, LEGAL_VERSION } from "@/config/legal";
 import { LegalDocument, LegalList, LegalSection } from "@/components/legal/legal-document";
 
 export const metadata = { title: "Açık rıza metni" };
@@ -66,9 +66,9 @@ export default function Page() {
 
       <LegalSection title="Rıza beyanı">
         <p>
-          Kayıt formundaki onay kutusu şu metni içerir: “Maskelenmiş belge metnimin yapay zeka incelemesi için yurt
-          dışına (DeepSeek, Çin Halk Cumhuriyeti) aktarılmasına açık rıza veriyorum.”
+          Kayıt formundaki, doğrulama sayfasındaki ve ayarlar sayfasındaki onay kutusu aynı metni içerir:
         </p>
+        <blockquote className="border-l-2 border-line pl-4 text-ink">“{AI_CONSENT_STATEMENT}”</blockquote>
         <p>
           Aydınlatma metninin tamamı için{" "}
           <Link href="/kvkk/aydinlatma" className="text-pen underline">
