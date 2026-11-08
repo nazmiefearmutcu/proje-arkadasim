@@ -68,3 +68,31 @@ No files outside `prisma/seed.ts`, `README.md` and `.env.example` were touched.
 - **PostgreSQL migrations:** the README says to create a new initial migration after switching providers, because the existing migrations are SQLite SQL. This was not tested against PostgreSQL.
 - **Seed wipes everything:** the only protection is the production guard. The README warns about it in the commands table.
 - **Deferred from ledger (final review):** the `AdminAuditLog.adminId` SetNull parking note and the "dev mail log prints recipient email" note are unchanged by this task.
+
+## Fix round 1
+
+- BASE (this round): `392ddabfa8df2e51f37b115b810cbf92e14c7470`
+- Code commit: `39202544f984ce392a28107b98ae2c3e87fc57a2` (fix: second seed interest for selin.koc and irem.gunes)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made, given in the final reply)
+
+### What changed
+- Finding (Important, `prisma/seed.ts`): `selin.koc` had one interest and `irem.gunes` had one interest, below the brief's 2-4 rule.
+  - `selin.koc` now has `sürdürülebilirlik` and `sosyal girişimcilik`.
+  - `irem.gunes` now has `sağlık teknolojileri` and `yapay zeka`.
+  - Re-checked: all 16 seeded users have 2 interests (quote-count check on every `interests:` line).
+- No finding was disputed.
+- Spec gaps: none were listed for this round. None were found in the re-checks below.
+- No other files were touched.
+
+### Integration checks from the orchestrator notes
+- Chat overflow (task 9): still wired. `src/components/messaging/chat.tsx` imports `BlockButton` and `ReportSheet`, and renders "Şikayet et". No change needed.
+- `/ara` people results (task 10): still render `FollowButton` in `src/app/(app)/ara/page.tsx`. No change needed.
+
+### Test results (run alone, one at a time)
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0. It ran in parallel with other jobs, and the code it checks has not changed since.
+- `npx vitest run`: 51 files, 477 tests passed, exit 0.
+- `npm run build`: exit 0. The only warning is the pre-existing `unpdf` `import.meta` notice.
+
+### Process note
+- The first attempt ran tsc, lint, vitest and build in parallel. The vitest and build jobs produced no output for about 50 minutes, so I stopped them. The tsc run that overlapped the build produced TS6053 errors for missing `.next/types` files. That is a race with the build, not a code error. The sequential re-run above is clean.
