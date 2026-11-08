@@ -41,31 +41,43 @@ npm install
 # 2. Ortam dosyasını oluştur
 cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
 
-# 3. Gizli anahtarları üret ve .env içindeki boş değerlere yapıştır
+# 3. Gizli biberi üret ve .env içindeki DOC_HASH_PEPPER değerine yapıştır
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Bu komutu iki kez çalıştırın: biri SESSION_SECRET, diğeri DOC_HASH_PEPPER için.
 
-# 4. Veritabanını oluştur (prisma/dev.db)
+# 4. Veritabanını oluştur (prisma/dev.db). Veritabanı yeni oluşturulduğu için Prisma tohumu
+#    (demo verisi) kendiliğinden çalıştırır.
 npx prisma migrate dev
 
-# 5. Örnek veriyi yükle (mevcut tüm verileri siler)
-npm run seed
-
-# 6. Geliştirme sunucusunu başlat
+# 5. Geliştirme sunucusunu başlat
 npm run dev
 ```
 
 Tarayıcıda `http://localhost:3000` adresini açın. Telefon görünümünü denemek için tarayıcı geliştirici
 araçlarında 375 px genişlik seçin.
 
+Veritabanı önceden varsa tohum kendiliğinden çalışmaz: boş veritabanına `npm run seed` ile yükleyin. Demo
+verisini sonradan silip yeniden yüklemek için `npm run seed -- --wipe` çalıştırın. Tohum yalnız geliştirme
+içindir ve **tüm tabloları siler**; veritabanında kullanıcı varsa `--wipe` olmadan çalışmaz.
+
 Belge doğrulaması geliştirmede `VERIFIER_PROVIDER="mock"` ile çalışır; gerçek bir yapay zeka
 incelemesi için bkz. [Belge doğrulama nasıl çalışır](#belge-doğrulama-nasıl-çalışır).
 
+`SMTP_URL` boşken e-postalar gönderilmez, konsola yazılır. Gövdedeki jetonlar gizlenir; şifre sıfırlama
+bağlantısı ise yerelde `/sifremi-unuttum` sayfasından `/sifre-sifirla/...` sayfasına kadar akış denenebilsin
+diye ayrı bir `Geliştirme bağlantısı:` satırında tam yazılır. Üretimde ya da SMTP ile gönderimde bağlantı
+hiçbir yere yazılmaz.
+
+Fotoğraf yüklemelerinin OCR'ı için tesseract dil verisi (`tur` ve `eng`) ilk fotoğrafta
+`cdn.jsdelivr.net` adresinden bir kez indirilir ve `storage/tessdata` klasörüne (ya da
+`TESSDATA_LANG_PATH`) yazılır. Dışarıya HTTP erişimi olmayan bir makinede `tur.traineddata` ve
+`eng.traineddata` dosyalarını bu klasöre önceden koyun; aksi hâlde fotoğraf yüklemeleri okunamaz.
+
 ## Demo hesaplar
 
-`npm run seed` aşağıdaki hesapları oluşturur. Tüm parolalar yalnız yerel geliştirme içindir ve
-`.env.example` dosyasındadır: yönetici için `SEED_ADMIN_PASSWORD`, diğer hesaplar için `SEED_USER_PASSWORD`.
-Parolalar bu README'de ya da tohum çıktısında yazılmaz.
+Tohum (yeni veritabanında `npx prisma migrate dev`, `npm run db:reset` ya da `npm run seed -- --wipe`)
+aşağıdaki hesapları oluşturur. Tüm parolalar yalnız yerel geliştirme içindir ve `.env.example` dosyasındadır:
+yönetici için `SEED_ADMIN_PASSWORD`, diğer hesaplar için `SEED_USER_PASSWORD`. Parolalar bu README'de ya da
+tohum çıktısında yazılmaz. Bu parolalar herkese açık olduğu için tohum üretimde kullanılmaz.
 
 | Hesap | E-posta | Durum | Not |
 |---|---|---|---|
@@ -80,39 +92,44 @@ Tohum ayrıca 12 proje, bekleyen katılma başvuruları ve davetler, bir aktif s
 ## Ortam değişkenleri
 
 Tüm değişkenler `.env` dosyasında tanımlanır. `.env` git'e eklenmez; yalnız `.env.example` paylaşılır.
+`.env.example` aşağıdaki değişkenlerin hepsini listeler; isteğe bağlı olanlar (`DEEPSEEK_THINKING`, `AVATAR_DIR`,
+`TESSDATA_LANG_PATH`, `SEED_ALLOW_PRODUCTION`) yorum satırı olarak durur. `NODE_ENV` orada yoktur: `next build`
+ve `next start` onu `production` yapar; `npm run seed` gibi betiklerde ise kabukta ayrıca tanımlanmadıkça boştur.
 
 | Değişken | Zorunlu | Açıklama |
 |---|---|---|
 | `DATABASE_URL` | Evet | Veritabanı adresi. Varsayılan `file:./dev.db` (SQLite, `prisma/` klasörüne göre). |
-| `SESSION_SECRET` | Hayır (kullanılmıyor) | `.env.example` içinde yer alır, ancak bu sürümde kod tarafından okunmaz. Oturum jetonları rastgele üretilir ve veritabanında özetlenir. |
 | `DOC_HASH_PEPPER` | Evet | Belge özetlerinin (HMAC-SHA256) gizli biberi. Tanımlı değilse belge yükleme `ERROR` döner. Değişirse eski özetler eşleşmez. |
 | `VERIFIER_PROVIDER` | Evet | Belge inceleyicisi: `mock` (yalnız geliştirme) ya da `deepseek`. Tanınmayan değerde otomatik onay verilmez. |
 | `DEEPSEEK_API_KEY` | Gerçek AI için | DeepSeek API anahtarı. Boşsa AI incelemesi çağrılmaz; belgeler manuel incelemeye düşer. |
 | `DEEPSEEK_MODEL` | Hayır | Model adı. Varsayılan `deepseek-flash`. |
 | `DEEPSEEK_BASE_URL` | Hayır | OpenAI uyumlu uç nokta. Varsayılan `https://api.deepseek.com`. |
 | `DEEPSEEK_THINKING` | Hayır | `enabled` ya da `disabled` değerleriyle DeepSeek'in düşünme modunu açıp kapatır. Boşsa istekte gönderilmez. |
-| `APP_URL` | Hayır | Uygulamanın dışarıdan erişilen adresi. E-posta bağlantılarında kullanılır. Varsayılan `http://localhost:3000`. |
-| `SMTP_URL` | Hayır | Örnek: `smtp://kullanici:parola@sunucu:587`. Boşsa şifre sıfırlama e-postaları yalnız konsola yazılır. |
+| `APP_URL` | Üretimde evet | Uygulamanın dışarıdan erişilen adresi (ör. `https://proje-arkadasim.com.tr`). Şifre sıfırlama bağlantıları yalnız bu değerden kurulur; istek başlıklarından türetilmez. Üretimde boşsa sıfırlama bağlantısı gönderilmez ve sunucu günlüğüne `APP_URL tanımlı değil` yazılır. Geliştirmede varsayılan `http://localhost:3000`. |
+| `SMTP_URL` | Üretimde evet | Örnek: `smtp://kullanici:parola@sunucu:587`. Üretimde boşsa e-posta gönderilemez. Geliştirmede boşsa e-postalar konsola yazılır (gövde gizli, sıfırlama bağlantısı ayrı satırda tam). |
 | `MAIL_FROM` | Hayır | Giden e-postalarda görünen gönderen adresi. |
 | `LOGIN_LOG_RETENTION_DAYS` | Hayır | Giriş kayıtlarının (IP, zaman, tarayıcı) saklanma süresi, gün. Varsayılan 365. |
 | `TRUST_PROXY` | Hayır | Ters vekil (reverse proxy) arkasındaysa `true` yapın; yalnız o zaman `x-forwarded-for` okunur. Varsayılan `false`. |
-| `ADMIN_EMAILS` | Hayır (kullanılmıyor) | Kod bu değişkeni okumaz. Yönetici yetkisi yalnız `role = ADMIN` ile verilir. |
-| `AVATAR_DIR` | Hayır | Profil resimlerinin klasörü. Varsayılan `storage/avatars`. |
-| `NODE_ENV` | Hayır | `production` ortamında `mock` sağlayıcı ve varsayılan tohum parolası reddedilir, çerezler Secure olur. |
-| `SEED_ADMIN_EMAIL` | Tohum için | Tohumda oluşturulan yöneticinin e-postası. |
-| `SEED_ADMIN_PASSWORD` | Tohum için | Yöneticinin parolası (yalnız geliştirme). |
+| `AVATAR_DIR` | Hayır | Profil resimlerinin klasörü. Varsayılan `storage/avatars`. Üretimde kalıcı bir diskte olmalıdır; geçici dosya sisteminde resimler yeniden başlatmada kaybolur. |
+| `TESSDATA_LANG_PATH` | Hayır | Fotoğraf OCR'ı için tesseract dil verisinin (`tur`, `eng`) tutulduğu klasör. Varsayılan `storage/tessdata`. Dosyalar yoksa ilk fotoğrafta `cdn.jsdelivr.net` adresinden bir kez indirilir; dışarıya HTTP erişimi olmayan sunucuda `tur.traineddata` ve `eng.traineddata` dosyalarını bu klasöre önceden koyun. |
+| `NODE_ENV` | Hayır | `production` ortamında `mock` sağlayıcı ve `.env.example`'daki tohum parolaları reddedilir, `APP_URL` ve `SMTP_URL` zorunlu olur, çerezler Secure olur. |
+| `SEED_ADMIN_EMAIL` | Tohum için | Tohumda oluşturulan yöneticinin e-postası (yalnız geliştirme). |
+| `SEED_ADMIN_PASSWORD` | Tohum için | Tohumdaki yöneticinin parolası (yalnız geliştirme). |
 | `SEED_USER_PASSWORD` | Tohum için | Tohumdaki örnek kullanıcıların ortak parolası (yalnız geliştirme). |
-| `SEED_ALLOW_PRODUCTION` | Hayır | `true` değilse tohum `NODE_ENV=production` ortamında çalışmaz. Bilerek çalıştırmak için `true` yapın ve güçlü bir parola kullanın. |
+| `SEED_ALLOW_PRODUCTION` | Hayır | `true` değilse tohum `NODE_ENV=production` ortamında hiç çalışmaz. **Üretim veritabanında tohum çalıştırmayın:** tohum tüm tabloları siler ve demo hesapları açar. Yönetici atamak için bu değişkeni değil, `npm run make-admin -- <e-posta>` komutunu kullanın. |
 
-Anahtar üretmek için: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+`DOC_HASH_PEPPER` üretmek için: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+
+Yönetici yetkisi yalnız kullanıcının `role = ADMIN` olmasıyla verilir; bunu sağlayan bir ortam değişkeni
+yoktur.
 
 ## Belge doğrulama nasıl çalışır
 
 Yükleme `POST /api/verification` üzerinden tek bir istekte tamamlanır; belge bellekte işlenir ve diske ya da veritabanına yazılmaz.
 
-1. **Alım:** Oturum, deneme sınırı (24 saatte 5), boyut (en fazla 10 MB) ve dosyanın gerçek başlangıç baytları kontrol edilir (`%PDF`, JPEG, PNG, WebP). Uzantı ve MIME türüne güvenilmez.
+1. **Alım:** Oturum, deneme sınırı (24 saatte 5), boyut (en fazla 10 MB) ve dosyanın gerçek başlangıç baytları kontrol edilir (`%PDF`, JPEG, PNG, WebP). Uzantı ve MIME türüne güvenilmez. Okunamayan dosyayla (bozuk ya da desteklenmeyen dosya, metinsiz PDF, okunamayan fotoğraf) biten yüklemeler 5'lik deneme sınırına sayılmaz; bunlar için ayrı bir sınır vardır: 24 saatte en fazla 20.
 2. **Özet:** `HMAC-SHA256(DOC_HASH_PEPPER, dosya baytları)`. Aynı belge başka bir hesapta onaylıysa belge reddedilir.
-3. **Yerel metin çıkarımı:** PDF metin katmanı `unpdf` ile okunur; metin çok kısaysa (taranmış PDF) kullanıcıdan fotoğraf ya da e-Devlet PDF'i istenir. Görseller `tesseract.js` ile yerelde OCR'dan geçer.
+3. **Yerel metin çıkarımı:** PDF metin katmanı `unpdf` ile okunur; PDF'lerde en fazla 5 sayfa işlenir. Metin çok kısaysa (taranmış PDF) kullanıcıdan fotoğraf ya da e-Devlet PDF'i istenir. Görseller `tesseract.js` ile yerelde OCR'dan geçer; çok büyük çözünürlüklü görseller OCR'a alınmadan reddedilir (görsel boyutu sınırı). OCR yereldir, ancak dil verisi (`tur`, `eng`) ilk kullanımda `cdn.jsdelivr.net` adresinden bir kez indirilir ve `storage/tessdata` (ya da `TESSDATA_LANG_PATH`) klasöründe saklanır; bu indirmede belge içeriği hiçbir yere gönderilmez.
 4. **Ad eşleştirme:** Kayıtlı ad ve soyad belgede aranır. Soyadın bütün parçaları ve adın en az bir parçası bulunmalıdır; OCR için uzun parçalarda 1 harf farkı tolere edilir.
 5. **Yerel maskeleme (yurt dışına çıkmadan önce):** TCKN benzeri 11 haneli sayılar, etiketli değerler (baba adı, ana adı, doğum yeri ve tarihi, öğrenci numarası, uyruk, adres, telefon, e-posta, seri no, barkod, kimlik no), kayıtlı ad ve soyad, "Adı Soyadı" değeri, e-posta, telefon, IBAN ve kalan uzun sayılar maskelenir. 4 haneli yıllar ve gg.aa.yyyy tarihleri korunur. Çıktı en fazla 6000 karakterdir.
 6. **Yapay zeka incelemesi (yalnız açık rıza varsa):** Yalnızca maskelenmiş metin ve kişisel olmayan PDF meta sinyalleri gönderilir. Görsel ya da dosya asla gönderilmez. Yanıt `zod` ile doğrulanır; geçersizse işlem hata sayılır. Zaman aşımı 20 saniye, boş yanıtta bir kez tekrar.
@@ -142,14 +159,16 @@ Yükleme `POST /api/verification` üzerinden tek bir istekte tamamlanır; belge 
 Bu liste operatörün (veri sorumlusunun) yapması gerekenlerdir. Kod bunların bir kısmını çözemez.
 
 1. **DeepSeek (Çin) riski:** Çin için yeterlilik kararı yoktur. 2024 değişikliğinden sonra açık rıza yalnız arızi aktarımlar için geçerlidir; her kayıtta tekrarlanan bir aktarım arızi sayılmayabilir. Uygun güvence (Kurul'un standart sözleşmesi ve 5 iş günü içinde bildirim) DeepSeek ile yapılamıyorsa hukuki risk sürer. Tasarım bu riski maskeleme ile azaltır ama ortadan kaldırmaz; gönderilen metin takma adlı (pseudonymous) veridir. **Canlıya çıkmadan önce KVKK avukatının görüşü alınmalıdır.** Gerekirse sağlayıcı değiştirilebilir (tek dosyalık değişiklik: `src/lib/verification/providers/`).
-2. Veri sorumlusu bilgilerini `src/config/legal.ts` içinde doldurun: unvan, açık adres, KEP adresi, VERBİS kayıt numarası (varsa). VERBİS kayıt yükümlülüğünü değerlendirin.
+2. Veri sorumlusu bilgilerini `src/config/legal.ts` içinde doldurun: unvan, açık adres, e-posta (KVKK başvurularının geleceği, posta alabilen gerçek bir adres), KEP adresi, barındırma ülkesi, VERBİS kayıt numarası (varsa). Köşeli parantezli zorunlu bir alan kaldıkça yasal sayfalarda şablon uyarısı görünür. VERBİS kayıt yükümlülüğünü değerlendirin.
 3. Türkiye'de barındırmayı tercih edin; böylece ek bir yurt dışı aktarımı doğmaz.
 4. 5651 sayılı Kanun kapsamındaki yükümlülükleri (yer sağlayıcılık, giriş kaydı süreleri) hukuken teyit edin.
 5. Yasal metinler şablondur. Avukat onayıyla yayımlayın ve metin değişince `LEGAL_VERSION` değerini artırın.
-6. Üretimde `NODE_ENV=production` kullanın; `VERIFIER_PROVIDER=mock` kullanılmaz. Tohum yalnız bilerek (`SEED_ALLOW_PRODUCTION=true`) ve kendi yönetici parolanızla çalıştırılır.
-7. `DOC_HASH_PEPPER` ve (kullanılırsa) `SESSION_SECRET` değerlerini geliştirme değerlerinden farklı, rastgele ve gizli tutun.
+6. Üretimde `NODE_ENV=production` kullanın; `VERIFIER_PROVIDER=mock` kullanılmaz. **Üretimde tohum (`npm run seed`) çalıştırmayın:** tohum yalnız geliştirme içindir, tüm tabloları (kullanıcılar, projeler, mesajlar, rıza ve denetim kayıtları) siler ve parolası `.env.example`'da yayımlanmış demo hesapları açar. İlk yöneticiyi şöyle atayın: hesabı `/kayit` sayfasından açın, sonra sunucuda `npm run make-admin -- <e-posta>` çalıştırın. Komut yalnız o hesabın rolünü `ADMIN` yapar ve denetim kaydı yazar; veri silmez, kayıtlı olmayan e-postayı reddeder, parola ya da jeton yazdırmaz.
+7. `DOC_HASH_PEPPER` değerini geliştirme değerinden farklı, rastgele ve gizli tutun.
 8. Ters vekil arkasındaysanız `TRUST_PROXY=true` yapın; değilse bırakın.
-9. `SMTP_URL` tanımlayın; şifre sıfırlama e-postaları yalnız konsola yazılmamalıdır.
+9. `SMTP_URL` tanımlayın; üretimde SMTP olmadan şifre sıfırlama e-postası gönderilemez.
+10. `APP_URL` değerini sitenin gerçek adresine ayarlayın (ör. `https://proje-arkadasim.com.tr`). Üretimde boşsa şifre sıfırlama bağlantısı hiç gönderilmez; adres istek başlıklarından türetilmez.
+11. Fotoğraf OCR'ı için `tur` ve `eng` dil verisi ilk kullanımda `cdn.jsdelivr.net` adresinden indirilir ve `storage/tessdata` (ya da `TESSDATA_LANG_PATH`) klasörüne yazılır. Sunucunun dışarıya HTTP erişimi yoksa `tur.traineddata` ve `eng.traineddata` dosyalarını bu klasöre önceden koyun. Bu klasör ve `AVATAR_DIR` (varsayılan `storage/avatars`) kalıcı bir diskte olmalıdır.
 
 ## Komutlar
 
@@ -161,10 +180,11 @@ Bu liste operatörün (veri sorumlusunun) yapması gerekenlerdir. Kod bunların 
 | `npm run lint` | ESLint çalıştırır. |
 | `npm test` | Vitest testlerini bir kez çalıştırır. |
 | `npm run test:watch` | Testleri izleyerek çalıştırır. |
-| `npm run seed` | Tüm tabloları siler ve örnek veriyi yeniden yazar. Yalnız geliştirme veritabanında kullanın. |
+| `npm run seed` | **Yalnız geliştirme.** Tüm tabloları siler ve demo verisini yükler. Veritabanında kullanıcı varsa çalışmaz; bilerek silip yeniden yüklemek için `npm run seed -- --wipe`. Üretimde kullanmayın. |
+| `npm run make-admin -- <e-posta>` | Var olan hesaba yönetici rolü verir (üretimde ilk yöneticiyi atamanın yolu). Veri silmez; kayıtlı olmayan e-postayı reddeder. |
 | `npm run purge` | Saklama süresi geçmiş maskeli metin, oturum, sıfırlama jetonu ve giriş kaydını temizler. |
 | `npm run db:migrate` | `prisma migrate dev` ile yeni migrasyon uygular ya da üretir. |
-| `npm run db:reset` | Veritabanını sıfırlar ve migrasyonları baştan uygular. **Tüm veri silinir.** Ardından `npm run seed` ile örnek veri yükleyin. |
+| `npm run db:reset` | Veritabanını sıfırlar, migrasyonları baştan uygular ve tohumu kendiliğinden çalıştırır (ayrıca `npm run seed` gerekmez). **Tüm veri silinir.** |
 
 ## Proje yapısı
 
@@ -192,6 +212,7 @@ prisma/
   seed.ts           örnek veri
 scripts/
   purge.ts          npm run purge
+  make-admin.ts     npm run make-admin -- <e-posta>
 tests/              uçtan uca benzeri entegrasyon testleri (route handler'lar, doğrulama, ana sayfa)
 docs/               tasarım dokümanı (spec), tasarım sistemi, geliştirme planı ve raporları
 ```
@@ -202,8 +223,9 @@ docs/               tasarım dokümanı (spec), tasarım sistemi, geliştirme pl
 
 1. `prisma/schema.prisma` içinde `datasource db` bloğunda `provider = "postgresql"` yapın.
 2. `DATABASE_URL` değerini PostgreSQL bağlantı adresiyle değiştirin (`postgresql://kullanici:parola@sunucu:5432/veritabani`).
-3. Mevcut migrasyonlar SQLite SQL'i içerdiği için PostgreSQL'de yeni bir başlangıç migrasyonu üretin: `npx prisma migrate dev --name init_postgres`.
-4. `npm run seed` ile örnek veriyi yükleyin (geliştirme ortamında).
+3. Mevcut `prisma/migrations` klasörü SQLite SQL'i içerir ve `migration_lock.toml` dosyası `provider = "sqlite"` değerini sabitler; klasör yerinde kalırsa bir sonraki adım P3019 hatasıyla durur. Klasörü, bir kopyası kalacak şekilde kenara taşıyın: `mv prisma/migrations prisma/migrations-sqlite` (PowerShell: `Move-Item prisma/migrations prisma/migrations-sqlite`).
+4. PostgreSQL için yeni bir başlangıç migrasyonu üretin ve uygulayın: `npx prisma migrate dev --name init_postgres`. Bu komut yeni `prisma/migrations` klasörünü `provider = "postgresql"` kilidiyle oluşturur. Veritabanını bu komut oluşturduysa tohum kendiliğinden çalışır; veritabanı önceden varsa boş geliştirme veritabanına `npm run seed` ile yükleyin. Üretim veritabanında `npx prisma migrate deploy` kullanın ve tohumu çalıştırmayın.
+5. Testler SQLite'a bağlıdır: `vitest.config.ts` ve `tests/global-setup.ts`, `prisma/test.db` için bir `file:` adresi kurar ve şemayı `prisma db push` ile uygular. Sağlayıcı `postgresql` olduktan sonra bu adres kabul edilmez; testleri çalıştırmak için iki dosyadaki adresi ayrı bir PostgreSQL test veritabanına çevirin. Geliştirme ya da üretim veritabanını kullanmayın: testler her testten önce tüm tabloları boşaltır.
 
 Arama sorguları `searchText` sütununda `contains` ile çalışır; metinler Türkçe katlanmış küçük harf ASCII olarak saklandığı için PostgreSQL'de büyük/küçük harf farkı sorun olmaz.
 
@@ -214,9 +236,21 @@ npm test
 ```
 
 Testler `prisma/test.db` adlı ayrı bir SQLite dosyası kullanır (`vitest.config.ts`); geliştirme veritabanına dokunmaz.
-`tests/global-setup.ts` test şemasını hazırlar. Birim testleri Türkçe katlama, maskeleme, ad eşleştirme, karar motoru,
-tanıştırma puanlaması, arama, parola kuralları, oturum ve yetki kontrollerini kapsar. Entegrasyon testleri doğrulama
-route'unu sentetik bir PDF ile (mock sağlayıcıyla ve sahte DeepSeek yanıtlarıyla), ana sayfa akışını, mesajlaşmayı
-ve bildirim yönlendirmesini sınar. Testlerde gerçek belge kullanılmaz.
+`tests/global-setup.ts` test şemasını hazırlar. Kapsam:
+
+- Birim: Türkçe katlama, maskeleme, ad eşleştirme, karar motoru, dosya imzası, tanıştırma puanlaması, arama,
+  parola kuralları, oturum, e-posta gönderimi (geliştirme konsolu, üretim ve SMTP yolu), tohum korumaları.
+- Yetki yönlendirmeleri: `requireUser`, `requireVerified` ve `requireAdmin` için misafirin `/giris?next=…`,
+  doğrulanmamış kullanıcının `/dogrulama` adresine yönlendirilmesi ve yönetici olmayana 404 (oturum ve Next.js
+  yönlendirmesi taklit edilerek).
+- Belge doğrulama: `POST /api/verification` route testi yalnız HTTP sözleşmesini (Origin, oturum, gövde sınırı, form
+  alanı, yanıt biçimi) taklit edilmiş bir servisle sınar. Servis testi, test içinde üretilen sentetik bir PDF ve mock
+  sağlayıcıyla uçtan uca çalışır. DeepSeek sağlayıcısı sahte tamamlama ve fetch yanıtlarıyla (boş içerik, geçersiz
+  JSON, şema uyuşmazlığı, ağ hatası, zaman aşımı) sınanır; gerçek DeepSeek çağrılmaz.
+- Veritabanıyla çalışan entegrasyon testleri: kayıt, giriş ve şifre sıfırlama işlemleri, projeler, takip, engelleme
+  ve şikayet, ana sayfa akışı, mesajlaşma, yönetici işlemleri (yönetici atama dahil), ayarlar ve veri dışa aktarma,
+  saklama temizliği, bildirim yönlendirmesi.
+
+Testlerde gerçek belge kullanılmaz.
 
 Dağıtımdan önce `npm run build`, `npm run lint` ve `npm test` yeşil olmalıdır.
