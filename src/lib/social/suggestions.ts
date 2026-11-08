@@ -266,6 +266,9 @@ async function rankSuggestions(
   }));
 }
 
+/** Puanı olup belirgin bir ortak noktası olmayan tanıştırmaların gerekçesi. */
+const INTRO_FALLBACK_REASON = "Sana önerilen kişi";
+
 /**
  * Görüntüleyene en fazla 3 tanıştırma yazar ve her biri için INTRODUCTION bildirimi üretir (spec §4.6).
  * - Yalnız ilk kez önerilen kişiler: görüntüleyen için herhangi bir tanıştırma satırı (gizlenmiş ya da
@@ -276,8 +279,10 @@ async function rankSuggestions(
  * yazma denemesi benzersizlik hatasına düşer ve o kişi için bildirim gitmez. Yazılan sayıyı döner.
  */
 export async function createIntroductions(viewerId: string, now: Date = new Date()): Promise<number> {
+  // Bekleme süresi yalnız partilerin yazdığı satırlardan okunur. Gizle düğmesi hiç tanıştırılmamış
+  // biri için boş gerekçeli satır açar; o satır bir sonraki partiyi geciktirmemeli.
   const latest = await db.introduction.findFirst({
-    where: { userId: viewerId },
+    where: { userId: viewerId, reason: { not: "" } },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
@@ -287,9 +292,11 @@ export async function createIntroductions(viewerId: string, now: Date = new Date
 
   let created = 0;
   for (const pick of picks) {
+    // Parti satırının gerekçesi asla boş kalmaz; boş gerekçe yalnız gizleme satırlarını işaretler.
+    const reason = pick.reason || INTRO_FALLBACK_REASON;
     try {
       await db.introduction.create({
-        data: { userId: viewerId, suggestedUserId: pick.person.id, reason: pick.reason, createdAt: now },
+        data: { userId: viewerId, suggestedUserId: pick.person.id, reason, createdAt: now },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") continue;
@@ -300,7 +307,7 @@ export async function createIntroductions(viewerId: string, now: Date = new Date
       userId: viewerId,
       actorId: pick.person.id,
       type: "INTRODUCTION",
-      data: { reason: pick.reason },
+      data: { reason },
     });
   }
 

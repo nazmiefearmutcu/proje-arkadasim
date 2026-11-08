@@ -156,6 +156,25 @@ describe("getSuggestions ve createIntroductions (veritabanı)", () => {
     expect(await db.notification.count({ where: { userId: viewer.id, type: "INTRODUCTION" } })).toBe(3);
   });
 
+  it("hiç tanıştırılmamış bir öneriyi gizlemek sonraki partiyi geciktirmez", async () => {
+    const viewer = await createUser({ disciplineGroup: "yazilim" });
+    const hidden = await createUser({ disciplineGroup: "tasarim" });
+    for (let i = 0; i < 6; i += 1) {
+      await createUser({ disciplineGroup: "tasarim" });
+    }
+    const start = new Date();
+    expect(await createIntroductions(viewer.id, start)).toBe(3);
+
+    // Gizle düğmesinin yazdığı satır (dismissIntroductionAction): boş gerekçe, 6. gün.
+    const sixth = new Date(start.getTime() + 6 * DAY_MS);
+    await db.introduction.deleteMany({ where: { userId: viewer.id, suggestedUserId: hidden.id } });
+    await db.introduction.create({
+      data: { userId: viewer.id, suggestedUserId: hidden.id, reason: "", dismissed: true, createdAt: sixth },
+    });
+
+    expect(await createIntroductions(viewer.id, new Date(start.getTime() + 7 * DAY_MS + 1000))).toBeGreaterThan(0);
+  });
+
   it("8 gün önce tanıştırılan kişiyi yeniden tanıştırmaz ve bildirmez; satırın tarihi yenilenmez", async () => {
     const viewer = await createUser({ disciplineGroup: "yazilim" });
     const old = await createUser({ disciplineGroup: "tasarim" });

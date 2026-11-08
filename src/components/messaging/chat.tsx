@@ -313,7 +313,9 @@ export function Chat({
         ref={listRef}
         onScroll={onScroll}
         role="log"
-        aria-live="polite"
+        // Saat ve gün etiketleri yalnız istemcide çizilir; hidrasyonda eklenirken okunmasınlar diye
+        // canlı bölge istemci hazır olduktan sonra açılır.
+        aria-live={isClient ? "polite" : "off"}
         aria-label="Mesajlar"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3"
       >

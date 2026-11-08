@@ -364,6 +364,26 @@ describe("belge doğrulama servisi", () => {
     expect(secondOutcome.message).toBe(REASON_REUSED);
   });
 
+  it("yöneticinin geri aldığı doğrulama aynı belgeyle yeniden otomatik onay almaz", async () => {
+    const pdfBytes = await buildStudentPdf();
+    const user = await unverifiedUser();
+    await recordConsent(user.id, "CROSS_BORDER_AI", true);
+    const first = await verifyDocument({ userId: user.id, bytes: pdfBytes.slice() });
+    expect(first.status).toBe("APPROVED");
+
+    // revokeVerificationAction'ın yazdıklarıyla aynı: kullanıcı REJECTED, onaylı deneme yönetici retli.
+    await db.user.update({ where: { id: user.id }, data: { verificationStatus: "REJECTED", verifiedAt: null } });
+    await db.verificationAttempt.updateMany({
+      where: { userId: user.id, status: "APPROVED" },
+      data: { status: "REJECTED", rejectReason: "Geri alındı", reviewedAt: new Date() },
+    });
+
+    const again = await verifyDocument({ userId: user.id, bytes: pdfBytes.slice() });
+    expect(again.status).toBe("MANUAL_REVIEW");
+    const refreshed = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(refreshed.verificationStatus).toBe("MANUAL_REVIEW");
+  });
+
   it("PDF üretici alanındaki kişi adı yapay zekaya maskeli gider", async () => {
     const user = await unverifiedUser();
     await recordConsent(user.id, "CROSS_BORDER_AI", true);

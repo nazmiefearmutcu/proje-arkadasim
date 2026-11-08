@@ -13,7 +13,7 @@ import { parseList } from "@/lib/json-fields";
 import { notify } from "@/lib/notify";
 import { CLASS_YEAR_MAX } from "@/lib/settings/limits";
 import { toSearchText } from "@/lib/tr";
-import { purgeExpiredMaskedText } from "@/lib/verification/service";
+import { purgeExpiredMaskedText } from "@/lib/verification/purge-masked";
 
 // Yönetim eylemleri. Her eylem önce yönetici kontrolü yapar; yönetici değilse hiçbir şey değişmez.
 // Her karar AdminAuditLog'a yazılır (spec §6.2). Yönetici kendi doğrulamasıyla ilgili karar veremez.

@@ -9,8 +9,11 @@ import { cn } from "@/lib/cn";
 import { db } from "@/lib/db";
 import { parseList, parseObject } from "@/lib/json-fields";
 import { relativeTimeTr } from "@/lib/time";
+import { adminMetadata } from "@/lib/admin/metadata";
 
-export const metadata = { title: "Doğrulama kuyruğu" };
+export function generateMetadata() {
+  return adminMetadata("Doğrulama kuyruğu");
+}
 
 const QUEUE_LIMIT = 50;
 

@@ -4,8 +4,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
 import { requireAdmin } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { adminMetadata } from "@/lib/admin/metadata";
 
-export const metadata = { title: "Yönetim paneli" };
+export function generateMetadata() {
+  return adminMetadata("Yönetim paneli");
+}
 
 export default async function Page() {
   await requireAdmin();

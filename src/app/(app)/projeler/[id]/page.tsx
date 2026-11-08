@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { CATEGORIES, STAGES, WORK_MODES, labelOf } from "@/config/taxonomy";
 import { Avatar } from "@/components/ui/avatar";
@@ -18,7 +20,17 @@ import { displayName } from "@/lib/permissions";
 import { getProjectDetail } from "@/lib/projects/queries";
 import { relativeTimeTr } from "@/lib/time";
 
-export const metadata = { title: "Proje" };
+/** Sayfa ve generateMetadata aynı istekte tek sorgu paylaşır; görünürlük kuralları aynı kalır. */
+const loadProject = cache(async (id: string) => {
+  const viewer = await getCurrentUser();
+  return { viewer, project: await getProjectDetail(id, viewer) };
+});
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const { project } = await loadProject(id);
+  return { title: project ? project.title : "Proje bulunamadı" };
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,8 +43,7 @@ export default async function Page({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const viewer = await getCurrentUser();
-  const project = await getProjectDetail(id, viewer);
+  const { viewer, project } = await loadProject(id);
   if (!project) notFound();
 
   const isNew = query.yeni === "1";
