@@ -6,6 +6,7 @@ import {
   projectCardInclude,
   toPersonSummary,
   toProjectCardData,
+  type PersonRow,
   type PersonSummary,
   type ProjectCardData,
 } from "@/lib/dto";
@@ -114,6 +115,8 @@ export interface ViewerProjectState {
     message: string;
     createdAt: Date;
   } | null;
+  /** Görüntüleyenin bu projeden bekleyen davetinin kimliği (Network'te yanıtlanır), yoksa null. */
+  pendingInviteId: string | null;
 }
 
 export interface OwnerProjectView {
@@ -159,9 +162,16 @@ export interface ProjectDetail {
   ownerView: OwnerProjectView | null;
 }
 
+/** Profilleri (bölüm, profil bağlantısı) yalnız doğrulanmış kullanıcılar ve yöneticiler görür (spec §2, §3.2). */
+function canSeeProfiles(viewer: CurrentUser | null): boolean {
+  return viewer !== null && (viewer.verificationStatus === "VERIFIED" || viewer.role === "ADMIN");
+}
+
 /**
  * Proje detayı ve görüntüleyiciye özel durum. Proje yoksa null.
- * Başvuru ve davet listeleri yalnız sahibe gider.
+ * Başvuru ve davet listeleri yalnız sahibe gider; sahibin engellediği ya da onu engelleyen kişilerin
+ * bekleyen başvuruları listede yer almaz. Misafir ve doğrulanmamış görüntüleyicide sahip ve ekip
+ * üyelerinin bölümü boş döner (üniversite görünür kalır).
  */
 export async function getProjectDetail(id: string, viewer: CurrentUser | null): Promise<ProjectDetail | null> {
   const row = await db.project.findUnique({
@@ -210,19 +220,32 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
   const viewerId = viewer?.id ?? null;
   const isOwner = viewerId !== null && row.ownerId === viewerId;
   const isMember = viewerId !== null && row.members.some((member) => member.userId === viewerId);
+  const showProfiles = canSeeProfiles(viewer);
+  const personFor = (person: PersonRow): PersonSummary => {
+    const summary = toPersonSummary(person);
+    return showProfiles ? summary : { ...summary, department: null };
+  };
 
   let pendingRequest: ViewerProjectState["pendingRequest"] = null;
+  let pendingInviteId: string | null = null;
   if (viewerId !== null) {
-    const request = await db.joinRequest.findFirst({
-      where: { projectId: id, userId: viewerId, status: "PENDING" },
-      select: {
-        id: true,
-        roleId: true,
-        message: true,
-        createdAt: true,
-        role: { select: { title: true } },
-      },
-    });
+    const [request, invite] = await Promise.all([
+      db.joinRequest.findFirst({
+        where: { projectId: id, userId: viewerId, status: "PENDING" },
+        select: {
+          id: true,
+          roleId: true,
+          message: true,
+          createdAt: true,
+          role: { select: { title: true } },
+        },
+      }),
+      db.projectInvite.findFirst({
+        where: { projectId: id, inviteeId: viewerId, status: "PENDING" },
+        select: { id: true },
+      }),
+    ]);
+    pendingInviteId = invite?.id ?? null;
     if (request) {
       pendingRequest = {
         id: request.id,
@@ -235,10 +258,16 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
   }
 
   let ownerView: OwnerProjectView | null = null;
-  if (isOwner) {
+  if (isOwner && viewerId !== null) {
+    const blocks = await db.block.findMany({
+      where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    const blockedIds = blocks.map((block) => (block.blockerId === viewerId ? block.blockedId : block.blockerId));
+
     const [requests, invites] = await Promise.all([
       db.joinRequest.findMany({
-        where: { projectId: id, status: "PENDING" },
+        where: { projectId: id, status: "PENDING", userId: { notIn: blockedIds } },
         orderBy: { createdAt: "asc" },
         select: {
           id: true,
@@ -302,7 +331,7 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
     roleTitle: member.roleId ? (roleTitles.get(member.roleId) ?? null) : null,
     isOwner: member.isOwner,
     joinedAt: member.joinedAt,
-    person: toPersonSummary(member.user),
+    person: personFor(member.user),
   }));
 
   return {
@@ -318,14 +347,14 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
     tags: parseList(row.tagsJson),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    owner: toPersonSummary(row.owner),
+    owner: personFor(row.owner),
     roles,
     members,
     counts: {
       members: members.length,
       openSlots: roles.reduce((sum, role) => sum + role.open, 0),
     },
-    viewer: { isOwner, isMember, pendingRequest },
+    viewer: { isOwner, isMember, pendingRequest, pendingInviteId },
     ownerView,
   };
 }
