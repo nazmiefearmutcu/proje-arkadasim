@@ -40,14 +40,15 @@ export function RequestActions({ conversationId, onAccepted }: RequestActionsPro
   function decline() {
     setError(null);
     startTransition(async () => {
-      let result: ActionResult;
+      // Başarıda sunucu redirect() çağırır; istemci sonucu undefined olarak çözebilir. Bu yüzden sonucu yalnızca tanımlıysa oku.
+      let result: ActionResult | undefined;
       try {
         result = await declineRequestAction(conversationId);
       } catch {
         setError("İstek reddedilemedi. Bağlantını kontrol edip tekrar dene.");
         return;
       }
-      if (!result.ok) setError(result.error);
+      if (result && !result.ok) setError(result.error);
     });
   }
 
