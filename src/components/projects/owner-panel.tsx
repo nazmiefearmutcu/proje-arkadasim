@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   cancelInviteAction,
   decideApplicationAction,
@@ -55,40 +55,43 @@ export function OwnerPanel({ projectId, status, roles, requests, invites, member
         </p>
       ) : null}
 
-      <Section title="Başvurular">
-        {requests.length === 0 ? (
-          <p className="t-body text-ink-2">Bekleyen başvuru yok.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-line">
-            {requests.map((request) => (
-              <li key={request.id} className="flex flex-col gap-2 py-2">
-                <UserRow person={request.person} name={request.name} />
-                <div className="flex flex-wrap items-center gap-2">
-                  {request.roleTitle ? <Chip>{request.roleTitle}</Chip> : <Chip>Rol fark etmez</Chip>}
-                </div>
-                <p className="t-body whitespace-pre-line text-ink-2">{request.message}</p>
-                <div className="flex gap-2">
-                  <Button
-                    loading={isPending}
-                    onClick={() => run(() => decideApplicationAction(request.id, "ACCEPT"))}
-                    className="flex-1"
-                  >
-                    Kabul et
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    disabled={isPending}
-                    onClick={() => run(() => decideApplicationAction(request.id, "REJECT"))}
-                    className="flex-1"
-                  >
-                    Reddet
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      {/* JOIN_REQUEST bildirimi #basvurular çapasına gelir; boşluk yapışkan üst barın altında kalmasın diye. */}
+      <div id="basvurular" className="scroll-mt-20">
+        <Section title="Başvurular">
+          {requests.length === 0 ? (
+            <p className="t-body text-ink-2">Bekleyen başvuru yok.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-line">
+              {requests.map((request) => (
+                <li key={request.id} className="flex flex-col gap-2 py-2">
+                  <UserRow person={request.person} name={request.name} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    {request.roleTitle ? <Chip>{request.roleTitle}</Chip> : <Chip>Rol fark etmez</Chip>}
+                  </div>
+                  <p className="t-body whitespace-pre-line text-ink-2">{request.message}</p>
+                  <div className="flex gap-2">
+                    <Button
+                      loading={isPending}
+                      onClick={() => run(() => decideApplicationAction(request.id, "ACCEPT"))}
+                      className="flex-1"
+                    >
+                      Kabul et
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={isPending}
+                      onClick={() => run(() => decideApplicationAction(request.id, "REJECT"))}
+                      className="flex-1"
+                    >
+                      Reddet
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      </div>
 
       <Section
         title="Davetler"
@@ -126,30 +129,40 @@ export function OwnerPanel({ projectId, status, roles, requests, invites, member
       </Section>
 
       <Section title="Ekip">
-        <ul className="flex flex-col divide-y divide-line">
-          {members.map((member) => (
-            <li key={member.userId}>
-              <UserRow
-                person={member.person}
-                name={member.name}
-                reason={member.roleTitle ?? "Ekip üyesi"}
-                action={
-                  <Button
-                    variant="ghost"
-                    disabled={isPending}
-                    onClick={() => {
-                      if (window.confirm(`${member.name} ekipten çıkarılsın mı?`)) {
-                        run(() => removeMemberAction(projectId, member.userId));
-                      }
-                    }}
-                  >
-                    Ekipten çıkar
-                  </Button>
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        {members.length === 0 ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="t-body text-ink-2">Henüz ekip üyesi yok.</p>
+            {closed ? <p className="t-meta text-ink-3">Davet göndermek için projeyi yeniden aç.</p> : null}
+            <Button variant="secondary" disabled={closed} onClick={() => setInviteOpen(true)}>
+              Kişi davet et
+            </Button>
+          </div>
+        ) : (
+          <ul className="flex flex-col divide-y divide-line">
+            {members.map((member) => (
+              <li key={member.userId}>
+                <UserRow
+                  person={member.person}
+                  name={member.name}
+                  reason={member.roleTitle ?? "Ekip üyesi"}
+                  action={
+                    <Button
+                      variant="ghost"
+                      disabled={isPending}
+                      onClick={() => {
+                        if (window.confirm(`${member.name} ekipten çıkarılsın mı?`)) {
+                          run(() => removeMemberAction(projectId, member.userId));
+                        }
+                      }}
+                    >
+                      Ekipten çıkar
+                    </Button>
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section title="Proje işlemleri">
@@ -178,14 +191,16 @@ export function OwnerPanel({ projectId, status, roles, requests, invites, member
         </div>
       </Section>
 
-      {inviteOpen ? (
-        <InviteSheet projectId={projectId} roles={roles} onClose={() => setInviteOpen(false)} />
-      ) : null}
+      {/* Panel bağlı kalır; kapanınca dialog.close() odağı açan düğmeye geri verir. İçerik yalnız açıkken
+          bağlanır, bu yüzden her açılış temiz başlar. */}
+      <Sheet open={inviteOpen} onClose={() => setInviteOpen(false)} title="Kişi davet et">
+        {inviteOpen ? <InvitePanel projectId={projectId} roles={roles} onClose={() => setInviteOpen(false)} /> : null}
+      </Sheet>
     </div>
   );
 }
 
-interface InviteSheetProps {
+interface InvitePanelProps {
   projectId: string;
   roles: Array<{ id: string; title: string; full: boolean }>;
   onClose: () => void;
@@ -199,19 +214,30 @@ interface SearchHit {
 const SEARCH_DELAY_MS = 300;
 
 /**
- * Davet paneli. Önce kişi aranır (300 ms gecikmeli), seçilince rol ve mesaj formu açılır.
- * Panel her açılışta yeniden kurulur; bu yüzden eski seçim kalmaz.
+ * Davet paneli içeriği. Önce kişi aranır (300 ms gecikmeli), seçilince rol ve mesaj formu açılır.
+ * İçerik her açılışta yeniden kurulur; bu yüzden eski seçim kalmaz. Rol ve mesaj state'te tutulur:
+ * React 19 form eyleminden sonra denetimsiz alanları sıfırlar, başarısız gönderimde yazılanlar kaybolmamalı.
  */
-function InviteSheet({ projectId, roles, onClose }: InviteSheetProps) {
+function InvitePanel({ projectId, roles, onClose }: InvitePanelProps) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<SearchHit | null>(null);
+  const [roleId, setRoleId] = useState("");
+  const [message, setMessage] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sequence = useRef(0);
 
   const [inviteState, inviteAction, invitePending] = useActionState(inviteToProjectAction, null);
+
+  // Panel kapanınca bekleyen gecikmeli arama çalışmasın.
+  useEffect(() => {
+    const pending = timer;
+    return () => {
+      if (pending.current) clearTimeout(pending.current);
+    };
+  }, []);
 
   async function search(value: string): Promise<void> {
     const current = ++sequence.current;
@@ -245,66 +271,73 @@ function InviteSheet({ projectId, roles, onClose }: InviteSheetProps) {
   const fieldErrors = inviteState && !inviteState.ok ? (inviteState.fieldErrors ?? {}) : {};
 
   return (
-    <Sheet open onClose={onClose} title="Kişi davet et">
-      <div className="flex flex-col gap-4 px-2 pt-2 pb-2">
-        {inviteState?.ok ? (
-          <div className="flex flex-col gap-3">
-            <p role="status" className="rounded-control bg-ok-soft p-3 t-body text-ok">
-              Davet gönderildi. Kişi bildirimlerinde görecek.
-            </p>
-            <Button variant="secondary" onClick={onClose}>
-              Kapat
+    <div className="flex flex-col gap-4 px-2 pt-2 pb-2">
+      {inviteState?.ok ? (
+        <div className="flex flex-col gap-3">
+          <p role="status" className="rounded-control bg-ok-soft p-3 t-body text-ok">
+            Davet gönderildi. Kişi bildirimlerinde görecek.
+          </p>
+          <Button variant="secondary" onClick={onClose}>
+            Kapat
+          </Button>
+        </div>
+      ) : selected ? (
+        <form action={inviteAction} className="flex flex-col gap-4">
+          <input type="hidden" name="projectId" value={projectId} readOnly />
+          <input type="hidden" name="username" value={selected.person.username} readOnly />
+          <div className="flex items-center justify-between gap-2 rounded-card border border-line p-3">
+            <span className="t-label text-ink">{selected.name}</span>
+            <Button variant="ghost" onClick={() => setSelected(null)}>
+              Değiştir
             </Button>
           </div>
-        ) : selected ? (
-          <form action={inviteAction} className="flex flex-col gap-4">
-            <input type="hidden" name="projectId" value={projectId} readOnly />
-            <input type="hidden" name="username" value={selected.person.username} readOnly />
-            <div className="flex items-center justify-between gap-2 rounded-card border border-line p-3">
-              <span className="t-label text-ink">{selected.name}</span>
-              <Button variant="ghost" onClick={() => setSelected(null)}>
-                Değiştir
-              </Button>
-            </div>
-            {inviteState && !inviteState.ok && !inviteState.fieldErrors ? (
-              <p role="alert" className="t-body text-danger">
-                {inviteState.error}
-              </p>
-            ) : null}
-            {fieldErrors.username ? <p className="t-meta text-danger">{fieldErrors.username}</p> : null}
-            <Field id="invite-role" label="Rol" error={fieldErrors.roleId}>
-              <Select name="roleId" defaultValue="">
-                <option value="">Rol fark etmez</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id} disabled={role.full}>
-                    {role.full ? `${role.title} (dolu)` : role.title}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field id="invite-message" label="Mesaj" hint="İsteğe bağlı, en fazla 500 karakter." error={fieldErrors.message}>
-              <Textarea name="message" rows={3} maxLength={500} />
-            </Field>
-            <Button type="submit" loading={invitePending}>
-              Davet gönder
-            </Button>
-          </form>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Field id="invite-search" label="Kullanıcı ara" hint="Ad, soyad ya da kullanıcı adı. En az 2 karakter.">
-              <Input
-                value={query}
-                onChange={(event) => onQueryChange(event.target.value)}
-                autoComplete="off"
-                type="search"
-              />
-            </Field>
+          {inviteState && !inviteState.ok && !inviteState.fieldErrors ? (
+            <p role="alert" className="t-body text-danger">
+              {inviteState.error}
+            </p>
+          ) : null}
+          {fieldErrors.username ? <p className="t-meta text-danger">{fieldErrors.username}</p> : null}
+          <Field id="invite-role" label="Rol" error={fieldErrors.roleId}>
+            <Select name="roleId" value={roleId} onChange={(event) => setRoleId(event.target.value)}>
+              <option value="">Rol fark etmez</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id} disabled={role.full}>
+                  {role.full ? `${role.title} (dolu)` : role.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field id="invite-message" label="Mesaj" hint="İsteğe bağlı, en fazla 500 karakter." error={fieldErrors.message}>
+            <Textarea
+              name="message"
+              rows={3}
+              maxLength={500}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+            />
+          </Field>
+          <Button type="submit" loading={invitePending}>
+            Davet gönder
+          </Button>
+        </form>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <Field id="invite-search" label="Kullanıcı ara" hint="Ad, soyad ya da kullanıcı adı. En az 2 karakter.">
+            <Input
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              autoComplete="off"
+              type="search"
+            />
+          </Field>
+          {/* Arama durumu ve sonuçlar ekran okuyucuya duyurulur. */}
+          <div aria-live="polite" className="flex flex-col gap-3">
             {searchError ? <p className="t-meta text-danger">{searchError}</p> : null}
             {searching ? <p className="t-meta text-ink-3">Aranıyor…</p> : null}
             {!searching && query.trim().length >= 2 && hits.length === 0 && !searchError ? (
               <EmptyState
                 title="Kişi bulunamadı"
-                text="Doğrulanmış ve ekipte olmayan kişiler listelenir. Kullanıcı adının doğru olduğunu kontrol et."
+                text="Doğrulanmış, ekipte olmayan ve bekleyen daveti ya da başvurusu olmayan kişiler listelenir. Kullanıcı adının doğru olduğunu kontrol et."
               />
             ) : null}
             {hits.length > 0 ? (
@@ -325,8 +358,8 @@ function InviteSheet({ projectId, roles, onClose }: InviteSheetProps) {
               </ul>
             ) : null}
           </div>
-        )}
-      </div>
-    </Sheet>
+        </div>
+      )}
+    </div>
   );
 }
