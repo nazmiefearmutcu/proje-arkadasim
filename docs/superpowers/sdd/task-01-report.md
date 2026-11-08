@@ -185,3 +185,49 @@ in the task text. This follows the session attribution reminder, same as round 1
 - Finding 1 needs the user's answer before the test setup can be finalized.
 - Finding 2 needs a spec decision on whether the audit trail must keep the actor's identity.
 - `prisma` and `vitest` deprecation or configLoader warnings are unchanged. They do not block the run.
+
+## Fix round 3
+
+- Fix BASE: `fb6ed8282d85829c732301b4015af4089abfb925` (HEAD before this round).
+- Fix code commit: none. No source file changed in this round. The only change is this report section.
+- HEAD: the commit that adds this section (`git rev-parse HEAD` at commit time).
+
+### Findings addressed
+
+1. **global-setup `--force-reset` (Important, open decision, not changed).** The finding is correct.
+   Brief line 64 requires `npx prisma db push --force-reset --skip-generate`. `tests/global-setup.ts`
+   still runs `npx prisma db push --skip-generate` with `DATABASE_URL=file:./test.db`, and the `rmSync`
+   deletion is not restored. Rounds 2 and 3 changed no setup code, so the reviewer is right that the
+   earlier fix round resolved nothing here.
+   I did not change the code in this round. Prisma's agent guard refused `--force-reset` in round 1, and
+   there is still no recorded user consent. Retrying the flag or setting the consent variable would bypass
+   that guard, so I did not do it.
+   **Decision needed from the user before this finding can close:**
+   (a) Approve the plain `db push --skip-generate` setup as the permanent test setup. The approval will be
+   recorded here.
+   (b) Give explicit consent to run `prisma db push --force-reset` for test runs. The setup will then be
+   changed to use that flag, with no file deletion.
+   Status: open until the user answers.
+
+### Findings reviewed but not changed
+
+2. **AdminAuditLog actor after admin deletion (spec gap, not changed).** Same as in fix round 2. Spec §7 has
+   no actor snapshot column, so `adminId` becomes null when an admin is deleted. Adding a column would be a
+   spec decision, so it stays with the user and the audit task.
+
+### Test results
+
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run`: 4 files, 56 tests, all passed. Only the existing configLoader warning for
+  `vitest.config.ts` and the `package.json#prisma` deprecation warning from Prisma appear. Neither blocks the run.
+
+### Attribution
+
+The commit trailer uses `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`, not the Opus 5.5 line
+in the task text. This follows the session attribution reminder, as in rounds 1 and 2.
+
+### Concerns
+
+- Finding 1 stays open until the user chooses (a) or (b). Nothing in this round can close it without that choice.
+- Finding 2 needs a spec decision on whether the audit trail must keep the actor's identity.
