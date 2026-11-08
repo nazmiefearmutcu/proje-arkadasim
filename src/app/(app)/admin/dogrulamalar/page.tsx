@@ -3,7 +3,9 @@ import type { ReviewDefaults } from "@/components/admin/review-form";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { documentReuseByAttempt } from "@/lib/admin/document-reuse";
 import { requireAdmin } from "@/lib/auth/guards";
+import { cn } from "@/lib/cn";
 import { db } from "@/lib/db";
 import { parseList, parseObject } from "@/lib/json-fields";
 import { relativeTimeTr } from "@/lib/time";
@@ -46,13 +48,15 @@ function toDefaults(profile: StoredProfile): ReviewDefaults {
 export default async function Page() {
   const admin = await requireAdmin();
 
-  const [items] = await Promise.all([
+  const [items, total] = await Promise.all([
     db.verificationAttempt.findMany({
       where: { status: "MANUAL_REVIEW" },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: QUEUE_LIMIT,
       select: {
         id: true,
+        userId: true,
+        docHash: true,
         source: true,
         nameMatch: true,
         aiUsed: true,
@@ -66,21 +70,26 @@ export default async function Page() {
         user: { select: { firstName: true, lastName: true, username: true, email: true } },
       },
     }),
+    db.verificationAttempt.count({ where: { status: "MANUAL_REVIEW" } }),
     db.adminAuditLog.create({
       data: { adminId: admin.id, action: "VIEW_VERIFICATION_QUEUE" },
     }),
   ]);
 
+  // Aynı belgeyi (aynı docHash) yükleyen başka hesaplar, tek sorguda. Özet değerin kendisi asla gösterilmez.
+  const reuseByAttempt = await documentReuseByAttempt(items);
+
+  const capped = items.length === QUEUE_LIMIT && total > items.length;
+  const description =
+    total === 0
+      ? undefined
+      : capped
+        ? `${total} belge inceleme bekliyor. En eski ${items.length} tanesi gösteriliyor, en eskisi üstte.`
+        : `${total} belge inceleme bekliyor. En eski olan üstte.`;
+
   return (
     <>
-      <PageHeader
-        title="Doğrulama kuyruğu"
-        description={
-          items.length === 0
-            ? undefined
-            : `${items.length} belge inceleme bekliyor. En eski olan üstte.`
-        }
-      />
+      <PageHeader title="Doğrulama kuyruğu" description={description} />
 
       {items.length === 0 ? (
         <EmptyState title="İncelenecek belge yok" text="Manuel incelemeye düşen belgeler burada görünür." />
@@ -90,6 +99,8 @@ export default async function Page() {
             const redFlags = parseList(item.redFlagsJson);
             const profile = parseObject<StoredProfile>(item.extractedJson, {});
             const name = `${item.user.firstName} ${item.user.lastName}`.trim();
+            const reuse = reuseByAttempt.get(item.id);
+            const ownDocument = item.userId === admin.id;
             return (
               <li key={item.id}>
                 <Card className="flex flex-col gap-4 p-4">
@@ -99,6 +110,17 @@ export default async function Page() {
                     <p className="t-meta text-ink-3">{item.user.email}</p>
                     <p className="t-meta text-ink-3">{relativeTimeTr(item.createdAt)}</p>
                   </header>
+
+                  {reuse ? (
+                    <p
+                      className={cn(
+                        "rounded-control p-3 t-label",
+                        reuse === "onaylı" ? "bg-danger-soft text-danger" : "bg-warn-soft text-warn",
+                      )}
+                    >
+                      Bu belge başka bir hesapta da yüklendi: {reuse}
+                    </p>
+                  ) : null}
 
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 t-body">
                     <dt className="text-ink-3">Kaynak</dt>
@@ -145,7 +167,13 @@ export default async function Page() {
                     )}
                   </details>
 
-                  <ReviewForm attemptId={item.id} defaults={toDefaults(profile)} />
+                  {ownDocument ? (
+                    <p className="rounded-control bg-surface-2 p-3 t-body text-ink-2">
+                      Bu belge senin. Başka bir yönetici incelemeli.
+                    </p>
+                  ) : (
+                    <ReviewForm attemptId={item.id} defaults={toDefaults(profile)} />
+                  )}
                 </Card>
               </li>
             );

@@ -25,7 +25,7 @@ export function ResolveReportButton({ reportId }: { reportId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Button variant="secondary" size="sm" loading={pending} onClick={resolve} className="self-start">
+      <Button variant="secondary" loading={pending} onClick={resolve} className="self-start">
         Çözüldü olarak işaretle
       </Button>
       {error ? (

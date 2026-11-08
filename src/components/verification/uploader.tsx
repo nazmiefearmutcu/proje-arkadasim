@@ -9,6 +9,14 @@ import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/cn";
 import { MAX_DOCUMENT_BYTES } from "@/lib/verification/sniff";
+import {
+  GENERIC_ERROR_MESSAGE,
+  LAST_STEP,
+  postDocument,
+  shouldRefreshAfter,
+  stepsFor,
+} from "./upload-flow";
+import type { UploadResult } from "./upload-flow";
 
 const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp";
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
@@ -16,25 +24,12 @@ const ALLOWED_EXTENSION = /\.(pdf|jpe?g|png|webp)$/i;
 
 const TOO_LARGE_MESSAGE = "Dosya 10 MB'tan büyük olamaz.";
 const UNSUPPORTED_MESSAGE = "Yalnızca PDF, JPEG, PNG veya WebP yükleyebilirsin.";
-const GENERIC_ERROR_MESSAGE = "Belge şu an işlenemedi. Birazdan tekrar dene.";
-
-const STEPS = [
-  "Belge okunuyor",
-  "Kişisel veriler maskeleniyor",
-  "Yapay zeka inceliyor",
-  "Sonuç",
-] as const;
 
 // Adım 1 → 2 ve 2 → 3 geçişleri. Üçüncü adım yanıt gelene kadar açık kalır.
 const STEP_TIMINGS_MS = [800, 1600] as const;
 const REFRESH_DELAY_MS = 1200;
 
 type Phase = "idle" | "selected" | "uploading" | "done";
-
-interface Result {
-  status: string;
-  message: string;
-}
 
 /** Dosya seçimini istemcide ön kontrol eder. Mesajlar sunucudakilerle aynıdır. */
 export function precheckFile(file: File): string | null {
@@ -50,33 +45,21 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
 }
 
-function readMessage(data: unknown): string {
-  if (typeof data === "object" && data !== null) {
-    const record = data as Record<string, unknown>;
-    if (typeof record.message === "string") return record.message;
-    if (typeof record.error === "string") return record.error;
-  }
-  return GENERIC_ERROR_MESSAGE;
-}
-
-function readStatus(data: unknown): string {
-  if (typeof data === "object" && data !== null) {
-    const status = (data as Record<string, unknown>).status;
-    if (typeof status === "string") return status;
-  }
-  return "ERROR";
-}
-
-/** Belge yükleyici: seçim, gönderim, canlı adım listesi ve sonuç. */
-export function Uploader({ remaining }: { remaining: number }) {
+/**
+ * Belge yükleyici: seçim, gönderim, canlı adım listesi ve sonuç. `aiConsent` yoksa üçüncü adım yapay
+ * zeka yerine ekibin incelemesini söyler (hizmet rızasız belgede yapay zekayı çağırmaz).
+ */
+export function Uploader({ aiConsent, remaining }: { aiConsent: boolean; remaining: number }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const controllerRef = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [step, setStep] = useState(0);
-  const [result, setResult] = useState<Result | null>(null);
+  const [result, setResult] = useState<UploadResult | null>(null);
   const [dragging, setDragging] = useState(false);
+  const steps = stepsFor(aiConsent);
 
   // Adım zamanlayıcıları; temizlik yalnız aşama değişince ya da bileşen kapanınca çalışır.
   useEffect(() => {
@@ -87,9 +70,15 @@ export function Uploader({ remaining }: { remaining: number }) {
     return () => timers.forEach(clearTimeout);
   }, [phase]);
 
-  // Onaylanan belgede sayfa sunucudan yenilenir; durum kartı "doğrulandı" olur.
+  // Bileşen kapanırken süren istek kesilir; postDocument zaman aşımı sayacını da temizler.
   useEffect(() => {
-    if (result?.status !== "APPROVED") return;
+    return () => controllerRef.current?.abort();
+  }, []);
+
+  // Deneme hakkı yenen her sonuçta (onay, ret, manuel inceleme) sayfa sunucudan yenilenir: durum kartı ve
+  // kalan deneme sayısı güncellenir.
+  useEffect(() => {
+    if (!result || !shouldRefreshAfter(result)) return;
     const timer = setTimeout(() => router.refresh(), REFRESH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [result, router]);
@@ -120,28 +109,34 @@ export function Uploader({ remaining }: { remaining: number }) {
   async function send() {
     if (!file) return;
     setResult(null);
+    setError(null);
     setStep(0);
     setPhase("uploading");
 
     const body = new FormData();
     body.append("belge", file);
 
-    try {
-      const response = await fetch("/api/verification", { method: "POST", body });
-      const data: unknown = await response.json().catch(() => null);
-      setStep(STEPS.length - 1);
-      setResult({ status: readStatus(data), message: readMessage(data) });
-    } catch {
-      setStep(STEPS.length - 1);
-      setResult({ status: "ERROR", message: GENERIC_ERROR_MESSAGE });
-    } finally {
-      setPhase("done");
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const outcome = await postDocument(body, { controller });
+    if (controllerRef.current === controller) controllerRef.current = null;
+
+    if (outcome.kind === "aborted") {
+      // Zaman aşımı: seçili belge korunur, kullanıcı yeniden gönderebilir ya da başka belge seçebilir.
+      setError(GENERIC_ERROR_MESSAGE);
+      setStep(0);
+      setPhase("selected");
+      return;
     }
+
+    setStep(LAST_STEP);
+    setResult(outcome.result);
+    setPhase("done");
   }
 
   if (remaining <= 0 && phase !== "done") {
     return (
-      <Card className="flex flex-col gap-1 p-4">
+      <Card id="belge-yukle" className="flex scroll-mt-20 flex-col gap-1 p-4">
         <p className="t-label text-ink">Bu dönemde deneme hakkın doldu.</p>
         <p className="t-meta text-ink-3">
           24 saat içinde en fazla 5 belge yükleyebilirsin. Daha sonra tekrar dene.
@@ -224,7 +219,7 @@ export function Uploader({ remaining }: { remaining: number }) {
         <Card className="p-4">
           <p className="t-label mb-3 text-ink">Belgen inceleniyor</p>
           <ol className="flex flex-col gap-3">
-            {STEPS.map((label, index) => {
+            {steps.map((label, index) => {
               const current = index === step;
               const done = index < step;
               return (
@@ -275,7 +270,7 @@ function ResultCard({
   onRetry,
   onRefresh,
 }: {
-  result: Result;
+  result: UploadResult;
   onRetry: () => void;
   onRefresh: () => void;
 }) {
@@ -294,7 +289,7 @@ function ResultCard({
       <section className="flex flex-col gap-3 rounded-card bg-warn-soft p-4">
         <p className="t-label text-warn">Manuel incelemede</p>
         <p className="t-body text-ink">{result.message}</p>
-        <Button variant="secondary" size="sm" className="self-start" onClick={onRefresh}>
+        <Button variant="secondary" className="self-start" onClick={onRefresh}>
           Durumu güncelle
         </Button>
       </section>
