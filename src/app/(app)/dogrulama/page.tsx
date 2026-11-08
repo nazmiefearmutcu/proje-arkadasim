@@ -50,7 +50,7 @@ export default async function Page({
       <PageHeader title="Belge doğrulama" />
 
       <div className="flex flex-col gap-4">
-        {hosgeldin === "1" ? (
+        {hosgeldin === "1" && showUploader ? (
           <Card className="bg-pen-soft p-4">
             <p className="t-body text-ink">
               Hesabın oluşturuldu. Son adım: öğrenci veya mezun belgeni yükle.

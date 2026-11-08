@@ -49,3 +49,30 @@
 - Task 10 — brief task-10-brief.md, report task-10-report.md, base 8f6ac33, head d8191fa, fix rounds 1, review CLEAN, merged 1f525cb, integration commit bf337ad (follow button in /ara, report/block in chat). Task 10: complete.
 - Task 12 — brief task-12-brief.md, report task-12-report.md, ran in main, base bf337ad, head 1119095, fix rounds 1, review CLEAN. Task 12: complete. Demo user elif.yilmaz@ornek.edu.tr.
 - After all merges (orchestrator check in main at 1119095): tsc 0, lint 0, vitest 51 files / 477 tests green, npm run build exit 0.
+
+## Final review and fix wave (workflow wf_08f6c886-3d0)
+- Review: 8 Opus lenses (security, kvkk, spec-core, spec-social, data, ui, runtime, docs-tests) plus minors triage over main at 2d0e939. 33 findings confirmed by adversarial verification, 0 refuted; 59 deferred minors parked by triage as not-a-defect or acceptable; 10 parked by the planner (rulings below).
+- Fix packets, each fixed in its own worktree, re-reviewed once and merged in order:
+  - task-21 verification-pipeline (R4, F1a, F15, F3, F21, F20a, F24, F23, M71a, F9c, F51, F57) — merged b9900a4.
+  - task-22 admin-verification-ui (R6, F1b, F2, F9b, M71b, M26, M27, F11, M36, F31, F20b) — merged 4c3d7eb.
+  - task-23 projects (R2, F12b, F14, F37, F36, M21, M53b, F43, F49, F44b, F41, F42) — merged b442e6b.
+  - task-24 social-messaging (R8, F10, F27, F38, F34, F53, F44a, F12a, F35, F13, F60, M52, M53, F41b) — merged 07ec97b.
+  - task-25 shell-notifications-ui (R3, F40, F18, F19, M65, F17, F32, F52, F48, F44d, F16, M4, F45, F46, F47) — merged 6b95c1b.
+  - task-26 settings-kvkk-data (F5, F4, F6, F28, F7, F8, F9a, M42, M48, M49, F30, F33, M27b, F39) — merged 032eef8.
+  - task-27 auth-legal-docs (R1, R5, R7, F25, F22, F26, M14, M15, F44c, F29, F50, F58, F54, F55, F56, F20c) — merged d3ce56c.
+- Final checks at 6b95c1b: tsc 0, lint 0, vitest 789/791 with 2 timeouts under full machine load; both files rerun alone: 39/39 green.
+- Ruling: F61 (registration reveals that an e-mail is taken) is parked — without e-mail verification a generic error would strand legitimate users — cost if wrong: e-mail enumeration on /kayit.
+- Ruling: F62 (consent check ignores the consent text version) is parked — one provider and one version today — cost if wrong: a future provider change would need a re-consent migration.
+- Ruling: F63/F64/F70 (missing FK indexes, searchText btree indexes, role-slot overbooking under PostgreSQL READ COMMITTED) are parked until a PostgreSQL migration — SQLite is the supported database and serialises writes — cost if wrong: slower queries at scale and possible overbooking after a PostgreSQL move.
+- Ruling: F65/F67 (pagination replaces instead of appending; some empty states without an action) are parked as polish — cost if wrong: minor UX friction.
+- Ruling: F66 (notification flooding through apply/withdraw and invite/cancel loops) is parked; the unbounded follow loop is fixed by F60 and the owner can block — cost if wrong: a determined user can spam one owner's notifications.
+- Ruling: F68 (AI "today" and document age measured in UTC days) is parked — at most one day off for three hours a night against a 183-day window — cost if wrong: a document exactly at the 6-month edge may be judged one day differently.
+- Ruling: F69 (seeded admin is VERIFIED without an APPROVED attempt) is accepted — the admin must open verified-only pages; the seed never runs in production — cost if wrong: none in production.
+- Re-review residuals adjudicated by the orchestrator (breaker; no second fix wave), fixed in task-30:
+  - Important: a revoked verification could be regained by re-uploading the same document. Ruling: an APPROVED decision is downgraded to MANUAL_REVIEW when the same user has an admin-rejected (reviewedAt set) attempt with the same docHash; test added — cost if wrong: an honest user whose revocation was a mistake waits for manual review.
+  - Minor: tesseract could delete operator-placed traineddata after an init failure → cacheMethod "readOnly" (the app writes the files itself).
+  - Minor: hiding a never-introduced suggestion restarted the 7-day introduction cooldown → cooldown reads only batch rows (non-empty reason; batch rows get a fallback reason); test added.
+  - Minor: client-only time labels were announced by the chat live region after hydration → aria-live is "off" until the client mounts.
+  - Minor: README said up to 5 PDF pages are processed → longer PDFs are rejected; README and make-admin output now tell the operator to check the printed username.
+- Browser E2E findings fixed in task-30: BF1 admin tab title hidden from non-admins (generateMetadata → "Sayfa bulunamadı"); BF2 counters route no longer imports the PDF/OCR stack (purgeExpiredMaskedText moved to purge-masked.ts, unpdf added to serverExternalPackages); BF3 welcome card only while the uploader is shown; BF4 project page tab title is the project title. BF5 was covered by R2, BF6 by F44.
+- Ruling: vitest testTimeout raised to 20 s — two password-hash and PDF tests timed out at 5 s only under full machine load — cost if wrong: a genuinely hung test takes 20 s to fail.

@@ -206,6 +206,9 @@ async function recognizeLocally(dir: string, image: Buffer): Promise<{ text: str
     const created = createWorker([...OCR_LANGUAGES], OEM_LSTM_ONLY, {
       langPath: dir,
       cachePath: dir,
+      // Dil dosyalarını uygulama kendisi yazar; tesseract önbelleğe yazmasın ve açılış hatasında
+      // operatörün TESSDATA_LANG_PATH klasöründeki dosyaları silmesin.
+      cacheMethod: "readOnly",
       gzip: false,
       // Tanıma hatası kendi sözüyle döner; burada yalnız çalışan açılırken gelen hatalar yakalanır.
       // errorHandler verilmezse tesseract.js hatayı olay dinleyicisinde fırlatır ve süreci düşürür.

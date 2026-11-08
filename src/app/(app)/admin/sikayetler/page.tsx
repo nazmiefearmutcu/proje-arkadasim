@@ -9,8 +9,11 @@ import { Section } from "@/components/ui/section";
 import { requireAdmin } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { relativeTimeTr } from "@/lib/time";
+import { adminMetadata } from "@/lib/admin/metadata";
 
-export const metadata = { title: "Şikayetler" };
+export function generateMetadata() {
+  return adminMetadata("Şikayetler");
+}
 
 const OPEN_LIMIT = 100;
 const RESOLVED_LIMIT = 20;

@@ -353,6 +353,11 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
       if (final.status === "APPROVED" && (await isReusedByOtherVerifiedUser(tx, docHash, userId))) {
         final = { status: "REJECTED", reason: REASON_REUSED };
       }
+      // Yöneticinin bu kullanıcı için reddettiği ya da geri aldığı belge yeniden otomatik onay almaz;
+      // tekrar yükleme yöneticinin önüne düşer (spec §5.3: tekrar kullanım engeli ve admin geri alma).
+      if (final.status === "APPROVED" && (await wasRejectedByAdminForUser(tx, docHash, userId))) {
+        final = { status: "MANUAL_REVIEW", reason: REASON_REVIEW };
+      }
 
       // Deneme her durumda kaydedilir (sınıra sayılır ve admin geçmişinde görünür).
       await tx.verificationAttempt.create({ data: attemptDataFor(final) });
@@ -411,6 +416,19 @@ async function isReusedByOtherVerifiedUser(
   return reused !== null;
 }
 
+/** Aynı belge özeti bu kullanıcı için bir yönetici tarafından reddedilmiş ya da geri alınmış mı. */
+async function wasRejectedByAdminForUser(
+  client: AttemptReader,
+  docHash: string,
+  userId: string,
+): Promise<boolean> {
+  const rejected = await client.verificationAttempt.findFirst({
+    where: { docHash, userId, status: "REJECTED", reviewedAt: { not: null } },
+    select: { id: true },
+  });
+  return rejected !== null;
+}
+
 /**
  * Bilinen PDF üretici aileleri. Eşleşen alan bu sabit etiketlerden birine indirgenir.
  */
@@ -454,11 +472,5 @@ function resolveProvider(): VerifierProvider | null {
   }
 }
 
-/** Süresi geçmiş maskeli metinleri temizler. Satırları silmez. Temizlenen satır sayısını döndürür. */
-export async function purgeExpiredMaskedText(now: Date = new Date()): Promise<number> {
-  const result = await db.verificationAttempt.updateMany({
-    where: { maskedText: { not: null }, maskedTextExpiresAt: { lte: now } },
-    data: { maskedText: null, maskedTextExpiresAt: null },
-  });
-  return result.count;
-}
+/** Süresi geçmiş maskeli metinleri temizler; hafif modülden yeniden dışa aktarılır. */
+export { purgeExpiredMaskedText } from "@/lib/verification/purge-masked";

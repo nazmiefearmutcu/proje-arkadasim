@@ -24,6 +24,8 @@ async function main(): Promise<void> {
       ? `@${result.username} zaten yönetici; değişiklik yapılmadı.`
       : `@${result.username} artık yönetici. Yönetim paneli: /admin`,
   );
+  // Kayıt e-posta sahipliğini doğrulamaz; adresi önce başkası almış olabilir.
+  console.info(`Kontrol et: @${result.username} senin /kayit sayfasında seçtiğin kullanıcı adı değilse rolü hemen geri al.`);
   if (!result.verified) {
     console.info(
       "Not: Bu hesap henüz belge doğrulamasından geçmedi. Yönetim paneli çalışır; proje paylaşmak ve mesajlaşmak için doğrulama gerekir.",

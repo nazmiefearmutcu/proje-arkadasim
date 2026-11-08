@@ -20,6 +20,8 @@ export default defineConfig({
     globalSetup: "./tests/global-setup.ts",
     // Tek SQLite dosyası paylaşıldığı için test dosyaları sırayla çalışır.
     fileParallelism: false,
+    // Parola özeti ve PDF üretimi yük altında yavaşlar; varsayılan 5 sn makine yüküyle zaman aşımı verir.
+    testTimeout: 20_000,
     include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
   },
 });

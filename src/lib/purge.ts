@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { purgeExpiredMaskedText } from "@/lib/verification/service";
+import { purgeExpiredMaskedText } from "@/lib/verification/purge-masked";
 
 // Saklama süresi temizliği (spec §6.2). Üç yol var: istek tetiklemeli (maybeRunPurge, saatte
 // en fazla bir kez), `npm run purge` betiği ve testler. Hiçbir adım belge ya da kişisel içerik
