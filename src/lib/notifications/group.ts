@@ -1,5 +1,8 @@
 // Bildirim listesini zamana göre gruplar. Girdi en yeniden eskiye sıralı beklenir; her grup
 // kendi sırasını korur ve boş gruplar çıktıya girmez.
+// Gün sınırları İstanbul saatine göredir (Europe/Istanbul); sunucunun yerel gece yarısı kullanılmaz.
+
+import { startOfIstanbulDay } from "@/lib/time";
 
 export type NotificationGroupLabel = "Bugün" | "Bu hafta" | "Daha önce";
 
@@ -8,15 +11,19 @@ export interface NotificationGroup<T> {
   items: T[];
 }
 
-/** "Bugün": bugünün başından itibaren. "Bu hafta": son altı gün (bugün hariç). Diğerleri "Daha önce". */
-export function notificationGroupOf(createdAt: Date, now: Date): NotificationGroupLabel {
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  if (createdAt.getTime() >= startOfToday.getTime()) return "Bugün";
+const DAY = 24 * 60 * 60 * 1000;
 
-  const weekStart = new Date(startOfToday);
-  weekStart.setDate(weekStart.getDate() - 6);
-  if (createdAt.getTime() >= weekStart.getTime()) return "Bu hafta";
+/**
+ * "Bugün": İstanbul'da bugünün başından (00:00) itibaren. "Bu hafta": önceki altı İstanbul günü.
+ * Diğerleri "Daha önce".
+ */
+export function notificationGroupOf(createdAt: Date, now: Date): NotificationGroupLabel {
+  const startOfToday = startOfIstanbulDay(now).getTime();
+  if (createdAt.getTime() >= startOfToday) return "Bugün";
+
+  // İstanbul'da yaz saati yoktur (sabit UTC+3), bu yüzden altı gün tam olarak 6 × 24 saattir.
+  const weekStart = startOfToday - 6 * DAY;
+  if (createdAt.getTime() >= weekStart) return "Bu hafta";
 
   return "Daha önce";
 }

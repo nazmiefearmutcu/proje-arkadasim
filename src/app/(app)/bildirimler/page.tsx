@@ -1,9 +1,10 @@
 import { BadgeCheck, FolderOpen, Handshake, Mail, MessageSquare, UserCheck, UserPlus, UserX, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { focusRing } from "@/components/ui/styles";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { requireUser } from "@/lib/auth/guards";
 import { cn } from "@/lib/cn";
 import { db } from "@/lib/db";
@@ -98,9 +99,9 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
               await markAllReadAction();
             }}
           >
-            <Button type="submit" variant="ghost" size="md">
+            <SubmitButton variant="ghost" size="md">
               Tümünü okundu yap
-            </Button>
+            </SubmitButton>
           </form>
         }
       />
@@ -126,8 +127,10 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
                   const verification = item.icon === "verification";
                   return (
                     <li key={item.id} className="border-b border-line last:border-b-0">
+                      {/* Önceden getirme kapalı: rota işleyicisi bildirimi okundu yapar; yalnız dokunuş okundu yapmalı (spec §4.8). */}
                       <Link
                         href={`/bildirimler/git/${item.id}`}
+                        prefetch={false}
                         className={cn("flex min-h-14 items-center gap-3 rounded-control py-3", focusRing)}
                       >
                         <span
