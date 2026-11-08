@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { getDisciplineGroup, isDisciplineGroupId } from "@/config/taxonomy";
 import { db } from "@/lib/db";
 import { toPersonSummary, type PersonSummary } from "@/lib/dto";
@@ -186,16 +187,26 @@ export interface Suggestion {
 /** Aday havuzu: en son doğrulananlar. */
 const CANDIDATE_POOL = 300;
 const INTRO_BATCH = 3;
-const INTRO_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const INTRO_REPEAT_MS = 7 * 24 * 60 * 60 * 1000;
-/** Tanıştırma için taranacak en çok öneri (7 gün kuralı sonrası yeterli aday bulmak için). */
-const INTRO_SCAN = 30;
+/** Görüntüleyen başına tanıştırma partileri arasındaki en kısa süre (spec §4.6: 7 günde en çok bir kez). */
+const INTRO_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Görüntüleyen için puanlı öneriler. Aday: doğrulanmış, kendisi değil, takip edilmeyen, engel
  * ilişkisi olmayan ve gizlenmiş tanıştırması olmayan. Puanı 0 olanlar atılır.
  */
 export async function getSuggestions(viewerId: string, limit = 10): Promise<Suggestion[]> {
+  return rankSuggestions(viewerId, limit, "dismissed");
+}
+
+/**
+ * Puanlı öneri listesi. `introduced` hangi tanıştırma satırlarının adayı dışarıda bırakacağını seçer:
+ * "dismissed" yalnız gizlenenleri, "any" yaşı ya da durumu ne olursa olsun tanıştırılmış herkesi.
+ */
+async function rankSuggestions(
+  viewerId: string,
+  limit: number,
+  introduced: "dismissed" | "any",
+): Promise<Suggestion[]> {
   const viewerRow = await db.user.findUnique({ where: { id: viewerId }, select: PROFILE_SELECT });
   if (!viewerRow) return [];
   const viewer = toProfile(viewerRow);
@@ -207,7 +218,7 @@ export async function getSuggestions(viewerId: string, limit = 10): Promise<Sugg
       select: { blockerId: true, blockedId: true },
     }),
     db.introduction.findMany({
-      where: { userId: viewerId, dismissed: true },
+      where: introduced === "any" ? { userId: viewerId } : { userId: viewerId, dismissed: true },
       select: { suggestedUserId: true },
     }),
   ]);
@@ -256,41 +267,35 @@ export async function getSuggestions(viewerId: string, limit = 10): Promise<Sugg
 }
 
 /**
- * Görüntüleyene en fazla 3 tanıştırma yazar ve her biri için INTRODUCTION bildirimi üretir.
- * Kişi başı 7 günde en çok bir kez önerilir. Görüntüleyen için 24 saatte en çok bir kez çalışır
- * (gizlenmiş satırlar bu sayılmaz). Yazılan tanıştırma sayısını döner.
+ * Görüntüleyene en fazla 3 tanıştırma yazar ve her biri için INTRODUCTION bildirimi üretir (spec §4.6).
+ * - Yalnız ilk kez önerilen kişiler: görüntüleyen için herhangi bir tanıştırma satırı (gizlenmiş ya da
+ *   eski) olan aday bir daha tanıştırılmaz ve bildirilmez.
+ * - "Kişi başı 7 günde en çok bir kez" görüntüleyen başına okunur: son tanıştırmanın üzerinden 7 gün
+ *   geçmeden yeni parti yazılmaz. Gizlenmiş satırlar da sayılır; partiyi gizlemek bekleme süresini atlatmaz.
+ * Satırlar `create` ile yazılır (createdAt hiç yenilenmez). Eşzamanlı ikinci çağrının aynı satırı
+ * yazma denemesi benzersizlik hatasına düşer ve o kişi için bildirim gitmez. Yazılan sayıyı döner.
  */
 export async function createIntroductions(viewerId: string, now: Date = new Date()): Promise<number> {
   const latest = await db.introduction.findFirst({
-    where: { userId: viewerId, dismissed: false },
+    where: { userId: viewerId },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
   if (latest && now.getTime() - latest.createdAt.getTime() < INTRO_COOLDOWN_MS) return 0;
 
-  const suggestions = await getSuggestions(viewerId, INTRO_SCAN);
-  if (suggestions.length === 0) return 0;
+  const picks = await rankSuggestions(viewerId, INTRO_BATCH, "any");
 
-  const recent = await db.introduction.findMany({
-    where: {
-      userId: viewerId,
-      suggestedUserId: { in: suggestions.map((suggestion) => suggestion.person.id) },
-      createdAt: { gte: new Date(now.getTime() - INTRO_REPEAT_MS) },
-    },
-    select: { suggestedUserId: true },
-  });
-  const recentIds = new Set(recent.map((row) => row.suggestedUserId));
-
-  const picks = suggestions
-    .filter((suggestion) => !recentIds.has(suggestion.person.id))
-    .slice(0, INTRO_BATCH);
-
+  let created = 0;
   for (const pick of picks) {
-    await db.introduction.upsert({
-      where: { userId_suggestedUserId: { userId: viewerId, suggestedUserId: pick.person.id } },
-      update: { reason: pick.reason, createdAt: now },
-      create: { userId: viewerId, suggestedUserId: pick.person.id, reason: pick.reason },
-    });
+    try {
+      await db.introduction.create({
+        data: { userId: viewerId, suggestedUserId: pick.person.id, reason: pick.reason, createdAt: now },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") continue;
+      throw error;
+    }
+    created += 1;
     await notify({
       userId: viewerId,
       actorId: pick.person.id,
@@ -299,5 +304,5 @@ export async function createIntroductions(viewerId: string, now: Date = new Date
     });
   }
 
-  return picks.length;
+  return created;
 }

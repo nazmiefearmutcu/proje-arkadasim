@@ -39,6 +39,43 @@ describe("followUserAction ve unfollowUserAction", () => {
     expect(notes[0]?.actorId).toBe(viewer.id);
   });
 
+  it("takip et / bırak / takip et döngüsü tek FOLLOW bildirimi üretir", async () => {
+    const viewer = await createUser();
+    const target = await createUser();
+    await asViewer(viewer);
+
+    for (let i = 0; i < 3; i += 1) {
+      expect(await followUserAction(target.id)).toEqual({ ok: true });
+      expect(await unfollowUserAction(target.id)).toEqual({ ok: true });
+    }
+    expect(await followUserAction(target.id)).toEqual({ ok: true });
+
+    expect(await db.follow.count({ where: { followerId: viewer.id, followingId: target.id } })).toBe(1);
+    expect(await db.notification.count({ where: { userId: target.id, type: "FOLLOW", actorId: viewer.id } })).toBe(1);
+  });
+
+  it("son FOLLOW bildirimi 7 günden eskiyse yeniden takipte yeni bildirim yazar; başka takipçiyi etkilemez", async () => {
+    const viewer = await createUser();
+    const other = await createUser();
+    const target = await createUser();
+    await db.notification.create({
+      data: {
+        userId: target.id,
+        actorId: viewer.id,
+        type: "FOLLOW",
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    await asViewer(viewer);
+    expect(await followUserAction(target.id)).toEqual({ ok: true });
+    await asViewer(other);
+    expect(await followUserAction(target.id)).toEqual({ ok: true });
+
+    expect(await db.notification.count({ where: { userId: target.id, actorId: viewer.id } })).toBe(2);
+    expect(await db.notification.count({ where: { userId: target.id, actorId: other.id } })).toBe(1);
+  });
+
   it("kendini takip edemez", async () => {
     const viewer = await createUser();
     await asViewer(viewer);
