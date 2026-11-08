@@ -32,10 +32,33 @@ Raw values live on `:root` as CSS variables and are overridden under
 | `ok` / `ok-soft` | `text-ok bg-ok-soft` | Success |
 | `warn` / `warn-soft` | `text-warn bg-warn-soft` | Pending, manual review |
 | `danger` / `danger-soft` | `text-danger bg-danger-soft` | Errors, destructive actions |
+| `scrim` | `backdrop:bg-scrim` | Modal backdrop behind sheets. Theme-independent `rgb(10 12 24 / 0.5)` |
+
+Contrast (WCAG AA, 4.5:1 for small text). The light theme is tuned so every text pair passes:
+`ink-3` `#666b86` (paper 4.83, surface 5.23, surface-2 4.62), `warn` `#996000` (warn-soft 4.65,
+surface 5.21), `ok` `#1d7a4c` (ok-soft 4.64, surface 5.33). The dark theme values are unchanged.
+`tests/design-tokens.test.ts` checks these pairs and the avatar inks below against `globals.css`.
+
+`scrim` is not derived from `ink`: `ink` is near-white in dark mode and would lighten the page.
+It is declared on `:root` and on `::backdrop` (older browsers do not let `::backdrop` inherit
+variables from `:root`).
 
 Discipline colors are `--d-<id>` (`yazilim`, `elektronik`, `makine`, `endustri`, `mimarlik`,
 `tasarim`, `isletme`, `saglik`, `hukuk`, `sosyal`, `temel`, `sanat`). Use them only through
 `style={{ background: "var(--d-<id>)" }}`. Never copy the hex from `taxonomy.ts`.
+
+Text on a discipline color uses that color's ink, `--d-<id>-ink` (Avatar initials). One ink cannot
+reach 4.5:1 on all twelve light-theme colors (white is 2.2:1 on the `endustri` yellow, dark ink is
+2–3:1 on the `makine` grey), so each color points to one of two inks:
+
+| Token | Light | Dark | Used on |
+|---|---|---|---|
+| `--avatar-ink` | `#ffffff` | `#0f1222` | `yazilim`, `makine`, `mimarlik`, `tasarim`, `saglik`, `hukuk`, `sanat` |
+| `--avatar-ink-dark` | `#0a0c18` | `#0f1222` | `elektronik`, `endustri`, `isletme`, `sosyal`, `temel` |
+
+Lowest ratios: light `sosyal` 4.57 and `tasarim` 4.62, dark `sosyal` 5.52 (every dark-theme
+discipline color is light, so both inks are dark there). Never put raw `text-white` on a discipline
+color.
 
 Dark values are set by the system preference. Do not add a theme toggle.
 
@@ -70,6 +93,11 @@ Sentence case everywhere. No uppercase transforms, no eyebrow labels.
 
 Inputs use 16 px text so iOS does not zoom when focused.
 
+Every type class except `t-hero` sets `overflow-wrap: anywhere`. User text (descriptions, bios,
+messages, role and project titles, e-mail addresses, URLs) can contain long unbreakable tokens; this
+breaks them inside their box and shrinks the min-content width, so the page never scrolls sideways at
+375 px. Rows that must stay on one line keep `truncate` (nowrap), which is unaffected.
+
 ## Layout
 
 - Top bar: 60 px, sticky, `bg-surface`, bottom border `border-line`. Its content sits in a
@@ -85,6 +113,8 @@ Inputs use 16 px text so iOS does not zoom when focused.
 
 - Every interactive element uses `focusRing` (`src/components/ui/styles.ts`): a 2 px outline in
   `pen` at offset 2, shown on `focus-visible` only.
+- Do not add `outline-none` or `outline-hidden` next to `focusRing`. In Tailwind 4 both set
+  `--tw-outline-style: none`, and `focus-visible:outline-2` then draws no outline at all.
 - `prefers-reduced-motion` disables transitions and animations globally in `globals.css`.
   Components with timers (search placeholder rotation) also check the media query.
 
@@ -95,6 +125,13 @@ Import from `@/components/ui/<file>`.
 - **Button / ButtonLink** (`button.tsx`): variants `primary`, `secondary`, `ghost`, `danger`;
   sizes `md` (44 px, default) and `sm` (36 px, dense surfaces only). `loading` shows a spinner
   and disables the button. `buttonClasses(variant, size, className)` styles other elements.
+- **SubmitButton** (`submit-button.tsx`, client): submit button inside a `<form action={…}>`. It reads
+  `useFormStatus().pending` and passes it to Button's `loading`, so a slow server action shows a
+  spinner and cannot be sent twice. `unstyled` keeps the caller's classes (for example a menu row)
+  and appends the spinner.
+  ```tsx
+  <form action={markAllRead}><SubmitButton variant="ghost">Tümünü okundu yap</SubmitButton></form>
+  ```
   ```tsx
   <Button type="submit" loading={pending}>Projeyi paylaş</Button>
   <ButtonLink href="/giris" variant="secondary">Giriş yap</ButtonLink>
@@ -113,14 +150,21 @@ Import from `@/components/ui/<file>`.
 - **Card** (`card.tsx`): `bg-surface`, `border-line`, 16 px radius, no shadow.
 - **Avatar** (`avatar.tsx`): sizes 28, 36, 48, 72, 96. Shows `avatarUrl(path)` when available,
   otherwise initials on the discipline color (or a color picked from the seed). Pass `name`
-  for initials and `seed` (username) for the palette.
+  for initials and `seed` (username) for the palette. Initials use the color's `--d-<id>-ink`
+  (`avatarColorsFor` in `avatar-colors.ts`).
 - **Badge** (`badge.tsx`): count badge, hidden at 0, shows `99+` above 99.
 - **Chip** (`chip.tsx`): neutral by default, `selected` for active filters, `dotColor` for a
-  leading color dot, `href` makes it a link.
+  leading color dot, `href` makes it a link. Link chips are 44 px tall and stay on one line (filter
+  rows scroll sideways). Static chips are 32 px, `max-w-full`, and wrap long text
+  (`overflow-wrap: anywhere`), so a 60-character role title fits a 375 px screen.
+  `chipClasses(selected, className, { interactive, nowrap })` (`chip-classes.ts`) styles other
+  tappable chips, such as the search suggestions (`interactive` gives 44 px). Height and wrapping
+  come from the options, never from a second `min-h-*` class: `cn` does not resolve conflicts.
 - **Tabs** (`tabs.tsx`): link tabs. Each tab points to `basePath?sekme=<value>`, the active tab
   has a 2 px pen underline.
 - **Sheet** (`sheet.tsx`, client): bottom sheet on a native `<dialog>`. Closes on backdrop,
-  Escape and the close button through `onClose`. The parent owns the `open` state.
+  Escape and the close button through `onClose`. The parent owns the `open` state. The backdrop
+  is `--scrim`.
   ```tsx
   <Sheet open={open} onClose={() => setOpen(false)} title="Hesap">…</Sheet>
   ```
@@ -145,17 +189,32 @@ Import from `@/components/ui/<file>`.
   title link, summary, info chips, sought disciplines, owner row. Closed projects show a
   "Kapandı" chip and a faded spine.
 - **UserRow** (`user-row.tsx`): `person: PersonSummary`, `name` (chosen by the caller with
-  `displayName`), optional `reason` and `action`.
+  `displayName`), optional `reason` and `action`. Optional `href` (for example `/u/<username>`,
+  only for viewers who may see the profile) turns the avatar and text into one 44 px link with
+  `focusRing`; do not add a separate "Profili gör" button next to the action.
 - **Logo** (`logo.tsx`): three-bar mark plus wordmark. `LogoMark` is the mark alone.
 
 ## Shell (`src/components/shell/`)
 
 - `TopBar`: avatar menu, search pill, notification bell.
 - `BottomNav`: Ana Sayfa, Network, Paylaş (raised pen circle), Mesajlarım, Projeler. Badges come
-  from `useCounters`.
+  from `useCounters`. A badge adds its meaning to the link's accessible name ("Mesajlarım, 3
+  okunmamış", "Network, 2 bekleyen davet"), like the bell ("Bildirimler, 3 okunmamış").
 - `useCounters(initial)`: shares one store between bell and nav, polls
   `/api/me/counters` every 20 s and on `visibilitychange`.
-- `SearchBar`: rotating placeholder from `getSearchSuggestions`, a suggestion panel on focus.
+- `SearchBar`: rotating placeholder from `getSearchSuggestions`. On focus a panel shows the
+  suggestions as wrapping chips (spec §3.1, 44 px each); a tap searches `suggestionToQuery(suggestion)`.
+- `AvatarMenu`: "Profilim" for verified users; unverified users get "Profilini düzenle"
+  (`/ayarlar#profil`), because profiles are verified-only. "Çıkış yap" is a `SubmitButton`.
+
+## Error pages
+
+- `(app)/error.tsx` and `(auth)/error.tsx` keep their shell and offer "Yeniden dene", which calls
+  `router.refresh()` and then `reset()` in a transition (`reset()` alone re-renders the cached
+  payload that still holds the server error).
+- `app/error.tsx` catches errors from the group layouts inside the root layout.
+- `app/global-error.tsx` replaces the root layout: its own `<html lang="tr">`, Turkish copy and a
+  reload button. It uses the documented `system-ui` fallback font.
 
 ## Copy rules
 

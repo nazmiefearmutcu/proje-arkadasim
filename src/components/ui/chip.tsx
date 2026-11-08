@@ -1,16 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/cn";
-import { focusRing } from "./styles";
+import { chipClasses } from "./chip-classes";
 
-export function chipClasses(selected = false, className?: string): string {
-  return cn(
-    "inline-flex min-h-8 items-center gap-1.5 rounded-chip px-3 py-1 t-label whitespace-nowrap",
-    selected ? "bg-pen-soft text-pen" : "bg-surface-2 text-ink-2",
-    focusRing,
-    className,
-  );
-}
+export { chipClasses, type ChipStyle } from "./chip-classes";
 
 export interface ChipProps {
   children: ReactNode;
@@ -21,7 +13,10 @@ export interface ChipProps {
   className?: string;
 }
 
-/** Etiket çipi. `href` verilirse bağlantı olur (filtre çipleri için). */
+/**
+ * Etiket çipi. `href` verilirse bağlantı olur (filtre çipleri için): 44 px yüksek ve tek satır.
+ * Bağlantısız çipler 32 px'tir ve uzun metinde satır kırar.
+ */
 export function Chip({ children, selected, dotColor, href, className }: ChipProps) {
   const content = (
     <>
@@ -33,7 +28,11 @@ export function Chip({ children, selected, dotColor, href, className }: ChipProp
   );
   if (href) {
     return (
-      <Link href={href} aria-current={selected ? "true" : undefined} className={chipClasses(selected, className)}>
+      <Link
+        href={href}
+        aria-current={selected ? "true" : undefined}
+        className={chipClasses(selected, className, { interactive: true, nowrap: true })}
+      >
         {content}
       </Link>
     );

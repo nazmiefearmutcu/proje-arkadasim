@@ -1,5 +1,8 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { focusRing } from "@/components/ui/styles";
+import { cn } from "@/lib/cn";
 import type { PersonSummary } from "@/lib/dto";
 import { VerifiedStamp } from "./verified-stamp";
 
@@ -9,12 +12,17 @@ export interface UserRowProps {
   name: string;
   reason?: string;
   action?: ReactNode;
+  /**
+   * Verilirse profil resmi ve ad bilgisi tek bir bağlantı olur (ör. `/u/<username>`). Yalnız profili
+   * görebilecek (doğrulanmış) görüntüleyici için verilir; ayrı bir "Profili gör" düğmesine gerek kalmaz.
+   */
+  href?: string;
 }
 
 /** Kişi satırı: 48 px profil resmi, ad ve doğrulama mührü, bölüm ve üniversite, isteğe bağlı gerekçe ve eylem. */
-export function UserRow({ person, name, reason, action }: UserRowProps) {
-  return (
-    <div className="flex min-h-16 items-center gap-3 py-3">
+export function UserRow({ person, name, reason, action, href }: UserRowProps) {
+  const identity = (
+    <>
       <Avatar
         size={48}
         name={name}
@@ -35,6 +43,18 @@ export function UserRow({ person, name, reason, action }: UserRowProps) {
         ) : null}
         {reason ? <p className="t-meta text-ink-3">{reason}</p> : null}
       </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-16 items-center gap-3 py-3">
+      {href ? (
+        <Link href={href} className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-control", focusRing)}>
+          {identity}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{identity}</div>
+      )}
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
