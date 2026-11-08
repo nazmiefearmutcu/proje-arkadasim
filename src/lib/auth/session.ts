@@ -74,3 +74,9 @@ export async function destroySession(): Promise<void> {
 export async function destroyAllSessionsForUser(userId: string): Promise<void> {
   await db.session.deleteMany({ where: { userId } });
 }
+
+/** Geçerli oturumun kimliği; oturum yoksa null. Parola değişiminde mevcut oturumu korumak için kullanılır. */
+export async function getCurrentSessionId(): Promise<string | null> {
+  const session = await getSessionUser();
+  return session?.sessionId ?? null;
+}

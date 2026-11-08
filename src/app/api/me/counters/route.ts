@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { getCounters } from "@/lib/counters";
+import { maybeRunPurge } from "@/lib/purge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,5 +16,8 @@ export async function GET() {
   }
 
   const counters = await getCounters(user.id);
-  return NextResponse.json({ authenticated: true, ...counters }, { headers });
+  const response = NextResponse.json({ authenticated: true, ...counters }, { headers });
+  // Saklama temizliği yanıtı beklemez ve hata fırlatmaz (saatte en fazla bir kez).
+  maybeRunPurge();
+  return response;
 }
