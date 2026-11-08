@@ -7,6 +7,15 @@ import { hashPassword, verifyPassword } from "./password";
 import { generateToken, hashToken } from "./tokens";
 
 const jar = vi.hoisted(() => new Map<string, string>());
+const pendingAfter = vi.hoisted(() => [] as Promise<unknown>[]);
+
+// `after` yanıttan sonra çalışır; testte kuyruğa alınır ve flushAfter ile beklenir.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    pendingAfter.push(Promise.resolve().then(task));
+  },
+}));
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -57,6 +66,11 @@ async function redirectTarget(promise: Promise<unknown>): Promise<string> {
   throw new Error("yönlendirme bekleniyordu");
 }
 
+/** Yanıttan sonra planlanan işleri (jeton ve e-posta) tamamlanana kadar bekler. */
+async function flushAfter(): Promise<void> {
+  await Promise.all(pendingAfter.splice(0));
+}
+
 /** Gönderilen e-postadaki sıfırlama jetonunu okur. */
 function tokenFromLastMail(): string {
   const calls = vi.mocked(sendMail).mock.calls;
@@ -71,6 +85,7 @@ describe("şifre sıfırlama", () => {
     await resetDb();
     jar.clear();
     vi.mocked(sendMail).mockClear();
+    pendingAfter.splice(0);
     (globalThis as unknown as { __rateLimitEntries?: Map<string, unknown> }).__rateLimitEntries?.clear();
   });
 
@@ -78,13 +93,28 @@ describe("şifre sıfırlama", () => {
     const result = await requestPasswordResetAction(null, form({ email: "yok@ornek.test" }));
 
     expect(result).toEqual({ ok: true });
+    expect(pendingAfter).toHaveLength(0);
+    await flushAfter();
     expect(await db.passwordResetToken.count({ where: { user: { email: "yok@ornek.test" } } })).toBe(0);
     expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("kayıtlı e-posta için yanıt, jeton ve e-posta işi yanıttan sonraya planlanır", async () => {
+    const user = await createUser({ email: "zamanlama@ornek.test" });
+    const result = await requestPasswordResetAction(null, form({ email: user.email }));
+
+    // Yanıt dönerken iş henüz yapılmamış olmalı; kayıtlı ve kayıtsız yol aynı süreyi harcar.
+    expect(result).toEqual({ ok: true });
+    expect(pendingAfter).toHaveLength(1);
+    expect(sendMail).not.toHaveBeenCalled();
+    await flushAfter();
+    expect(sendMail).toHaveBeenCalledTimes(1);
   });
 
   it("kayıtlı e-posta için jeton üretir (yalnız özeti saklanır) ve bağlantıyı gönderir", async () => {
     const user = await createUser({ email: "sifre@ornek.test" });
     const result = await requestPasswordResetAction(null, form({ email: user.email }));
+    await flushAfter();
 
     expect(result).toEqual({ ok: true });
     expect(sendMail).toHaveBeenCalledTimes(1);

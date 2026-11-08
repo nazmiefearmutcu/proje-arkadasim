@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { RESET_TOKEN_MINUTES } from "@/config/legal";
 import { db } from "@/lib/db";
 import { fail, ok, zodFieldErrors, type ActionResult } from "@/lib/action-result";
@@ -38,34 +39,41 @@ export async function requestPasswordResetAction(
 
   const user = await db.user.findUnique({ where: { email }, select: { id: true, email: true } });
   if (user) {
+    // Jeton üretimi ve e-posta gönderimi yanıttan sonra yapılır. Böylece kayıtlı ve kayıtsız
+    // e-posta için yanıt süresi aynıdır; süreden hesabın varlığı çıkarılamaz.
+    after(() => issueResetLink(user.id, user.email));
+  }
+
+  return ok();
+}
+
+/** Jeton üretir (yalnız özeti saklanır) ve bağlantıyı e-postayla gönderir. Hata yanıta yansımaz. */
+async function issueResetLink(userId: string, email: string): Promise<void> {
+  try {
     const token = generateToken();
     await db.passwordResetToken.create({
       data: {
-        userId: user.id,
+        userId,
         tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60_000),
       },
     });
 
     const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "");
-    try {
-      await sendMail({
-        to: user.email,
-        subject: "Şifre sıfırlama bağlantın",
-        text: [
-          "Şifreni sıfırlamak için aşağıdaki bağlantıyı aç:",
-          `${base}/sifre-sifirla/${token}`,
-          "",
-          `Bağlantı ${RESET_TOKEN_MINUTES} dakika geçerlidir. Bu isteği sen yapmadıysan bu e-postayı yok say.`,
-        ].join("\n"),
-      });
-    } catch {
-      // Gönderim hatasında da aynı yanıt dönülür; ayrıntı e-posta içeriği olmadan kaydedilir.
-      console.error("[şifre sıfırlama] e-posta gönderilemedi");
-    }
+    await sendMail({
+      to: email,
+      subject: "Şifre sıfırlama bağlantın",
+      text: [
+        "Şifreni sıfırlamak için aşağıdaki bağlantıyı aç:",
+        `${base}/sifre-sifirla/${token}`,
+        "",
+        `Bağlantı ${RESET_TOKEN_MINUTES} dakika geçerlidir. Bu isteği sen yapmadıysan bu e-postayı yok say.`,
+      ].join("\n"),
+    });
+  } catch {
+    // Ayrıntı (adres, jeton) kaydedilmez; yalnız olayın türü yazılır.
+    console.error("[şifre sıfırlama] bağlantı üretilemedi ya da e-posta gönderilemedi");
   }
-
-  return ok();
 }
 
 /** Yeni şifreyi kaydeder, jetonu kullanılmış işaretler ve tüm oturumları kapatır. */
