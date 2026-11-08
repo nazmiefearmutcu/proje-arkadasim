@@ -20,6 +20,26 @@ vi.mock("@/lib/verification/extract", async (importOriginal) => {
   };
 });
 
+// Yapay zekaya giden girdiyi kaydeder (mock sağlayıcının kendisi değişmez).
+const aiInputs = vi.hoisted(() => [] as Array<{ maskedText: string; signals: { pdf?: { producer: string | null; creator: string | null } } }>);
+vi.mock("@/lib/verification/providers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/verification/providers")>();
+  return {
+    ...actual,
+    getVerifierProvider: () => {
+      const provider = actual.getVerifierProvider();
+      if (!provider) return null;
+      return {
+        ...provider,
+        analyze: (input: Parameters<typeof provider.analyze>[0]) => {
+          aiInputs.push(input);
+          return provider.analyze(input);
+        },
+      };
+    },
+  };
+});
+
 const PDF_MARKER = "XQZMARKER123";
 const TCKN = "10000000146";
 
@@ -30,7 +50,7 @@ function todayDotted(): string {
   return `${dd}.${mm}.${now.getUTCFullYear()}`;
 }
 
-async function buildStudentPdf(): Promise<Uint8Array> {
+async function buildStudentPdf(options: { creator?: string } = {}): Promise<Uint8Array> {
   const lines = [
     "T.C.",
     "YUKSEKOGRETIM KURULU BASKANLIGI",
@@ -51,6 +71,7 @@ async function buildStudentPdf(): Promise<Uint8Array> {
     `Belge Tarihi : ${todayDotted()}`,
   ];
   const doc = await PDFDocument.create();
+  if (options.creator) doc.setCreator(options.creator);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const page = doc.addPage([595, 842]);
   let y = 800;
@@ -156,16 +177,42 @@ describe("belge doğrulama servisi", () => {
   });
 
   it("aynı belge onaylanmış başka bir hesapta varsa tekrar kullanım olarak reddeder", async () => {
+    // Aynı belge bir kez üretilir; her doğrulama kendi kopyasını alır (verifyDocument girdiyi sıfırlar).
+    // Ayrı ayrı üretmek, pdf-lib'in tarih meta verisi yüzünden bayt farkı ve kararsız test doğurur.
+    const pdfBytes = await buildStudentPdf();
+
     const first = await unverifiedUser();
     await recordConsent(first.id, "CROSS_BORDER_AI", true);
-    const firstOutcome = await verifyDocument({ userId: first.id, bytes: await buildStudentPdf() });
+    const firstOutcome = await verifyDocument({ userId: first.id, bytes: pdfBytes.slice() });
     expect(firstOutcome.status).toBe("APPROVED");
 
     const second = await unverifiedUser();
     await recordConsent(second.id, "CROSS_BORDER_AI", true);
-    const secondOutcome = await verifyDocument({ userId: second.id, bytes: await buildStudentPdf() });
+    const secondOutcome = await verifyDocument({ userId: second.id, bytes: pdfBytes.slice() });
     expect(secondOutcome.status).toBe("REJECTED");
     expect(secondOutcome.message).toBe(REASON_REUSED);
+  });
+
+  it("PDF üretici alanındaki kişi adı yapay zekaya maskeli gider", async () => {
+    const user = await unverifiedUser();
+    await recordConsent(user.id, "CROSS_BORDER_AI", true);
+    aiInputs.length = 0;
+
+    const outcome = await verifyDocument({
+      userId: user.id,
+      bytes: await buildStudentPdf({ creator: "Ayse Nur Kilic" }),
+    });
+    expect(outcome.status).toBe("APPROVED");
+
+    expect(aiInputs).toHaveLength(1);
+    const sent = JSON.stringify(aiInputs[0]).toLowerCase();
+    expect(sent).not.toContain("ayse");
+    expect(sent).not.toContain("kilic");
+    expect(sent).not.toContain(TCKN);
+
+    const creator = aiInputs[0].signals.pdf?.creator;
+    expect(creator).toContain("[SOYAD]");
+    expect(creator).not.toMatch(/kilic/i);
   });
 
   it("24 saatte 5 denemeden sonra altıncı belgeyi ERROR ile durdurur, deneme kaydetmez", async () => {

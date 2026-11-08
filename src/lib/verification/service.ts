@@ -202,7 +202,7 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
           maskedText,
           signals:
             source === "PDF_TEXT"
-              ? { source, pdf: pdfSignals }
+              ? { source, pdf: maskPdfSignals(pdfSignals, { firstName: user.firstName, lastName: user.lastName }) }
               : { source, ocrConfidence },
           today: new Date().toISOString().slice(0, 10),
         });
@@ -286,6 +286,24 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
   const message =
     decision.status === "APPROVED" ? MESSAGES.APPROVED : decision.reason ?? REASON_REVIEW;
   return outcome(decision.status, message, true, started);
+}
+
+/**
+ * PDF üretici alanları (producer, creator) serbest metindir ve kişi adı ya da cihaz adı taşıyabilir.
+ * Yapay zekaya gitmeden önce aynı ad maskeleme kurallarından geçirilir. Tarih alanları olduğu gibi kalır.
+ */
+export function maskPdfSignals(
+  signals: PdfSignals | undefined,
+  person: { firstName: string; lastName: string },
+): PdfSignals | undefined {
+  if (!signals) return undefined;
+  const maskField = (value: string | null): string | null =>
+    value === null ? null : maskDocumentText(value, person).masked;
+  return {
+    ...signals,
+    producer: maskField(signals.producer),
+    creator: maskField(signals.creator),
+  };
 }
 
 /** Sağlayıcı seçimi; yapılandırma hatası (ör. üretimde mock) AI'ı devre dışı bırakır, belgeyi düşürmez. */
