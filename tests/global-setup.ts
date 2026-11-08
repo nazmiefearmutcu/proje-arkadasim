@@ -1,19 +1,14 @@
 import { execSync } from "node:child_process";
-import { rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// Test çalıştırması başına bir kez: test veritabanını sıfırdan şemaya göre kurar.
-// DATABASE_URL="file:./test.db" yolu Prisma'da şema dosyasına (prisma/) göre çözülür,
-// bu yüzden dosya prisma/test.db olur. Dosya yalnız bu betik tarafından, her çalıştırmada
-// silinir; geliştirme veritabanına dokunulmaz. "--force-reset" kullanılmaz: Prisma bunu
-// yapay zeka ajanları için engeller ve kullanıcı onayı ister.
+// Test çalıştırması başına bir kez: test şemasını prisma/test.db dosyasına uygular.
+// DATABASE_URL="file:./test.db" yolu Prisma'da şema dosyasına (prisma/) göre çözülür.
+// "--force-reset" kullanılmaz: Prisma bunu yapay zeka ajanları için engeller ve açık
+// kullanıcı onayı ister. Düz "db push" dosyayı silmez; yalnız şema farkını uygular ve
+// veri kaybı gerektiren bir değişiklikte kendisi durur. Testler her testten önce
+// resetDb() ile kendi satırlarını temizler.
 export default function setup(): void {
   const root = fileURLToPath(new URL("..", import.meta.url));
-  const testDbPath = fileURLToPath(new URL("../prisma/test.db", import.meta.url));
-
-  for (const suffix of ["", "-journal", "-wal"]) {
-    rmSync(`${testDbPath}${suffix}`, { force: true });
-  }
 
   execSync("npx prisma db push --skip-generate", {
     cwd: root,

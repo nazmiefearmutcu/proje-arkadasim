@@ -49,4 +49,37 @@ describe("veritabanı kaskad silme", () => {
     // Takip eden kullanıcı silinmez.
     expect(await db.user.count({ where: { id: follower.id } })).toBe(1);
   });
+
+  it("yönetici ve hedef kullanıcı silinince denetim kaydı kalır, ilişki alanı boşalır", async () => {
+    const admin = await createUser({ role: "ADMIN" });
+    const target = await createUser();
+
+    const audit = await db.adminAuditLog.create({
+      data: { adminId: admin.id, action: "VERIFICATION_REVIEW", targetUserId: target.id },
+    });
+
+    await db.user.delete({ where: { id: target.id } });
+    const afterTarget = await db.adminAuditLog.findUniqueOrThrow({ where: { id: audit.id } });
+    expect(afterTarget.targetUserId).toBeNull();
+    expect(afterTarget.adminId).toBe(admin.id);
+
+    await db.user.delete({ where: { id: admin.id } });
+    const afterAdmin = await db.adminAuditLog.findUniqueOrThrow({ where: { id: audit.id } });
+    expect(afterAdmin.adminId).toBeNull();
+    expect(afterAdmin.action).toBe("VERIFICATION_REVIEW");
+  });
+
+  it("raporlayan kullanıcı silinince rapor kaydı kalır", async () => {
+    const reporter = await createUser();
+    const reported = await createUser();
+
+    const report = await db.report.create({
+      data: { reporterId: reporter.id, targetType: "USER", targetId: reported.id, reason: "SPAM" },
+    });
+
+    await db.user.delete({ where: { id: reporter.id } });
+    const after = await db.report.findUniqueOrThrow({ where: { id: report.id } });
+    expect(after.reporterId).toBeNull();
+    expect(after.targetId).toBe(reported.id);
+  });
 });

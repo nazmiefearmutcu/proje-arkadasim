@@ -1,6 +1,13 @@
-import { foldTr } from "@/lib/tr";
-
 const MAX_ITEM_LENGTH = 40;
+
+/**
+ * Tekilleştirme anahtarı: sembolleri (C# / C++ / .NET) korur, yalnız büyük/küçük harf
+ * ve boşluk farkını siler. foldTr burada kullanılmaz; sembolleri atıp farklı etiketleri
+ * birbirine karıştırır.
+ */
+function dedupeKey(item: string): string {
+  return item.normalize("NFC").replace(/\s+/g, " ").toLocaleLowerCase("tr-TR");
+}
 
 /** JSON metninden metin listesi okur. Hata vermez; dizi değilse boş liste döner. */
 export function parseList(json: string | null | undefined): string[] {
@@ -26,7 +33,7 @@ export function toListJson(list: readonly string[], max = 20): string {
     if (out.length >= max) break;
     const item = raw.trim().slice(0, MAX_ITEM_LENGTH).trim();
     if (item.length === 0) continue;
-    const key = foldTr(item) || item.toLocaleLowerCase("tr-TR");
+    const key = dedupeKey(item);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(item);

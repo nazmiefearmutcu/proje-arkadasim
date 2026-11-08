@@ -102,6 +102,11 @@ describe("CITIES", () => {
     expect(CITIES).toContain("Şanlıurfa");
     expect(CITIES).toContain("Iğdır");
   });
+
+  it("Türkçe alfabe sırasıyla (Intl.Collator 'tr') sıralıdır", () => {
+    const collator = new Intl.Collator("tr");
+    expect([...CITIES]).toEqual([...CITIES].sort(collator.compare));
+  });
 });
 
 describe("labelOf ve seçenek listeleri", () => {

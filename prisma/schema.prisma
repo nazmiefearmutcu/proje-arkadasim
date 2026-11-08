@@ -316,10 +316,11 @@ model Block {
   @@id([blockerId, blockedId])
 }
 
+// Kullanıcı silinince raporlar kalır (moderasyon kanıtı); yalnız raporlayan alanı boşalır.
 model Report {
   id         String   @id @default(cuid())
-  reporterId String
-  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId String?
+  reporter   User?    @relation(fields: [reporterId], references: [id], onDelete: SetNull)
   targetType String   // USER | PROJECT | MESSAGE
   targetId   String
   reason     String
@@ -328,13 +329,15 @@ model Report {
   createdAt  DateTime @default(now())
 }
 
+// Denetim kaydı (spec 6.2) hesap silinse de kalır: kullanıcı silinince ilgili alan boşalır,
+// satır silinmez. Yönetici silinirse adminId boşalır; kaydın eylemi ve zamanı korunur.
 model AdminAuditLog {
   id           String   @id @default(cuid())
-  adminId      String
-  admin        User     @relation("AuditAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  adminId      String?
+  admin        User?    @relation("AuditAdmin", fields: [adminId], references: [id], onDelete: SetNull)
   action       String
   targetUserId String?
-  targetUser   User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetUser   User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
   targetId     String?
   createdAt    DateTime @default(now())
 }

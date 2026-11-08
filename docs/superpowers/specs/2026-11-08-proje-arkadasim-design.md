@@ -256,7 +256,7 @@ SQLite'ta dizi tipi olmadığı için etiket/beceri/ilgi listeleri JSON metin ol
 - **Report:** id, reporterId, targetType (USER|PROJECT|MESSAGE), targetId, reason, details?, status (OPEN|RESOLVED), createdAt.
 - **AdminAuditLog:** id, adminId, action, targetUserId?, targetId?, createdAt.
 
-Hesap silme: kullanıcıya bağlı tüm kayıtlar cascade silinir (mesajlar dahil; karşı taraf sohbetinde "Silinmiş kullanıcı" görünür — sohbet de silinir).
+Hesap silme: kullanıcıya bağlı tüm kayıtlar cascade silinir (mesajlar dahil; karşı taraf sohbetinde "Silinmiş kullanıcı" görünür — sohbet de silinir). İstisna (§6.2 denetim izi): `AdminAuditLog` ve `Report` satırları silinmez; kullanıcı ilişkisi (`adminId`, `targetUserId`, `reporterId`) `SET NULL` olur.
 
 ## 8. Teknik mimari
 

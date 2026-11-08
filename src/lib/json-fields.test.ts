@@ -39,6 +39,20 @@ describe("toListJson", () => {
     );
   });
 
+  it("sembolü farklı etiketleri (C#, C++, C, .NET) birbirinden ayırır", () => {
+    expect(parseList(toListJson(["C#", "C++", ".NET", "C"]))).toEqual([
+      "C#",
+      "C++",
+      ".NET",
+      "C",
+    ]);
+    expect(parseList(toListJson(["C#", "c#", "C++"]))).toEqual(["C#", "C++"]);
+  });
+
+  it("boşluk farkını gözetmeksizin tekilleştirir", () => {
+    expect(parseList(toListJson(["Yapay  Zeka", "yapay zeka"]))).toEqual(["Yapay  Zeka"]);
+  });
+
   it("her öğeyi en fazla 40 karakterle sınırlar", () => {
     const long = "a".repeat(60);
     const parsed = parseList(toListJson([long]));
