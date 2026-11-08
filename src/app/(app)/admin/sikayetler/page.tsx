@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { CloseProjectButton } from "@/components/admin/close-project-button";
 import { ResolveReportButton } from "@/components/admin/resolve-report-button";
+import { RevokeVerificationForm } from "@/components/admin/revoke-verification-form";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -25,12 +27,13 @@ function excerpt(body: string): string {
 
 /**
  * Açık şikayetler en yenisi üstte, son çözülenler daraltılmış olarak. Her açılış bir erişim kaydı yazar;
- * mesaj içerikleri yalnızca bu sayfada, yöneticiye gösterilir.
+ * mesaj içerikleri yalnızca bu sayfada, yöneticiye gösterilir. Açık şikayette yönetici, doğrulanmış bir
+ * hesabın doğrulamasını geri alabilir ya da açık bir projeyi kapatabilir (spec §5.3).
  */
 export default async function Page() {
   const admin = await requireAdmin();
 
-  const [openReports, resolvedReports] = await Promise.all([
+  const [openReports, resolvedReports, openTotal] = await Promise.all([
     db.report.findMany({
       where: { status: "OPEN" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -41,7 +44,9 @@ export default async function Page() {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: RESOLVED_LIMIT,
     }),
+    db.report.count({ where: { status: "OPEN" } }),
   ]);
+  const openCapped = openReports.length === OPEN_LIMIT && openTotal > openReports.length;
   await db.adminAuditLog.create({ data: { adminId: admin.id, action: "VIEW_REPORTS" } });
 
   const all = [...openReports, ...resolvedReports];
@@ -59,13 +64,13 @@ export default async function Page() {
     userIds.size
       ? db.user.findMany({
           where: { id: { in: [...userIds] } },
-          select: { id: true, username: true, firstName: true, lastName: true },
+          select: { id: true, username: true, firstName: true, lastName: true, verificationStatus: true },
         })
       : Promise.resolve([]),
     projectIds.size
       ? db.project.findMany({
           where: { id: { in: [...projectIds] } },
-          select: { id: true, title: true },
+          select: { id: true, title: true, status: true },
         })
       : Promise.resolve([]),
     messageIds.size
@@ -150,6 +155,22 @@ export default async function Page() {
     );
   }
 
+  /** Açık şikayetteki yönetim eylemi: doğrulanmış hesapta geri alma, açık projede kapatma. */
+  function renderModeration(type: string, id: string) {
+    if (type === "USER") {
+      const user = userById.get(id);
+      // Yönetici kendi doğrulamasını geri alamaz; eylem sunucuda da reddedilir.
+      if (!user || user.verificationStatus !== "VERIFIED" || user.id === admin.id) return null;
+      return <RevokeVerificationForm userId={user.id} username={user.username} />;
+    }
+    if (type === "PROJECT") {
+      const project = projectById.get(id);
+      if (!project || project.status !== "OPEN") return null;
+      return <CloseProjectButton projectId={project.id} />;
+    }
+    return null;
+  }
+
   function renderReporter(reporterId: string | null) {
     if (!reporterId) return "Hesap silinmiş";
     const reporter = userById.get(reporterId);
@@ -166,7 +187,10 @@ export default async function Page() {
     <>
       <PageHeader title="Şikayetler" />
 
-      <Section title={`Açık şikayetler (${openReports.length})`}>
+      <Section title={`Açık şikayetler (${openTotal})`}>
+        {openCapped ? (
+          <p className="t-meta text-ink-3">En yeni {openReports.length} şikayet gösteriliyor.</p>
+        ) : null}
         {openReports.length === 0 ? (
           <EmptyState title="Açık şikayet yok" text="Yeni bir şikayet geldiğinde burada görünür." />
         ) : (
@@ -195,6 +219,7 @@ export default async function Page() {
                   {report.details ? (
                     <p className="t-body t-prose whitespace-pre-line text-ink-2">{report.details}</p>
                   ) : null}
+                  {renderModeration(report.targetType, report.targetId)}
                   <ResolveReportButton reportId={report.id} />
                 </Card>
               </li>
