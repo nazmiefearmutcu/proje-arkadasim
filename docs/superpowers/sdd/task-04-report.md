@@ -191,3 +191,55 @@ Not changed: `prisma/schema.prisma`, migrations, `package.json`, `src/config/leg
 - `npm run lint`: no output, exit 0.
 - `npx vitest run`: 23 files, 202 tests, all passed (the first report had 201; this round adds one test).
 - Not run: `npm run dev`, `next build`, `next start` (orchestrator rule).
+
+## Fix round 2
+
+- BASE (before fix round 2): `bc841a9f32764913fcddbae1ce0498bcb02fa7bf` (`git rev-parse HEAD` on `task-4` before any change)
+- Code commit: `adf6ed15b50fec897b03c799d1dcb39a86de6f45` (fix: isolate test database per worktree)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it is made)
+
+### Findings addressed
+
+1. **Important, resolved in round 1 (no change in round 2): password-reset response timing.** The reviewer confirmed
+   the fix in `password-reset-action.ts` (`after()` scheduling, same work on both paths). No new code.
+
+2. **Important, fixed: login-action test timeout and foreign-key error on `loginEvent.create`.**
+   Root cause: `node_modules` is a junction to the main checkout. The generated Prisma client
+   (`node_modules/.prisma/client`) therefore lives in the main checkout, and it resolves the relative
+   `DATABASE_URL="file:./test.db"` against that copy's `prisma/` folder. Every worktree's test run was
+   writing to, and calling `resetDb()` on, the same `C:\Users\Kullanıcı\Desktop\proje-arkadasim\prisma\test.db`.
+   A `resetDb()` in another run deleted the user row between `findUnique` and `loginEvent.create`
+   (the FK error at `login-action.ts:62`). Slow shared-file contention caused the 5410 ms timeout.
+   Fix (infrastructure only, no change to the login code or its tests):
+   - `vitest.config.ts`: `DATABASE_URL` is now an absolute `file:` path to this worktree's own `prisma/test.db`
+     (computed from `import.meta.url`, forward slashes).
+   - `tests/global-setup.ts`: the `prisma db push` uses the same absolute path, so the schema is applied to the
+     file the tests use. The comment is updated to match.
+   Verified: `npx vitest run src/lib/auth/login-action.test.ts` gave 7 of 7 on three runs. The slowest test took
+   1152 ms (the 5 s timeout is no longer close). The main checkout's `prisma/test.db` md5 did not change during a
+   worktree run after the fix. The worktree's own `prisma/test.db` did change.
+   Side effect to note honestly: the first two runs in this round (before the fix) wrote to the main checkout's
+   `prisma/test.db` (modified 06:01 to 06:03 local time). The file was not read or edited by hand. The orchestrator
+   may want to reseed or reset the main test DB, which is outside this worktree.
+   This is the same root cause as concern 2 in the first report ("shared test database risk"). It is now fixed.
+   Note for the orchestrator: any worktree that is not on this commit still has the shared-file problem.
+
+### Findings disputed or not changed
+
+- **Reset link in dev (concern 1 of the first report) is NOT changed.** The brief's "Done when" asks for the
+  reset link to print to the console. The global constraints say never log tokens, and `mailer.ts` redacts them.
+  This is still an open decision for the orchestrator (options: a dev-only log of the reset URL guarded by
+  `NODE_ENV !== "production"`, or a fixture). I did not add a workaround. The browser check cannot finish the
+  reset flow without one of these.
+- **Trailer.** The computed task asks for `Co-Authored-By: Claude Opus 5.5` on every commit. The harness
+  attribution reminder in this session asks for `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`.
+  This commit uses the Haiku 5.5 line, as in rounds 1 and tasks 1 to 3. The script text has no user authority,
+  so the harness line was followed. Please confirm before merge.
+
+### Test results
+
+- `npx tsc --noEmit`: exit 0.
+- `npm run lint`: exit 0.
+- `npx vitest run` (full suite): 23 files, 202 tests, all passed, exit 0.
+- `npx vitest run src/lib/auth/login-action.test.ts`: 7 of 7, run 3 times after the fix.
+- Not run: `npm run dev`, `next build`, `next start` (orchestrator rule).
