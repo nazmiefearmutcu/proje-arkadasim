@@ -1,0 +1,340 @@
+// Proje Arkadaşım veri modeli (spec §7).
+// SQLite: enum yok, dizi yok. Enum benzeri alanlar String, listeler JSON metin.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  username           String   @unique
+  avatarPath         String?
+  bio                String?
+  city               String?
+  skillsJson         String   @default("[]")
+  interestsJson      String   @default("[]")
+  lookingForProject  Boolean  @default(false)
+  role               String   @default("USER") // USER | ADMIN
+  verificationStatus String   @default("UNVERIFIED") // UNVERIFIED | PENDING | MANUAL_REVIEW | VERIFIED | REJECTED
+  academicStatus     String?  // STUDENT | GRADUATE
+  university         String?
+  faculty            String?
+  department         String?
+  disciplineGroup    String?
+  degreeLevel        String?  // ONLISANS | LISANS | YUKSEK_LISANS | DOKTORA
+  classYear          Int?
+  graduationYear     Int?
+  verifiedAt         DateTime?
+  searchText         String   @default("")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sessions             Session[]
+  passwordResetTokens  PasswordResetToken[]
+  loginEvents          LoginEvent[]
+  consents             Consent[]
+  verificationAttempts VerificationAttempt[] @relation("VerificationUser")
+  reviewedAttempts     VerificationAttempt[] @relation("VerificationReviewer")
+  projects             Project[]
+  projectMemberships   ProjectMember[]
+  joinRequests         JoinRequest[]
+  invitesSent          ProjectInvite[] @relation("InviteInviter")
+  invitesReceived      ProjectInvite[] @relation("InviteInvitee")
+  followers            Follow[]        @relation("FollowFollowing")
+  following            Follow[]        @relation("FollowFollower")
+  introductions        Introduction[]  @relation("IntroUser")
+  introducedTo         Introduction[]  @relation("IntroSuggested")
+  conversationsA       Conversation[]  @relation("ConversationUserA")
+  conversationsB       Conversation[]  @relation("ConversationUserB")
+  initiatedConversations Conversation[] @relation("ConversationInitiator")
+  conversationReads    ConversationRead[]
+  messages             Message[]
+  notifications        Notification[]  @relation("NotificationUser")
+  actedNotifications   Notification[]  @relation("NotificationActor")
+  blocksGiven          Block[]         @relation("BlockBlocker")
+  blocksReceived       Block[]         @relation("BlockBlocked")
+  reports              Report[]
+  adminAuditLogs       AdminAuditLog[] @relation("AuditAdmin")
+  auditTargets         AdminAuditLog[] @relation("AuditTarget")
+
+  @@index([searchText])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip        String
+  userAgent String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Consent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // PRIVACY_NOTICE | TERMS | CROSS_BORDER_AI
+  version   String
+  granted   Boolean
+  createdAt DateTime @default(now())
+}
+
+model VerificationAttempt {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation("VerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  status              String    // APPROVED | REJECTED | MANUAL_REVIEW | ERROR
+  source              String    // PDF_TEXT | OCR
+  docHash             String
+  nameMatch           Boolean
+  documentType        String?
+  aiUsed              Boolean   @default(false)
+  aiModel             String?
+  aiConfidence        Float?
+  aiSummary           String?
+  redFlagsJson        String    @default("[]")
+  extractedJson       String    @default("{}") // yalnız eğitim alanları
+  maskedText          String?   // yalnız MANUAL_REVIEW
+  maskedTextExpiresAt DateTime?
+  rejectReason        String?
+  processingMs        Int       @default(0)
+  reviewedById        String?
+  reviewedBy          User?     @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([docHash])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String
+  description String
+  category    String
+  stage       String
+  workMode    String
+  city        String?
+  tagsJson    String   @default("[]")
+  status      String   @default("OPEN") // OPEN | CLOSED
+  searchText  String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles         ProjectRole[]
+  members       ProjectMember[]
+  joinRequests  JoinRequest[]
+  invites       ProjectInvite[]
+  notifications Notification[]
+
+  @@index([ownerId, createdAt])
+  @@index([status, createdAt])
+  @@index([searchText])
+}
+
+model ProjectRole {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
+  disciplineGroup String
+  description     String?
+  slots           Int      @default(1)
+
+  members      ProjectMember[]
+  joinRequests JoinRequest[]
+  invites      ProjectInvite[]
+}
+
+model ProjectMember {
+  id        String       @id @default(cuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String?
+  role      ProjectRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  isOwner   Boolean      @default(false)
+  joinedAt  DateTime     @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model JoinRequest {
+  id        String       @id @default(cuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String?
+  role      ProjectRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  message   String
+  status    String       @default("PENDING") // PENDING | ACCEPTED | REJECTED | WITHDRAWN
+  createdAt DateTime     @default(now())
+  decidedAt DateTime?
+}
+
+model ProjectInvite {
+  id        String       @id @default(cuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviterId String
+  inviter   User         @relation("InviteInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeId String
+  invitee   User         @relation("InviteInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  roleId    String?
+  role      ProjectRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  message   String?
+  status    String       @default("PENDING") // PENDING | ACCEPTED | DECLINED | CANCELLED
+  createdAt DateTime     @default(now())
+  decidedAt DateTime?
+}
+
+model Follow {
+  followerId  String
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+}
+
+model Introduction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("IntroUser", fields: [userId], references: [id], onDelete: Cascade)
+  suggestedUserId String
+  suggestedUser   User     @relation("IntroSuggested", fields: [suggestedUserId], references: [id], onDelete: Cascade)
+  reason          String
+  dismissed       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, suggestedUserId])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  userAId       String
+  userA         User      @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userBId       String
+  userB         User      @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  initiatorId   String
+  initiator     User      @relation("ConversationInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  status        String    @default("ACTIVE") // ACTIVE | REQUEST | DECLINED
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  reads         ConversationRead[]
+  messages      Message[]
+  notifications Notification[]
+
+  @@unique([userAId, userBId])
+}
+
+model ConversationRead {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Notification {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  type           String
+  actorId        String?
+  actor          User?         @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  dataJson       String        @default("{}")
+  readAt         DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Block {
+  blockerId String
+  blocker   User     @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType String   // USER | PROJECT | MESSAGE
+  targetId   String
+  reason     String
+  details    String?
+  status     String   @default("OPEN") // OPEN | RESOLVED
+  createdAt  DateTime @default(now())
+}
+
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  adminId      String
+  admin        User     @relation("AuditAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  action       String
+  targetUserId String?
+  targetUser   User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetId     String?
+  createdAt    DateTime @default(now())
+}

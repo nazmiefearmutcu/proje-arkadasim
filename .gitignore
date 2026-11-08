@@ -47,6 +47,7 @@ next-env.d.ts
 *.db-journal
 *.db-wal
 /storage
+.env
 /prisma/*.db*
 
 # SDD review packages
