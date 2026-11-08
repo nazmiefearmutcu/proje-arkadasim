@@ -2,7 +2,8 @@ import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 // Test çalıştırması başına bir kez: test şemasını prisma/test.db dosyasına uygular.
-// DATABASE_URL="file:./test.db" yolu Prisma'da şema dosyasına (prisma/) göre çözülür.
+// Göreli DATABASE_URL yolu kullanılmaz: Prisma onu şema dosyasının (prisma/) konumuna göre çözer ama
+// üretilmiş istemci ana çalışma kopyasına bağlı olabilir. Bu yüzden mutlak yol verilir.
 // "--force-reset" kullanılmaz: Prisma bunu yapay zeka ajanları için engeller ve açık
 // kullanıcı onayı ister. Düz "db push" dosyayı silmez; yalnız şema farkını uygular ve
 // veri kaybı gerektiren bir değişiklikte kendisi durur. Testler her testten önce

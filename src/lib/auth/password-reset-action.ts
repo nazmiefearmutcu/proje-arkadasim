@@ -1,0 +1,114 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { RESET_TOKEN_MINUTES } from "@/config/legal";
+import { db } from "@/lib/db";
+import { fail, ok, zodFieldErrors, type ActionResult } from "@/lib/action-result";
+import { sendMail } from "@/lib/mailer";
+import { LIMITS, clientIp, rateLimit } from "@/lib/rate-limit";
+import { destroyAllSessionsForUser } from "./session";
+import { hashPassword } from "./password";
+import { findUsableResetToken } from "./reset-token";
+import { forgotPasswordSchema, resetPasswordSchema } from "./schemas";
+import { generateToken, hashToken } from "./tokens";
+
+const INVALID_RESET = "Bu bağlantı geçersiz ya da süresi dolmuş. Yeni bir bağlantı iste.";
+
+/**
+ * Şifre sıfırlama isteği. Yanıt, e-posta kayıtlı olsa da olmasa da aynıdır (hesap varlığı sızmaz).
+ * Kayıtlıysa jeton üretilir (yalnız özeti saklanır) ve bağlantı e-postayla gönderilir.
+ */
+export async function requestPasswordResetAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = forgotPasswordSchema.safeParse({ email: String(formData.get("email") ?? "") });
+  if (!parsed.success) {
+    return fail("E-posta adresini kontrol et.", zodFieldErrors(parsed.error));
+  }
+  const email = parsed.data.email;
+
+  const ip = await clientIp();
+  const [limit, windowMs] = LIMITS.passwordReset;
+  const limited = rateLimit(`passwordReset:${ip}:${email}`, limit, windowMs);
+  if (!limited.ok) {
+    const minutes = Math.ceil(limited.retryAfterSec / 60);
+    return fail(`Çok fazla istek gönderdin. ${minutes} dakika sonra tekrar dene.`);
+  }
+
+  const user = await db.user.findUnique({ where: { email }, select: { id: true, email: true } });
+  if (user) {
+    // Jeton üretimi ve e-posta gönderimi yanıttan sonra yapılır. Böylece kayıtlı ve kayıtsız
+    // e-posta için yanıt süresi aynıdır; süreden hesabın varlığı çıkarılamaz.
+    after(() => issueResetLink(user.id, user.email));
+  }
+
+  return ok();
+}
+
+/** Jeton üretir (yalnız özeti saklanır) ve bağlantıyı e-postayla gönderir. Hata yanıta yansımaz. */
+async function issueResetLink(userId: string, email: string): Promise<void> {
+  try {
+    const token = generateToken();
+    await db.passwordResetToken.create({
+      data: {
+        userId,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60_000),
+      },
+    });
+
+    const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+    await sendMail({
+      to: email,
+      subject: "Şifre sıfırlama bağlantın",
+      text: [
+        "Şifreni sıfırlamak için aşağıdaki bağlantıyı aç:",
+        `${base}/sifre-sifirla/${token}`,
+        "",
+        `Bağlantı ${RESET_TOKEN_MINUTES} dakika geçerlidir. Bu isteği sen yapmadıysan bu e-postayı yok say.`,
+      ].join("\n"),
+    });
+  } catch {
+    // Ayrıntı (adres, jeton) kaydedilmez; yalnız olayın türü yazılır.
+    console.error("[şifre sıfırlama] bağlantı üretilemedi ya da e-posta gönderilemedi");
+  }
+}
+
+/** Yeni şifreyi kaydeder, jetonu kullanılmış işaretler ve tüm oturumları kapatır. */
+export async function resetPasswordAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = resetPasswordSchema.safeParse({
+    password: String(formData.get("password") ?? ""),
+    passwordRepeat: String(formData.get("passwordRepeat") ?? ""),
+  });
+  if (!parsed.success) {
+    return fail("Şifreni kontrol et.", zodFieldErrors(parsed.error));
+  }
+
+  const token = String(formData.get("token") ?? "");
+  const record = await findUsableResetToken(token);
+  if (!record) return fail(INVALID_RESET);
+
+  const passwordHash = await hashPassword(parsed.data.password);
+  const now = new Date();
+
+  // Jetonu koşullu olarak işaretle: aynı anda iki istek gelirse yalnız biri kazanır.
+  const claimed = await db.passwordResetToken.updateMany({
+    where: { id: record.id, usedAt: null },
+    data: { usedAt: now },
+  });
+  if (claimed.count !== 1) return fail(INVALID_RESET);
+
+  await db.user.update({ where: { id: record.userId }, data: { passwordHash } });
+  await db.passwordResetToken.updateMany({
+    where: { userId: record.userId, usedAt: null },
+    data: { usedAt: now },
+  });
+  await destroyAllSessionsForUser(record.userId);
+
+  redirect("/giris?sifre=yenilendi");
+}

@@ -14,9 +14,6 @@ const MAX_P = 4;
 const MIN_KEY_LENGTH = 16;
 const MAX_KEY_LENGTH = 128;
 
-const MIN_PASSWORD_LENGTH = 10;
-const MAX_PASSWORD_LENGTH = 128;
-
 function scryptAsync(
   password: string,
   salt: Buffer,
@@ -83,19 +80,4 @@ export async function verifyPassword(password: string, stored: string): Promise<
   }
 }
 
-/** Şifre kurallarını denetler. Geçerliyse null, değilse Türkçe hata metni döner. */
-export function validatePasswordStrength(pw: string): string | null {
-  if (pw.length < MIN_PASSWORD_LENGTH) {
-    return `Şifre en az ${MIN_PASSWORD_LENGTH} karakter olmalı.`;
-  }
-  if (pw.length > MAX_PASSWORD_LENGTH) {
-    return `Şifre en fazla ${MAX_PASSWORD_LENGTH} karakter olabilir.`;
-  }
-  if (!/\p{L}/u.test(pw)) {
-    return "Şifre en az bir harf içermeli.";
-  }
-  if (!/\d/.test(pw)) {
-    return "Şifre en az bir rakam içermeli.";
-  }
-  return null;
-}
+export { validatePasswordStrength } from "./password-rules";
