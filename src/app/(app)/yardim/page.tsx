@@ -71,8 +71,8 @@ const FAQ: Array<{ question: string; answer: React.ReactNode }> = [
     question: "Hesabımı nasıl silerim?",
     answer: (
       <p>
-        Ayarlar sayfasındaki Hesabımı sil bölümünden şifreni girerek silebilirsin. Silme kalıcıdır; profilin, projelerin
-        ve mesajların silinir.
+        Ayarlar sayfasındaki Hesabı sil bölümünden şifreni ve kullanıcı adını yazarak silebilirsin. Silme kalıcıdır;
+        profilin, projelerin ve mesajların silinir.
       </p>
     ),
   },

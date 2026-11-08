@@ -36,7 +36,25 @@ const DATA_ROWS: Array<[string, string, string, string]> = [
     "Hesap süresince",
   ],
   ["Doğrulama sonucu ve gerekçesi", "Güvenlik ve itiraz", "m.5/2-f", "Hesap süresince"],
+  [
+    "Profil fotoğrafı, biyografi, şehir, beceriler ve ilgi alanları (isteğe bağlı)",
+    "Profilinin diğer doğrulanmış üyelere gösterilmesi, kişi ve proje eşleştirmesi. Profil fotoğrafın, paylaştığın projelerin kartlarında giriş yapmamış ziyaretçilere de görünür.",
+    "m.5/2-c",
+    "Hesap süresince; ayarlar sayfasından istediğin zaman değiştirebilir veya silebilirsin",
+  ],
   ["Proje, başvuru, davet, takip, mesaj", "Hizmetin kendisi", "m.5/2-c", "Hesap süresince"],
+  [
+    "Engelleme kayıtları (kimi engellediğin)",
+    "Engellediğin kişiyle etkileşimin önlenmesi",
+    "m.5/2-c",
+    "Engeli kaldırana ya da hesap silinene kadar",
+  ],
+  [
+    "Şikayet kayıtları (şikayet eden, şikayet edilen içerik, sebep ve açıklama)",
+    "Moderasyon, güvenlik ve hukuki yükümlülük",
+    "m.5/2-ç, m.5/2-f",
+    "Hesap silinse de saklanır; hesabınla bağlantısı (şikayet eden alanı) kaldırılır",
+  ],
   [
     "Giriş kayıtları (IP, zaman, tarayıcı)",
     "Güvenlik ve hukuki yükümlülük",
@@ -47,7 +65,7 @@ const DATA_ROWS: Array<[string, string, string, string]> = [
     "Rıza kayıtları (tür, metin sürümü, zaman)",
     "İspat",
     "m.5/2-ç",
-    "Hesap süresince ve ispat süresi boyunca",
+    "Hesap silinene kadar",
   ],
 ];
 
@@ -140,6 +158,7 @@ export default function Page() {
             `Oturum kayıtları: ${SESSION_DAYS} gün; kullandıkça uzar.`,
             `Şifre sıfırlama bağlantıları: ${RESET_TOKEN_MINUTES} dakika.`,
             "Giriş kayıtları: varsayılan 365 gün.",
+            "Rıza kayıtları: hesap silinene kadar.",
             `Maskelenmiş belge metni: en fazla ${MASKED_TEXT_RETENTION_DAYS} gün.`,
           ]}
         />
