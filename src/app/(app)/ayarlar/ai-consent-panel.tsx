@@ -60,7 +60,7 @@ function InactiveConsent() {
       </p>
       <div>
         <ButtonLink href="/kvkk/acik-riza" variant="secondary">
-          Açık rıza metnini oku
+          Rıza ver
         </ButtonLink>
       </div>
       <form action={action} noValidate className="flex flex-col gap-3">
