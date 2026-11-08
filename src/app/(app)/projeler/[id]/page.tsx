@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
 import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
+import { focusRing } from "@/components/ui/styles";
 import { DisciplineChip } from "@/components/common/discipline-chip";
 import { DisciplineSpine } from "@/components/common/discipline-spine";
 import { UserRow } from "@/components/common/user-row";
@@ -12,6 +13,7 @@ import { VerifiedStamp } from "@/components/common/verified-stamp";
 import { OwnerPanel } from "@/components/projects/owner-panel";
 import { ProjectActions, type ProjectViewerState } from "@/components/projects/project-actions";
 import { getCurrentUser } from "@/lib/auth/guards";
+import { cn } from "@/lib/cn";
 import { displayName } from "@/lib/permissions";
 import { getProjectDetail } from "@/lib/projects/queries";
 import { relativeTimeTr } from "@/lib/time";
@@ -38,13 +40,14 @@ export default async function Page({
   const ownerName = displayName(project.owner, viewer);
   const spineGroups = [...new Set(project.roles.map((role) => role.disciplineGroup))];
 
-  const { isOwner, isMember, pendingRequest } = project.viewer;
+  const { isOwner, isMember, pendingRequest, pendingInviteId } = project.viewer;
   let viewerState: ProjectViewerState = "open";
   if (isMember) viewerState = "member";
   else if (pendingRequest) viewerState = "pending";
   else if (project.status === "CLOSED") viewerState = "closed";
   else if (!viewer) viewerState = "guest";
   else if (viewer.verificationStatus !== "VERIFIED") viewerState = "unverified";
+  else if (pendingInviteId) viewerState = "invited";
 
   const showActions = !isOwner;
 
@@ -83,7 +86,13 @@ export default async function Page({
           </div>
           {project.owner.university ? <span className="t-meta truncate text-ink-2">{project.owner.university}</span> : null}
           {canSeeProfiles ? (
-            <Link href={`/u/${project.owner.username}`} className="t-meta w-fit text-pen underline-offset-2 hover:underline">
+            <Link
+              href={`/u/${project.owner.username}`}
+              className={cn(
+                "t-meta inline-flex min-h-11 w-fit items-center rounded-control text-pen underline-offset-2 hover:underline",
+                focusRing,
+              )}
+            >
               Profile git
             </Link>
           ) : null}
@@ -119,15 +128,27 @@ export default async function Page({
 
       <Section title="Ekip">
         <ul className="flex flex-col divide-y divide-line">
-          {project.members.map((member) => (
-            <li key={member.userId}>
+          {project.members.map((member) => {
+            // Misafir ve doğrulanmamış görüntüleyici: "Ad S.", bölüm yok, profil bağlantısı yok (karar R2).
+            const row = (
               <UserRow
-                person={member.person}
+                person={canSeeProfiles ? member.person : { ...member.person, department: null }}
                 name={displayName(member.person, viewer)}
                 reason={member.isOwner ? "Proje sahibi" : (member.roleTitle ?? "Ekip üyesi")}
               />
-            </li>
-          ))}
+            );
+            return (
+              <li key={member.userId}>
+                {canSeeProfiles ? (
+                  <Link href={`/u/${member.person.username}`} className={cn("block rounded-control", focusRing)}>
+                    {row}
+                  </Link>
+                ) : (
+                  row
+                )}
+              </li>
+            );
+          })}
         </ul>
       </Section>
 

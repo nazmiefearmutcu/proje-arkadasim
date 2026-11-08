@@ -15,7 +15,7 @@ export interface ProjectActionRole {
   full: boolean;
 }
 
-export type ProjectViewerState = "guest" | "unverified" | "member" | "pending" | "open" | "closed";
+export type ProjectViewerState = "guest" | "unverified" | "member" | "pending" | "invited" | "open" | "closed";
 
 export interface ProjectActionsProps {
   projectId: string;
@@ -56,9 +56,18 @@ export function ProjectActions({ projectId, viewerState, pendingRequestId, roles
         <>
           <p className="t-meta text-ink-2">Rol seçip motivasyonunu yazabilirsin.</p>
           <Button onClick={() => setSheetOpen(true)}>Projeye katıl</Button>
-          {sheetOpen ? (
-            <ApplySheet projectId={projectId} roles={roles} onClose={() => setSheetOpen(false)} />
-          ) : null}
+          {/* Panel bağlı kalır; kapanınca dialog.close() odağı "Projeye katıl" düğmesine geri verir. */}
+          <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Projeye katıl">
+            {sheetOpen ? <ApplyForm projectId={projectId} roles={roles} /> : null}
+          </Sheet>
+        </>
+      ) : null}
+
+      {viewerState === "invited" ? (
+        <>
+          <p className="t-label text-ink">Bu projeden bekleyen bir davetin var</p>
+          <p className="t-meta text-ink-2">Daveti Network &gt; Davetler bölümünden kabul edebilir ya da reddedebilirsin.</p>
+          <ButtonLink href="/network?sekme=davetler">Daveti yanıtla</ButtonLink>
         </>
       ) : null}
 
@@ -105,18 +114,19 @@ export function ProjectActions({ projectId, viewerState, pendingRequestId, roles
   );
 }
 
-interface ApplySheetProps {
+interface ApplyFormProps {
   projectId: string;
   roles: ProjectActionRole[];
-  onClose: () => void;
 }
 
 /**
- * Başvuru paneli. Panel yalnız açıkken bağlanır; başarılı başvuruda sayfa yenilenir ve durum "bekleniyor"
- * olur, böylece panel kendiliğinden kapanır.
+ * Başvuru formu. Panel her açılışta formu yeniden bağlar; bu yüzden eski girdi kalmaz. Alanlar state'te
+ * tutulur: React 19 form eyleminden sonra denetimsiz alanları sıfırlar, başarısız gönderimde yazılanlar
+ * kaybolmamalı. Başarılı başvuruda sayfa yenilenir ve durum "bekleniyor" olur, böylece panel kapanır.
  */
-function ApplySheet({ projectId, roles, onClose }: ApplySheetProps) {
+function ApplyForm({ projectId, roles }: ApplyFormProps) {
   const [state, formAction, isPending] = useActionState(applyToProjectAction.bind(null, projectId), null);
+  const [roleId, setRoleId] = useState("");
   const [message, setMessage] = useState("");
 
   const openRoles = roles.filter((role) => !role.full);
@@ -124,48 +134,46 @@ function ApplySheet({ projectId, roles, onClose }: ApplySheetProps) {
   const length = message.trim().length;
 
   return (
-    <Sheet open onClose={onClose} title="Projeye katıl">
-      <form action={formAction} className="flex flex-col gap-4 px-2 pt-2 pb-2">
-        {state && !state.ok && !state.fieldErrors ? (
-          <p role="alert" className="rounded-control bg-danger-soft p-3 t-body text-danger">
-            {state.error}
-          </p>
-        ) : null}
+    <form action={formAction} className="flex flex-col gap-4 px-2 pt-2 pb-2">
+      {state && !state.ok && !state.fieldErrors ? (
+        <p role="alert" className="rounded-control bg-danger-soft p-3 t-body text-danger">
+          {state.error}
+        </p>
+      ) : null}
 
-        <Field id="apply-role" label="Rol" hint="İstersen bir rol seç. Rol fark etmezse boş bırak." error={fieldErrors.roleId}>
-          <Select name="roleId" defaultValue="">
-            <option value="">Rol fark etmez</option>
-            {openRoles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.title}
-              </option>
-            ))}
-          </Select>
-        </Field>
+      <Field id="apply-role" label="Rol" hint="İstersen bir rol seç. Rol fark etmezse boş bırak." error={fieldErrors.roleId}>
+        <Select name="roleId" value={roleId} onChange={(event) => setRoleId(event.target.value)}>
+          <option value="">Rol fark etmez</option>
+          {openRoles.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.title}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
-        <Field
-          id="apply-message"
-          label="Motivasyon mesajı"
-          hint={
-            length < MIN_MESSAGE
-              ? `${length}/${MIN_MESSAGE} karakter. En az ${MIN_MESSAGE} karakter yaz.`
-              : `${length} karakter. Kendini ve katkını anlat.`
-          }
-          error={fieldErrors.message}
-        >
-          <Textarea
-            name="message"
-            rows={5}
-            maxLength={1000}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-          />
-        </Field>
+      <Field
+        id="apply-message"
+        label="Motivasyon mesajı"
+        hint={
+          length < MIN_MESSAGE
+            ? `${length}/${MIN_MESSAGE} karakter. En az ${MIN_MESSAGE} karakter yaz.`
+            : `${length} karakter. Kendini ve katkını anlat.`
+        }
+        error={fieldErrors.message}
+      >
+        <Textarea
+          name="message"
+          rows={5}
+          maxLength={1000}
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+        />
+      </Field>
 
-        <Button type="submit" loading={isPending} disabled={length < MIN_MESSAGE}>
-          Başvuruyu gönder
-        </Button>
-      </form>
-    </Sheet>
+      <Button type="submit" loading={isPending} disabled={length < MIN_MESSAGE}>
+        Başvuruyu gönder
+      </Button>
+    </form>
   );
 }

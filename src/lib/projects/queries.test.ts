@@ -196,6 +196,60 @@ describe("getProjectDetail", () => {
   it("olmayan proje için null döner", async () => {
     expect(await getProjectDetail("yok-boyle-bir-proje", null)).toBeNull();
   });
+
+  it("misafir ve doğrulanmamış görüntüleyicide bölümü gizler, üniversiteyi gösterir; doğrulanmışta ikisi de görünür", async () => {
+    const owner = await createUser({ department: "Makine Mühendisliği", university: "Sahip Üniversitesi" });
+    const member = await createUser({ department: "Endüstriyel Tasarım", university: "Üye Üniversitesi" });
+    const project = await makeProject({ ownerId: owner.id, title: "Ekip görünürlüğü projesi", memberIds: [member.id] });
+    const unverified = await createUser({ verificationStatus: "UNVERIFIED" });
+    const verified = await createUser();
+    const admin = await createUser({ verificationStatus: "UNVERIFIED", role: "ADMIN" });
+
+    for (const viewer of [null, unverified]) {
+      const detail = await getProjectDetail(project.id, viewer);
+      expect(detail?.owner.department).toBeNull();
+      expect(detail?.owner.university).toBe("Sahip Üniversitesi");
+      expect(detail?.members.map((item) => item.person.department)).toEqual([null, null]);
+      expect(detail?.members.map((item) => item.person.university).sort()).toEqual(["Sahip Üniversitesi", "Üye Üniversitesi"]);
+    }
+
+    for (const viewer of [verified, admin]) {
+      const detail = await getProjectDetail(project.id, viewer);
+      expect(detail?.owner.department).toBe("Makine Mühendisliği");
+      expect(detail?.members.map((item) => item.person.department).sort()).toEqual(["Endüstriyel Tasarım", "Makine Mühendisliği"]);
+    }
+  });
+
+  it("sahibin listesinde engelli kişilerin bekleyen başvuruları görünmez", async () => {
+    const owner = await createUser();
+    const blocker = await createUser({ firstName: "Engel", lastName: "Koyan" });
+    const blockedByOwner = await createUser({ firstName: "Engel", lastName: "Yiyen" });
+    const applicant = await createUser({ firstName: "Can", lastName: "Demir" });
+    const project = await makeProject({ ownerId: owner.id, title: "Engelli başvuru projesi" });
+    for (const user of [blocker, blockedByOwner, applicant]) {
+      await db.joinRequest.create({
+        data: { projectId: project.id, userId: user.id, message: "Bu projede gerçekten katkı sunabilirim, deneyimim var." },
+      });
+    }
+    await db.block.create({ data: { blockerId: blocker.id, blockedId: owner.id } });
+    await db.block.create({ data: { blockerId: owner.id, blockedId: blockedByOwner.id } });
+
+    const detail = await getProjectDetail(project.id, owner);
+    expect(detail?.ownerView?.requests.map((request) => request.person.id)).toEqual([applicant.id]);
+  });
+
+  it("görüntüleyenin bu projeden bekleyen davetini döner", async () => {
+    const owner = await createUser();
+    const invitee = await createUser();
+    const project = await makeProject({ ownerId: owner.id, title: "Davet bekleyen proje" });
+    const invite = await db.projectInvite.create({
+      data: { projectId: project.id, inviterId: owner.id, inviteeId: invitee.id },
+    });
+
+    expect((await getProjectDetail(project.id, invitee))?.viewer.pendingInviteId).toBe(invite.id);
+    expect((await getProjectDetail(project.id, owner))?.viewer.pendingInviteId).toBeNull();
+    expect((await getProjectDetail(project.id, null))?.viewer.pendingInviteId).toBeNull();
+  });
 });
 
 describe("getViewerOpenProjectsForInvite", () => {

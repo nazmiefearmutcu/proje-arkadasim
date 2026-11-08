@@ -1,7 +1,7 @@
 "use client";
 
 import { Minus, Plus, Trash2, X } from "lucide-react";
-import { useActionState, useRef, useState, type KeyboardEvent } from "react";
+import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CATEGORIES, CITIES, DISCIPLINE_GROUPS, STAGES, WORK_MODES, getDisciplineGroup } from "@/config/taxonomy";
 import { zodFieldErrors, type ActionResult } from "@/lib/action-result";
 import { cn } from "@/lib/cn";
@@ -80,6 +80,17 @@ function pickError(errors: Record<string, string>, key: string, nested: boolean)
 }
 
 /**
+ * Başarısız gönderimden sonra sayfa sırasındaki ilk hatalı alana, hatalı alan yoksa form uyarısına odaklanır.
+ * Hedef ekranın ortasına kaydırılır; böylece yapışkan üst bar ve gönderme çubuğunun altında kalmaz.
+ */
+function focusFirstError(form: HTMLFormElement | null, fallback: HTMLElement | null): void {
+  const target = form?.querySelector<HTMLElement>('[aria-invalid="true"]:not(:disabled)') ?? fallback;
+  if (!target) return;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "center" });
+}
+
+/**
  * Proje paylaşma ve düzenleme formu. Sunucu ile aynı zod şeması istemcide de çalışır. İstemci hataları
  * ilk gönderimden sonra gösterilir; sunucu sonucundaki alan hataları her zaman gösterilir.
  */
@@ -96,6 +107,18 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
   const [tags, setTags] = useState<string[]>(initial.tags);
   const [tagInput, setTagInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  // Her başarısız istemci gönderiminde artar; hata alanları çizildikten sonra odak taşınır.
+  const [invalidSubmits, setInvalidSubmits] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+  const alertRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (invalidSubmits > 0) focusFirstError(formRef.current, alertRef.current);
+  }, [invalidSubmits]);
+
+  useEffect(() => {
+    if (state && !state.ok) focusFirstError(formRef.current, alertRef.current);
+  }, [state]);
 
   const nextKey = useRef(initial.roles.length);
   const [roles, setRoles] = useState<RoleDraft[]>(() => initial.roles.map((role, index) => ({ ...role, key: index })));
@@ -174,11 +197,15 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       noValidate
       onSubmit={(event) => {
         setSubmitted(true);
-        if (!parsed.success) event.preventDefault();
+        if (!parsed.success) {
+          event.preventDefault();
+          setInvalidSubmits((count) => count + 1);
+        }
       }}
       className="flex flex-col gap-2 pb-4"
     >
@@ -189,7 +216,7 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
       </p>
 
       {formError ? (
-        <p role="alert" className="rounded-control bg-danger-soft p-3 t-body text-danger">
+        <p ref={alertRef} role="alert" tabIndex={-1} className="rounded-control bg-danger-soft p-3 t-body text-danger">
           {formError}
         </p>
       ) : null}
@@ -299,13 +326,14 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
           <ul className="flex flex-wrap gap-1.5">
             {tags.map((tag) => (
               <li key={tag}>
-                <span className="inline-flex min-h-8 items-center gap-1 rounded-chip bg-surface-2 py-1 pr-1 pl-3 t-label text-ink-2">
+                {/* Kaldır düğmesi 44 px dokunma hedefi; çip de aynı yükseklikte. */}
+                <span className="inline-flex min-h-11 items-center gap-0.5 rounded-chip bg-surface-2 pl-3 t-label text-ink-2">
                   {tag}
                   <button
                     type="button"
                     aria-label={`${tag} etiketini kaldır`}
                     onClick={() => setTags(tags.filter((item) => item !== tag))}
-                    className={cn("inline-flex size-8 items-center justify-center rounded-chip text-ink-3", focusRing)}
+                    className={cn("inline-flex size-11 items-center justify-center rounded-chip text-ink-3", focusRing)}
                   >
                     <X aria-hidden="true" strokeWidth={1.75} className="size-4" />
                   </button>
