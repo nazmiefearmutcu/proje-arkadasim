@@ -34,22 +34,16 @@ describe("isAdmin", () => {
   });
 
   it("role ADMIN olan kullanıcı yöneticidir", () => {
-    expect(isAdmin({ role: "ADMIN", email: "a@b.com" })).toBe(true);
+    expect(isAdmin({ role: "ADMIN" })).toBe(true);
   });
 
-  it("ADMIN_EMAILS listesindeki e-posta yönetici sayılır, büyük/küçük harf duyarsız", () => {
+  it("ADMIN_EMAILS listesindeki e-posta yetki vermez (e-posta sahipliği doğrulanmaz)", () => {
     vi.stubEnv("ADMIN_EMAILS", "Yonetici@Ornek.com, diger@ornek.com");
-    expect(isAdmin({ role: "USER", email: "yonetici@ornek.com" })).toBe(true);
-    expect(isAdmin({ role: "USER", email: "DIGER@ornek.com" })).toBe(true);
+    expect(isAdmin({ role: "USER" })).toBe(false);
   });
 
-  it("listede olmayan ve role ADMIN olmayan kullanıcı yönetici değildir", () => {
+  it("role ADMIN olmayan kullanıcı yönetici değildir", () => {
     vi.stubEnv("ADMIN_EMAILS", "yonetici@ornek.com");
-    expect(isAdmin({ role: "USER", email: "ogrenci@ornek.com" })).toBe(false);
-  });
-
-  it("ADMIN_EMAILS tanımsızken yalnız role alanına bakar", () => {
-    vi.stubEnv("ADMIN_EMAILS", "");
-    expect(isAdmin({ role: "USER", email: "a@b.com" })).toBe(false);
+    expect(isAdmin({ role: "USER" })).toBe(false);
   });
 });

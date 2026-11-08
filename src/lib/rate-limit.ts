@@ -69,13 +69,25 @@ export const LIMITS = {
   report: [10, 60 * 60_000],
 } as const;
 
-/** İstemci IP'si: önce `x-forwarded-for` (ilk değer), yoksa `x-real-ip`, o da yoksa "local". */
+/**
+ * İstemci IP'si. Vekil başlıkları yalnız `TRUST_PROXY=true` iken okunur (istemci önündeki
+ * güvenilir bir ters vekil varken). Bu durumda `x-forwarded-for` içinde İLK değer değil SON değer
+ * kullanılır: vekil, gerçek istemci adresini listenin sonuna ekler; baştaki değerleri istemci
+ * uydurabilir. Vekil yoksa ya da ayar kapalıysa "local" döner; böylece başlık uydurarak sınır
+ * aşılamaz (bu durumda tüm istekler tek kovada sayılır).
+ */
 export async function clientIp(): Promise<string> {
+  if (process.env.TRUST_PROXY !== "true") return "local";
+
   const h = await headers();
   const forwarded = h.get("x-forwarded-for");
   if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+    const parts = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    const last = parts[parts.length - 1];
+    if (last) return last;
   }
   const real = h.get("x-real-ip")?.trim();
   return real || "local";

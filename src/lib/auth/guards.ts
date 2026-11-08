@@ -15,14 +15,13 @@ export function isVerified(user: Pick<CurrentUser, "verificationStatus">): boole
   return user.verificationStatus === "VERIFIED";
 }
 
-/** Yönetici: `role` ADMIN ya da e-postası ADMIN_EMAILS listesinde (büyük/küçük harf duyarsız). */
-export function isAdmin(user: Pick<CurrentUser, "role" | "email">): boolean {
-  if (user.role === "ADMIN") return true;
-  const listed = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter((item) => item.length > 0);
-  return listed.includes(user.email.toLowerCase());
+/**
+ * Yönetici yalnız `role` ADMIN olan hesaplardır. ADMIN_EMAILS çalışma zamanında yetki vermez:
+ * kayıtta e-posta sahipliği doğrulanmadığı için operatörün adresini önceden kaydeden biri
+ * yönetici olabilirdi. Yöneticiler tohum verisi ya da operatör işlemiyle role ADMIN yapılır.
+ */
+export function isAdmin(user: Pick<CurrentUser, "role">): boolean {
+  return user.role === "ADMIN";
 }
 
 function loginPath(next?: string): string {

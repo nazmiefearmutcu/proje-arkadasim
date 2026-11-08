@@ -47,9 +47,11 @@ export async function createSession(userId: string): Promise<void> {
 
 /**
  * Çerezdeki oturumu çözer ve kullanıcıyı döner. İstek başına bir kez çalışır (React cache).
- * Süresi dolmuş oturumu siler. Kayan yenileme: 15 günden az kaldıysa süreyi uzatır; çerezi
- * yalnız yazılabilen bağlamda (Server Action, Route Handler) yeniler, diğer yerde yalnız
- * veritabanı süresi uzar.
+ * Süresi dolmuş oturumu siler. Kayan yenileme: 15 günden az kaldıysa süreyi uzatır. Çerez
+ * önce yazılır; yalnız yazılabilen bağlamda (Server Action, Route Handler) başarılı olursa
+ * veritabanı süresi de uzatılır. Server Component gibi yazılamayan bağlamda ikisi de değişmez,
+ * böylece çerez ve veritabanı süresi hiçbir zaman ayrışmaz. Sonuç: yenileme yalnız yazılabilen
+ * istekler sırasında gerçekleşir (sayfa gezintisi süreyi uzatmaz).
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const store = await cookies();
@@ -74,21 +76,24 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   if (session.expiresAt.getTime() - now < RENEW_BEFORE_MS) {
     const renewed = new Date(now + SESSION_DAYS * DAY_MS);
-    await db.session.update({
-      where: { id: session.id },
-      data: { expiresAt: renewed },
-    });
-    renewCookie(store, token, renewed);
+    if (renewCookie(store, token, renewed)) {
+      await db.session.update({
+        where: { id: session.id },
+        data: { expiresAt: renewed },
+      });
+    }
   }
 
   return { sessionId: session.id, user: session.user };
 });
 
-function renewCookie(store: Store, token: string, expires: Date): void {
+/** Çerezi yeniler. Yazma yalnız Server Action / Route Handler içinde başarılıdır; false döner. */
+function renewCookie(store: Store, token: string, expires: Date): boolean {
   try {
     store.set(SESSION_COOKIE, token, cookieOptions(expires));
+    return true;
   } catch {
-    // Server Component içinde çerez yazılamaz; veritabanındaki süre zaten uzatıldı.
+    return false;
   }
 }
 
