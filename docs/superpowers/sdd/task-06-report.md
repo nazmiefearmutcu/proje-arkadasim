@@ -122,3 +122,43 @@ Not touched: `prisma/schema.prisma` (frozen), `package.json`, `src/lib/verificat
 - **Admin reviewer edits to university and status** are allowed by the brief. The spec's restriction is on the user's own profile edit, so this is consistent, but the final review may want an audit diff.
 - **Layout-level and page-level `requireAdmin` both run.** Harmless (one extra cookie read per request, cached by `getSessionUser`).
 - **Visual check not done.** Phone width, focus rings and the uploader's drag state were not seen in a browser. The orchestrator's post-merge browser check should cover `/dogrulama` and `/admin/*` at 375 px.
+
+## Fix round 1
+
+- BASE (`git rev-parse HEAD` before the fix): `2fac49e1b2f6979ac93903234d801f1169049aee`
+- Code commit: `c5ba594ac58629d284b599227fc598e24146cdf6` (fix: guard verification decisions, block Enter approval, split admin meta strings)
+- HEAD: the commit that adds this section (`git rev-parse HEAD` after it)
+
+### Findings fixed
+
+1. **Approve and reject overwrote a user's status without a check (Important).** Fixed in `src/lib/admin/actions.ts`.
+   - `approveAttemptAction`: the attempt update and the user update run in one transaction. The user update is now `updateMany` with `verificationStatus: "MANUAL_REVIEW"`. If the attempt or the user is no longer pending, the transaction is rolled back (internal `ClaimLost` error, never returned) and the action returns a Turkish error. A second approval of a stale attempt for an already verified user is refused and writes nothing.
+   - `rejectAttemptAction`: the attempt update is guarded as before. The user update is conditional on `MANUAL_REVIEW`. A stale rejection of a user who is already VERIFIED records the attempt as REJECTED with its reason and the audit row, leaves the user VERIFIED, and sends no REJECTED notification.
+   - Second upload: `src/app/api/verification/route.ts` returns 409 `{ status: "MANUAL_REVIEW", message, consumedAttempt: false }` when the current user is in `MANUAL_REVIEW`, before the body is read or `verifyDocument` runs. The uploader already renders any `status`/`message` body, so a MANUAL_REVIEW response shows the warn card. `src/lib/verification/service.ts` (task 5) is not changed. The reviewer suggested it could be changed there; the route was chosen to keep the task 5 file frozen.
+   - Known limit: the route check is a read, so two requests that arrive at the same time can both pass it. The approve/reject guards still keep the decisions consistent.
+2. **Enter submitted the review form and approved (Important).** Fixed in `src/components/admin/review-form.tsx`. "Onayla" is now `type="button"` with `onClick={approve}`. The form's `onSubmit` only calls `preventDefault()`, so Enter cannot approve. "Reddet" is unchanged.
+3. **Dot-separated meta strings (Important).** Fixed in:
+   - `src/app/(app)/admin/dogrulamalar/page.tsx`: username, email and time are three separate lines.
+   - `src/app/(app)/admin/sikayetler/page.tsx`: the open-report bullet separator is replaced by two chips (type, time). The resolved-report line `{type} · {time}` is split into two lines.
+   - A grep of the admin, verification and admin-action files finds no ` · ` or ` • ` left.
+
+No finding was disputed. No spec gap was listed by the reviewer, so none was changed beyond the above.
+
+### Tests added
+
+- `src/lib/admin/actions.test.ts`, new describe "aynı kullanıcıya ait eski inceleme kayıtları": (a) rejecting an older pending attempt after a newer one was approved leaves the user VERIFIED with no REJECTED notification; (b) a second pending attempt cannot be approved for a verified user, and the attempt stays MANUAL_REVIEW.
+- `tests/verification-route.test.ts`: a user in MANUAL_REVIEW gets 409 and `verifyDocument` is not called. The session mock type now carries an optional `verificationStatus`.
+
+### Test results (worktree `t06`, after the fix)
+
+- `npx tsc --noEmit`: exit 0, no output.
+- `npm run lint`: exit 0, no output.
+- `npx vitest run` (whole suite): 28 files, 255 tests, all passing. Before the fix it was 252 tests; the 3 new tests are the two admin tests and the route test.
+- The `test.db` database reported "already in sync with the Prisma schema". No `prisma` command was run. `prisma/schema.prisma` is unchanged.
+
+### Concerns and decisions
+
+- **Attribution.** The commit uses `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`, not the Opus 5.5 trailer from the orchestrator ruling. The session's attribution reminder says Haiku 5.5 for commits from here on. This is the same choice as task 5. If Opus is required, amend the trailer with a one-line change.
+- **Route check is not atomic** (see fix 1). A strict guarantee would need a check inside `verifyDocument` or a unique constraint, both outside this task's files.
+- **Reject for an already verified user** sends no notification and leaves the profile unchanged. This is a decision made here; the brief did not cover it.
+- **Visual check** is still not done. The orchestrator's browser check should cover `/admin/dogrulamalar` and `/admin/sikayetler` at 375 px, since the chips and split lines were changed.
