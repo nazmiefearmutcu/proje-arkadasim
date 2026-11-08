@@ -189,17 +189,12 @@ async function PeopleResults({
     <ul className="flex flex-col divide-y divide-line">
       {results.map(({ person, following }) => (
         <li key={person.id}>
+          {/* Ad ve resim profile bağlanır; 375 px'te adın görünmesi için tek eylem Takip et. */}
           <UserRow
             person={person}
             name={displayName(person, viewerView)}
-            action={
-              <div className="flex items-center gap-2">
-                <ButtonLink href={`/u/${person.username}`} variant="secondary">
-                  Profili gör
-                </ButtonLink>
-                <FollowButton userId={person.id} initialFollowing={following} />
-              </div>
-            }
+            href={`/u/${person.username}`}
+            action={<FollowButton userId={person.id} initialFollowing={following} />}
           />
         </li>
       ))}

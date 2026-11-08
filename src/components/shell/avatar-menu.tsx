@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   UserPlus,
   UserRound,
+  UserRoundPen,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { focusRing } from "@/components/ui/styles";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/cn";
 
 export interface AvatarMenuUser {
@@ -63,10 +65,15 @@ function MenuLink({
   );
 }
 
-/** Üst bar profil menüsü. Misafirde giriş ve kayıt bağlantıları, oturum açıkta hesap bağlantıları gösterilir. */
+/**
+ * Üst bar profil menüsü. Misafirde giriş ve kayıt bağlantıları, oturum açıkta hesap bağlantıları gösterilir.
+ * Profil sayfaları yalnız doğrulanmış kişilere açıktır: doğrulanmamış kullanıcıya "Profilim" yerine
+ * "Profilini düzenle" (Ayarlar > Profil) gösterilir, böylece açıklamasız /dogrulama yönlendirmesi olmaz.
+ */
 export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const verified = user?.verificationStatus === "VERIFIED";
 
   return (
     <>
@@ -92,13 +99,17 @@ export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
             <div className="flex flex-col gap-3 px-2 pb-3">
               <p className="t-meta text-ink-3">@{user.username}</p>
               <div>
-                <Chip selected={user.verificationStatus === "VERIFIED"}>
+                <Chip selected={verified}>
                   {labelOf(VERIFICATION_STATUSES, user.verificationStatus)}
                 </Chip>
               </div>
             </div>
             <nav aria-label="Hesap" className="flex flex-col">
-              <MenuLink href={`/u/${user.username}`} icon={UserRound} label="Profilim" onNavigate={close} />
+              {verified ? (
+                <MenuLink href={`/u/${user.username}`} icon={UserRound} label="Profilim" onNavigate={close} />
+              ) : (
+                <MenuLink href="/ayarlar#profil" icon={UserRoundPen} label="Profilini düzenle" onNavigate={close} />
+              )}
               <MenuLink href="/projeler?filtre=benim" icon={LayoutGrid} label="Projelerim" onNavigate={close} />
               <MenuLink href="/dogrulama" icon={ShieldCheck} label="Belge durumu" onNavigate={close} />
               <MenuLink href="/ayarlar" icon={Settings} label="Ayarlar" onNavigate={close} />
@@ -108,10 +119,10 @@ export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
                 <MenuLink href="/admin" icon={Shield} label="Yönetim paneli" onNavigate={close} />
               ) : null}
               <form action={logout} className="flex">
-                <button type="submit" className={cn(rowClasses, focusRing)}>
+                <SubmitButton unstyled className={cn(rowClasses, "disabled:opacity-60", focusRing)}>
                   <LogOut aria-hidden="true" strokeWidth={1.75} className="size-5 shrink-0 text-ink-2" />
                   <span>Çıkış yap</span>
-                </button>
+                </SubmitButton>
               </form>
             </nav>
           </>
