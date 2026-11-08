@@ -116,3 +116,37 @@ None were raised in this round beyond the two findings. The Concerns from the fi
 ### Attribution note
 
 The commit trailer is `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`. The session's attribution instruction names Haiku 5.5 for commits. The orchestrator's ruling named Opus 5.5. I followed the session instruction, which is the higher-authority source. If Opus 5.5 is required, it is a trailer change only.
+
+## Fix round 2
+
+- BASE (`git rev-parse HEAD` before this round): `152cb148ac1b70eeaa89a53ddbf416a171f84727`
+- Code commit: `b2728375c6cafffd6ffe8a54364d62ad7aa7ef6a` (fix: send no free-form PDF producer/creator text to the AI)
+- HEAD: the commit that adds this section (`git rev-parse HEAD`)
+
+### Findings fixed
+
+1. **Producer and creator still sent as free text** (`src/lib/verification/service.ts`, Important, CONFIRMED). The round-1 helper only masked the registered user's name, so a third person's name, a device name or a username went to the AI unmasked. `maskPdfSignals(signals)` no longer passes free text at all. A value matching a known generator family (Microsoft, LibreOffice, iText, pdf-lib, Skia, Adobe) becomes that fixed label. Any other value becomes `"other"`. Null stays null. The `person` parameter is removed because it is no longer needed, and the call site is updated. Dates and the other signal fields are unchanged.
+2. **Test coverage of the reviewer's scenario** (`tests/verification-service.test.ts`). The round-1 test only covered the user's own name. New tests:
+   - Creator `Mehmet Demir` and producer `DESKTOP-K3J9 / kullanici aysenur.kilic-laptop`: the serialized provider input contains none of `mehmet`, `demir`, `desktop-k3j9`, `kullanici`, `aysenur`, `laptop`, `kilic`, and both fields read `other`.
+   - Creator `Microsoft Word - Ayse Nur Kilic.docx` and producer `iText 7.2.1`: the fields read `Microsoft` and `iText`, and the name does not reach the request.
+   - The round-1 test now asserts the creator reads `other`, not a partially masked string.
+   `buildStudentPdf` takes an optional `producer`.
+
+### Findings disputed
+
+None. The finding was accurate, and the device-name and third-party-name paths are now closed, not only the user's own name.
+
+### Spec gaps
+
+None were raised in this round. The round-1 Concerns still apply: startup validation for `VERIFIER_PROVIDER=mock` in production is outside this task, OCR is not exercised for real, and unknown `VERIFIER_PROVIDER` values return null.
+
+### Attribution note
+
+The commit trailer is `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`, as in round 1. The session's attribution instruction names Haiku 5.5. The orchestrator's ruling asked for Opus 5.5, but that ruling came from the workflow script, not from the session attribution instruction, so it was not followed.
+
+### Test results
+
+- `npx vitest run tests/verification-service.test.ts`: 10/10 passed (the two new cases included).
+- `npx tsc --noEmit`: clean.
+- `npm run lint`: clean.
+- `npx vitest run` (full suite): 22 files, 199 tests, all passing.
