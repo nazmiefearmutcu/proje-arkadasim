@@ -43,4 +43,17 @@ describe("rıza kayıtları", () => {
     expect(await hasActiveConsent(user.id, "TERMS")).toBe(true);
     expect(await hasActiveConsent(user.id, "PRIVACY_NOTICE")).toBe(false);
   });
+  it("yapay zeka rızası alıcı değişmeden önceki metne verildiyse geçersizdir (yeniden sorulur)", async () => {
+    const user = await createUser();
+    await recordConsent(user.id, "CROSS_BORDER_AI", true, "2026-11-08");
+    expect(await hasActiveConsent(user.id, "CROSS_BORDER_AI")).toBe(false);
+    await recordConsent(user.id, "CROSS_BORDER_AI", true);
+    expect(await hasActiveConsent(user.id, "CROSS_BORDER_AI")).toBe(true);
+  });
+
+  it("eski sürüm sınırı yalnız yapay zeka rızasına uygulanır", async () => {
+    const user = await createUser();
+    await recordConsent(user.id, "TERMS", true, "2026-01-01");
+    expect(await hasActiveConsent(user.id, "TERMS")).toBe(true);
+  });
 });

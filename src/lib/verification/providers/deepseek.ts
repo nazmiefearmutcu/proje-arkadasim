@@ -3,6 +3,7 @@ import { AiAnalysisSchema, VerifierError } from "./types";
 import type { AiAnalysis, VerifierInput, VerifierProvider } from "./types";
 
 const MAX_TOKENS = 800;
+const OPENAI_MAX_COMPLETION_TOKENS = 4000;
 /** Bir analizin toplam üst süresi (spec §5.1 adım 6): boş içerik tekrarı da bu sürenin içindedir. */
 export const TIMEOUT_MS = 20_000;
 /** Boş içerikten sonra tekrar için gereken en az kalan süre; daha azsa tekrar denenmez. */
@@ -65,10 +66,45 @@ export interface CompletionRequestOptions {
   signal: AbortSignal;
 }
 
+/** OpenAI uyumlu herhangi bir sohbet tamamlama gövdesi (DeepSeek ya da OpenAI). */
+export type ChatRequest = DeepSeekRequest | OpenAiRequest;
+
+/** OpenAI GPT-5 ailesi gövdesi: sıcaklık yok, `max_completion_tokens` ve akıl yürütme düzeyi var. */
+export interface OpenAiRequest {
+  model: string;
+  max_completion_tokens: number;
+  reasoning_effort?: "minimal" | "low" | "medium" | "high";
+  response_format: { type: "json_object" };
+  messages: Array<{ role: "system" | "user"; content: string }>;
+}
+
 export type CompletionFn = (
-  params: DeepSeekRequest,
+  params: ChatRequest,
   request: CompletionRequestOptions,
 ) => Promise<CompletionResponse>;
+
+/** Modele giden kullanıcı mesajı: yalnızca maskelenmiş metin ve kişisel olmayan sinyaller. */
+function userMessage(input: VerifierInput): string {
+  return JSON.stringify({ belgeMetni: input.maskedText, sinyaller: input.signals, bugun: input.today });
+}
+
+/** OpenAI isteği. Akıl yürütme belirteçleri de tamamlama sınırına sayıldığı için sınır daha geniştir. */
+export function buildOpenAiRequest(input: VerifierInput, model: string): OpenAiRequest {
+  const request: OpenAiRequest = {
+    model,
+    max_completion_tokens: OPENAI_MAX_COMPLETION_TOKENS,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userMessage(input) },
+    ],
+  };
+  const effort = process.env.OPENAI_REASONING_EFFORT?.trim() || "low";
+  if (effort === "minimal" || effort === "low" || effort === "medium" || effort === "high") {
+    request.reasoning_effort = effort;
+  }
+  return request;
+}
 
 /** İstek gövdesini kurar. Yalnızca maskelenmiş metin ve kişisel olmayan sinyaller içerir. */
 export function buildDeepSeekRequest(input: VerifierInput, model: string): DeepSeekRequest {
@@ -79,14 +115,7 @@ export function buildDeepSeekRequest(input: VerifierInput, model: string): DeepS
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: JSON.stringify({
-          belgeMetni: input.maskedText,
-          sinyaller: input.signals,
-          bugun: input.today,
-        }),
-      },
+      { role: "user", content: userMessage(input) },
     ],
   };
 
@@ -107,6 +136,10 @@ export interface DeepSeekOptions {
   fetch?: typeof fetch;
   /** Test için: toplam üst süre (varsayılan TIMEOUT_MS). */
   timeoutMs?: number;
+  /** Sağlayıcı adı (kayıtlarda görünür). Varsayılan "deepseek". */
+  name?: string;
+  /** İstek gövdesini kuran işlev. Varsayılan DeepSeek gövdesi. */
+  buildRequest?: (input: VerifierInput, model: string) => ChatRequest;
 }
 
 function clientCompletion(options: DeepSeekOptions): CompletionFn {
@@ -130,7 +163,7 @@ function clientCompletion(options: DeepSeekOptions): CompletionFn {
 /** Boş ya da yalnız boşluktan oluşan içerikte null döner. Hata ayrıntısı içermez. */
 async function requestContent(
   complete: CompletionFn,
-  params: DeepSeekRequest,
+  params: ChatRequest,
   request: CompletionRequestOptions,
 ): Promise<string | null> {
   let response: CompletionResponse;
@@ -144,15 +177,20 @@ async function requestContent(
   return content;
 }
 
+/** OpenAI (varsayılan model gpt-5.6-luna) sağlayıcısı: aynı istemci, zaman aşımı ve doğrulama yolu. */
+export function createOpenAiProvider(options: Omit<DeepSeekOptions, "name" | "buildRequest">): VerifierProvider {
+  return createDeepSeekProvider({ ...options, name: "openai", buildRequest: buildOpenAiRequest });
+}
+
 export function createDeepSeekProvider(options: DeepSeekOptions): VerifierProvider {
   const complete = options.createCompletion ?? clientCompletion(options);
   const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
 
   return {
-    name: "deepseek",
+    name: options.name ?? "deepseek",
     model: options.model,
     async analyze(input: VerifierInput): Promise<AiAnalysis> {
-      const params = buildDeepSeekRequest(input, options.model);
+      const params = (options.buildRequest ?? buildDeepSeekRequest)(input, options.model);
 
       // Tek üst süre: her istek kalan süreyi alır; süre dolunca istek iptal edilir ve analiz biter.
       const deadline = Date.now() + timeoutMs;

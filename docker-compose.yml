@@ -1,0 +1,35 @@
+# Üretim: uygulama + otomatik HTTPS (Caddy, Let's Encrypt). Ayarlar .env.production dosyasından okunur.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      DATABASE_URL: "file:/data/prod.db"
+      TRUST_PROXY: "true"
+    volumes:
+      - app-data:/data
+      - app-storage:/app/storage
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  app-data:
+  app-storage:
+  caddy-data:
+  caddy-config:

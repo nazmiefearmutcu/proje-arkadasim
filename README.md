@@ -26,7 +26,7 @@ dosyasına (Türkçe) bakın.
 - Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4
 - Prisma 6 ile SQLite (PostgreSQL'e geçişe uygun şema)
 - zod 4 (doğrulama), Node'un yerleşik `crypto.scrypt` (şifre özeti)
-- `unpdf` (PDF metin katmanı), `tesseract.js` (görsel OCR), `openai` SDK (DeepSeek için OpenAI uyumlu uç nokta)
+- `unpdf` (PDF metin katmanı), `tesseract.js` (görsel OCR), `openai` SDK (OpenAI; isteğe bağlı olarak DeepSeek'in OpenAI uyumlu uç noktası)
 - `nodemailer` (SMTP; yoksa e-postalar konsola yazılır), `lucide-react`
 - Vitest 5 (birim ve entegrasyon testleri)
 
@@ -92,7 +92,7 @@ Tohum ayrıca 12 proje, bekleyen katılma başvuruları ve davetler, bir aktif s
 ## Ortam değişkenleri
 
 Tüm değişkenler `.env` dosyasında tanımlanır. `.env` git'e eklenmez; yalnız `.env.example` paylaşılır.
-`.env.example` aşağıdaki değişkenlerin hepsini listeler; isteğe bağlı olanlar (`DEEPSEEK_THINKING`, `AVATAR_DIR`,
+`.env.example` aşağıdaki değişkenlerin hepsini listeler; isteğe bağlı olanlar (`OPENAI_REASONING_EFFORT`, `DEEPSEEK_*`, `AVATAR_DIR`,
 `TESSDATA_LANG_PATH`, `SEED_ALLOW_PRODUCTION`) yorum satırı olarak durur. `NODE_ENV` orada yoktur: `next build`
 ve `next start` onu `production` yapar; `npm run seed` gibi betiklerde ise kabukta ayrıca tanımlanmadıkça boştur.
 
@@ -100,8 +100,11 @@ ve `next start` onu `production` yapar; `npm run seed` gibi betiklerde ise kabuk
 |---|---|---|
 | `DATABASE_URL` | Evet | Veritabanı adresi. Varsayılan `file:./dev.db` (SQLite, `prisma/` klasörüne göre). |
 | `DOC_HASH_PEPPER` | Evet | Belge özetlerinin (HMAC-SHA256) gizli biberi. Tanımlı değilse belge yükleme `ERROR` döner. Değişirse eski özetler eşleşmez. |
-| `VERIFIER_PROVIDER` | Evet | Belge inceleyicisi: `mock` (yalnız geliştirme) ya da `deepseek`. Tanınmayan değerde otomatik onay verilmez. |
-| `DEEPSEEK_API_KEY` | Gerçek AI için | DeepSeek API anahtarı. Boşsa AI incelemesi çağrılmaz; belgeler manuel incelemeye düşer. |
+| `VERIFIER_PROVIDER` | Evet | Belge inceleyicisi: `mock` (yalnız geliştirme), `openai` (varsayılan) ya da `deepseek`. Tanınmayan değerde otomatik onay verilmez. |
+| `OPENAI_API_KEY` | Gerçek AI için | OpenAI API anahtarı. Boşsa AI incelemesi çağrılmaz; belgeler manuel incelemeye düşer. |
+| `OPENAI_MODEL` | Hayır | Model adı. Varsayılan `gpt-5.6-luna`. |
+| `OPENAI_REASONING_EFFORT` | Hayır | `minimal`, `low` (varsayılan), `medium` ya da `high`. 20 saniyelik süre sınırı için düşük tutun. |
+| `DEEPSEEK_API_KEY` | Hayır | Yalnız `VERIFIER_PROVIDER=deepseek` iken. Bu durumda `src/config/legal.ts` içindeki `AI_PROVIDER` ve rıza metni de değiştirilmelidir. |
 | `DEEPSEEK_MODEL` | Hayır | Model adı. Varsayılan `deepseek-flash`. |
 | `DEEPSEEK_BASE_URL` | Hayır | OpenAI uyumlu uç nokta. Varsayılan `https://api.deepseek.com`. |
 | `DEEPSEEK_THINKING` | Hayır | `enabled` ya da `disabled` değerleriyle DeepSeek'in düşünme modunu açıp kapatır. Boşsa istekte gönderilmez. |
@@ -140,7 +143,8 @@ Yükleme `POST /api/verification` üzerinden tek bir istekte tamamlanır; belge 
 
 **Sağlayıcılar:**
 - `mock`: yalnız `NODE_ENV !== "production"` iken çalışır. Maskeli metindeki anahtar kelimelerden deterministik bir sonuç üretir; yerel test ve tohum için kullanılır.
-- `deepseek`: üretim varsayılanıdır. `DEEPSEEK_API_KEY` gerekir.
+- `openai`: üretim varsayılanıdır (`gpt-5.6-luna`). `OPENAI_API_KEY` gerekir.
+- `deepseek`: isteğe bağlı. `DEEPSEEK_API_KEY` gerekir; alıcı ülke Çin olduğu için rıza metni ve aydınlatma metni güncellenmelidir.
 
 **Bilinen sınır:** Yapay zeka incelemesi belgenin tutarlılığını ve makulluğunu denetler; kriptografik gerçekliğini kanıtlayamaz. Riskleri azaltan önlemler: PDF meta sinyalleri, aynı belgenin tekrar kullanımının engellenmesi, ad eşleşmesi, tarih güncelliği, deneme sınırı, şikayet ve yönetici geri alma. Altın standart olan e-Devlet ya da YÖK entegrasyonu kapsam dışıdır; e-Devlet barkod sorgusunun otomasyonu yapılmaz.
 
@@ -158,7 +162,7 @@ Yükleme `POST /api/verification` üzerinden tek bir istekte tamamlanır; belge 
 
 Bu liste operatörün (veri sorumlusunun) yapması gerekenlerdir. Kod bunların bir kısmını çözemez.
 
-1. **DeepSeek (Çin) riski:** Çin için yeterlilik kararı yoktur. 2024 değişikliğinden sonra açık rıza yalnız arızi aktarımlar için geçerlidir; her kayıtta tekrarlanan bir aktarım arızi sayılmayabilir. Uygun güvence (Kurul'un standart sözleşmesi ve 5 iş günü içinde bildirim) DeepSeek ile yapılamıyorsa hukuki risk sürer. Tasarım bu riski maskeleme ile azaltır ama ortadan kaldırmaz; gönderilen metin takma adlı (pseudonymous) veridir. **Canlıya çıkmadan önce KVKK avukatının görüşü alınmalıdır.** Gerekirse sağlayıcı değiştirilebilir (tek dosyalık değişiklik: `src/lib/verification/providers/`).
+1. **Yurt dışı aktarım riski (OpenAI, ABD):** ABD için KVKK kapsamında yeterlilik kararı yoktur. 2024 değişikliğinden sonra açık rıza yalnız arızi aktarımlar için geçerlidir; her kayıtta tekrarlanan bir aktarım arızi sayılmayabilir. Uygun güvence olarak Kurul'un standart sözleşmesi imzalanıp 5 iş günü içinde Kurum'a bildirilmelidir; OpenAI'nin veri işleme sözleşmesi (DPA) ve API verisini eğitimde kullanmama taahhüdü bu süreci kolaylaştırır ama tek başına yetmez. Tasarım riski maskeleme ile azaltır; gönderilen metin takma adlı (pseudonymous) veridir. **Canlıya çıkmadan önce KVKK avukatının görüşü alınmalıdır.** Sağlayıcı değişirse `AI_PROVIDER` ve `AI_CONSENT_MIN_VERSION` güncellenir; eski rızalar otomatik olarak geçersiz sayılır ve kullanıcıdan yeniden rıza istenir.
 2. Veri sorumlusu bilgilerini `src/config/legal.ts` içinde doldurun: unvan, açık adres, e-posta (KVKK başvurularının geleceği, posta alabilen gerçek bir adres), KEP adresi, barındırma ülkesi, VERBİS kayıt numarası (varsa). Köşeli parantezli zorunlu bir alan kaldıkça yasal sayfalarda şablon uyarısı görünür. VERBİS kayıt yükümlülüğünü değerlendirin.
 3. Türkiye'de barındırmayı tercih edin; böylece ek bir yurt dışı aktarımı doğmaz.
 4. 5651 sayılı Kanun kapsamındaki yükümlülükleri (yer sağlayıcılık, giriş kaydı süreleri) hukuken teyit edin.
@@ -217,6 +221,10 @@ tests/              uçtan uca benzeri entegrasyon testleri (route handler'lar, 
 docs/               tasarım dokümanı (spec), tasarım sistemi, geliştirme planı ve raporları
 ```
 
+## Yayınlama
+
+Oracle Cloud Always Free üzerinde Docker + otomatik HTTPS ile tek komutluk kurulum: [deploy/ORACLE.md](deploy/ORACLE.md).
+
 ## PostgreSQL'e geçiş
 
 Şema SQLite'a göre yazıldı; enum ve dizi yoktur, listeler JSON metin olarak tutulur. PostgreSQL'e geçmek için:
@@ -245,8 +253,8 @@ Testler `prisma/test.db` adlı ayrı bir SQLite dosyası kullanır (`vitest.conf
   yönlendirmesi taklit edilerek).
 - Belge doğrulama: `POST /api/verification` route testi yalnız HTTP sözleşmesini (Origin, oturum, gövde sınırı, form
   alanı, yanıt biçimi) taklit edilmiş bir servisle sınar. Servis testi, test içinde üretilen sentetik bir PDF ve mock
-  sağlayıcıyla uçtan uca çalışır. DeepSeek sağlayıcısı sahte tamamlama ve fetch yanıtlarıyla (boş içerik, geçersiz
-  JSON, şema uyuşmazlığı, ağ hatası, zaman aşımı) sınanır; gerçek DeepSeek çağrılmaz.
+  sağlayıcıyla uçtan uca çalışır. OpenAI ve DeepSeek sağlayıcıları sahte tamamlama ve fetch yanıtlarıyla (boş içerik, geçersiz
+  JSON, şema uyuşmazlığı, ağ hatası, zaman aşımı) sınanır; gerçek API çağrılmaz.
 - Veritabanıyla çalışan entegrasyon testleri: kayıt, giriş ve şifre sıfırlama işlemleri, projeler, takip, engelleme
   ve şikayet, ana sayfa akışı, mesajlaşma, yönetici işlemleri (yönetici atama dahil), ayarlar ve veri dışa aktarma,
   saklama temizliği, bildirim yönlendirmesi.

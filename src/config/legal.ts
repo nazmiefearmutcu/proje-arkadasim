@@ -3,7 +3,7 @@
 // ve yasal metinler avukat onayıyla yayımlanmalıdır.
 
 // Aydınlatma metni ve rıza metinlerinin sürümü. Metin değişince artırılır.
-export const LEGAL_VERSION = "2026-11-08";
+export const LEGAL_VERSION = "2026-11-09";
 
 export const LEGAL = {
   // [Veri sorumlusu unvanı]: operatör doldurur.
@@ -34,15 +34,19 @@ export function hasLegalPlaceholders(legal: OperatorFields = LEGAL): boolean {
 
 // Belge doğrulamasında maskelenmiş metni işleyen yapay zeka sağlayıcısı (spec §5.2, §6.3).
 export const AI_PROVIDER = {
-  name: "DeepSeek",
-  company: "Hangzhou DeepSeek Artificial Intelligence Co., Ltd.",
-  country: "Çin Halk Cumhuriyeti",
+  name: "OpenAI",
+  company: "OpenAI, L.L.C.",
+  country: "Amerika Birleşik Devletleri",
 } as const;
+
+// Yapay zeka aktarım rızasının geçerli sayıldığı en eski metin sürümü. Sağlayıcı ya da alıcı ülke
+// değişince güncellenir; daha eski sürümle verilmiş rıza (ör. DeepSeek/Çin) yeni aktarımı kapsamaz.
+export const AI_CONSENT_MIN_VERSION = "2026-11-09";
 
 // Yurt dışına aktarım için açık rıza beyanı (spec §4.1, birebir). Kayıt formu, /dogrulama ve
 // /ayarlar aynı metni bu sabitten gösterir; metin değişirse LEGAL_VERSION artırılır.
 export const AI_CONSENT_STATEMENT =
-  "Maskelenmiş belge metnimin yapay zeka incelemesi için yurt dışına (DeepSeek, Çin) aktarılmasına açık rıza veriyorum.";
+  "Maskelenmiş belge metnimin yapay zeka incelemesi için yurt dışına (OpenAI, ABD) aktarılmasına açık rıza veriyorum.";
 
 // Saklama süreleri (gün ya da dakika).
 export const MASKED_TEXT_RETENTION_DAYS = 30;

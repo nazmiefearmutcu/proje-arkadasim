@@ -37,8 +37,8 @@ export default function Page() {
 
       <LegalSection title="Riskler">
         <p>
-          Çin Halk Cumhuriyeti için KVKK kapsamında yeterlilik kararı bulunmamaktadır. Aktarılan metin takma adlı
-          veridir. Maskeleme riski azaltır ama ortadan kaldırmaz. Sağlayıcının veri işleme ve saklama uygulamaları
+          {AI_PROVIDER.country} için KVKK kapsamında yeterlilik kararı bulunmamaktadır. Aktarılan metin takma adlı
+          veridir. Sağlayıcı, API üzerinden gönderilen verileri model eğitiminde kullanmadığını beyan eder. Maskeleme riski azaltır ama ortadan kaldırmaz. Sağlayıcının veri işleme ve saklama uygulamaları
           bizim denetimimiz dışındadır.
         </p>
       </LegalSection>

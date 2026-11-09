@@ -32,10 +32,27 @@ describe("getVerifierProvider", () => {
     expect(getVerifierProvider()).toBeNull();
   });
 
-  it("sağlayıcı boşsa ve anahtar yoksa null döndürür", () => {
+  it("sağlayıcı boşsa ve OpenAI anahtarı yoksa null döndürür", () => {
     vi.stubEnv("VERIFIER_PROVIDER", "");
-    vi.stubEnv("DEEPSEEK_API_KEY", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
     expect(getVerifierProvider()).toBeNull();
+  });
+
+  it("varsayılan sağlayıcı OpenAI'dir ve gpt-5.6-luna modelini kullanır", () => {
+    vi.stubEnv("VERIFIER_PROVIDER", "");
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_MODEL", "");
+    const provider = getVerifierProvider();
+    expect(provider?.name).toBe("openai");
+    expect(provider?.model).toBe("gpt-5.6-luna");
+  });
+
+  it("openai seçiliyse OPENAI_MODEL'i kullanır", () => {
+    vi.stubEnv("VERIFIER_PROVIDER", "OpenAI");
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_MODEL", "gpt-6-luna");
+    expect(getVerifierProvider()?.model).toBe("gpt-6-luna");
   });
 
   it("anahtar varsa deepseek sağlayıcısını varsayılan modelle döndürür", () => {
@@ -47,8 +64,8 @@ describe("getVerifierProvider", () => {
     expect(provider?.model).toBe("deepseek-flash");
   });
 
-  it("sağlayıcı boşsa ve anahtar varsa deepseek döndürür, DEEPSEEK_MODEL'i kullanır", () => {
-    vi.stubEnv("VERIFIER_PROVIDER", "");
+  it("deepseek açıkça seçilirse DEEPSEEK_MODEL'i kullanır", () => {
+    vi.stubEnv("VERIFIER_PROVIDER", "deepseek");
     vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
     vi.stubEnv("DEEPSEEK_MODEL", "deepseek-pro");
     const provider = getVerifierProvider();
@@ -59,7 +76,8 @@ describe("getVerifierProvider", () => {
   it("tanınmayan değer mock'a düşmez, null döndürür", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
-    for (const value of ["openai", "mocks", "moc", "random"]) {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    for (const value of ["open-ai", "mocks", "moc", "random"]) {
       vi.stubEnv("VERIFIER_PROVIDER", value);
       expect(getVerifierProvider(), value).toBeNull();
     }

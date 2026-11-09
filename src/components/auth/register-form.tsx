@@ -5,7 +5,7 @@ import { startTransition, useActionState, useState, type FormEvent, type ReactNo
 import { registerAction } from "@/lib/auth/register-action";
 import { registerAccountSchema } from "@/lib/auth/schemas";
 import { zodFieldErrors, type ActionResult } from "@/lib/action-result";
-import { AI_CONSENT_STATEMENT } from "@/config/legal";
+import { AI_CONSENT_STATEMENT, AI_PROVIDER } from "@/config/legal";
 import { AiConsentTextLink } from "@/components/legal/ai-consent-link";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -327,7 +327,7 @@ export function RegisterForm() {
               </Explanation>
               <Explanation>Neden: belgeyi saniyeler içinde değerlendirebilmek için.</Explanation>
               <Explanation>
-                Risk: Çin Halk Cumhuriyeti için KVKK kapsamında yeterlilik kararı yoktur. Maskeleme riski azaltır
+                Risk: {AI_PROVIDER.country} için KVKK kapsamında yeterlilik kararı yoktur. Maskeleme riski azaltır
                 ama ortadan kaldırmaz; gönderilen metin takma adlı veridir.
               </Explanation>
               <Explanation>

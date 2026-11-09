@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { maskDocumentText } from "../mask";
-import { buildDeepSeekRequest, createDeepSeekProvider, MIN_RETRY_BUDGET_MS, TIMEOUT_MS } from "./deepseek";
+import { buildDeepSeekRequest, buildOpenAiRequest, createDeepSeekProvider, createOpenAiProvider, MIN_RETRY_BUDGET_MS, TIMEOUT_MS } from "./deepseek";
 import type { CompletionFn } from "./deepseek";
 import { VerifierError } from "./types";
 import type { VerifierInput } from "./types";
@@ -94,6 +94,41 @@ describe("buildDeepSeekRequest", () => {
     expect(buildDeepSeekRequest(sampleInput(), "m").thinking).toEqual({ type: "disabled" });
     vi.stubEnv("DEEPSEEK_THINKING", "bogus");
     expect(buildDeepSeekRequest(sampleInput(), "m").thinking).toBeUndefined();
+  });
+});
+
+describe("buildOpenAiRequest", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("GPT-5 ailesine uygun gövde kurar: sıcaklık ve max_tokens yok, json yanıt, düşük akıl yürütme", () => {
+    const params = buildOpenAiRequest(sampleInput(), "gpt-5.6-luna");
+    expect(params.model).toBe("gpt-5.6-luna");
+    expect(params).not.toHaveProperty("temperature");
+    expect(params).not.toHaveProperty("max_tokens");
+    expect(params.max_completion_tokens).toBeGreaterThan(0);
+    expect(params.response_format).toEqual({ type: "json_object" });
+    expect(params.reasoning_effort).toBe("low");
+  });
+
+  it("geçersiz OPENAI_REASONING_EFFORT gönderilmez", () => {
+    vi.stubEnv("OPENAI_REASONING_EFFORT", "turbo");
+    expect(buildOpenAiRequest(sampleInput(), "m").reasoning_effort).toBeUndefined();
+  });
+
+  it("OpenAI sağlayıcısı aynı doğrulama yolunu kullanır ve adını openai olarak bildirir", async () => {
+    let sent: unknown;
+    const provider = createOpenAiProvider({
+      apiKey: "k",
+      model: "gpt-5.6-luna",
+      baseURL: "https://x",
+      createCompletion: async (params) => {
+        sent = params;
+        return { choices: [{ message: { content: JSON.stringify(VALID_ANALYSIS) } }] };
+      },
+    });
+    expect(provider.name).toBe("openai");
+    await expect(provider.analyze(sampleInput())).resolves.toBeTruthy();
+    expect(sent).toMatchObject({ model: "gpt-5.6-luna", max_completion_tokens: expect.any(Number) });
   });
 });
 

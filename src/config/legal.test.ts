@@ -35,7 +35,7 @@ describe("hasLegalPlaceholders", () => {
 describe("AI_CONSENT_STATEMENT", () => {
   it("spec §4.1 metniyle birebir aynıdır; alıcıyı ve ülkeyi adlandırır", () => {
     expect(AI_CONSENT_STATEMENT).toBe(
-      "Maskelenmiş belge metnimin yapay zeka incelemesi için yurt dışına (DeepSeek, Çin) aktarılmasına açık rıza veriyorum.",
+      "Maskelenmiş belge metnimin yapay zeka incelemesi için yurt dışına (OpenAI, ABD) aktarılmasına açık rıza veriyorum.",
     );
   });
 });

@@ -8,8 +8,8 @@ export interface StartupEnv {
 }
 
 export const MOCK_PROVIDER_IN_PRODUCTION =
-  "VERIFIER_PROVIDER=mock üretim ortamında kullanılamaz; VERIFIER_PROVIDER=deepseek ve DEEPSEEK_API_KEY ayarla. " +
-  "(VERIFIER_PROVIDER=mock is not allowed in production; set VERIFIER_PROVIDER=deepseek and DEEPSEEK_API_KEY.)";
+  "VERIFIER_PROVIDER=mock üretim ortamında kullanılamaz; VERIFIER_PROVIDER=openai ve OPENAI_API_KEY ayarla. " +
+  "(VERIFIER_PROVIDER=mock is not allowed in production; set VERIFIER_PROVIDER=openai and OPENAI_API_KEY.)";
 
 /**
  * Üretimde başlatmayı engelleyen bir yapılandırma sorunu varsa mesajını, yoksa null döndürür.
