@@ -9,7 +9,19 @@ import { relativeTimeTr } from "@/lib/time";
 import { RequestActions } from "./request-actions";
 
 /** Sohbet satırı: avatar, ad, önizleme, zaman. Okunmamışsa ad kalın ve tükenmez noktası görünür. */
-export function ConversationItem({ row, viewer }: { row: ConversationRow; viewer: Viewer }) {
+export function ConversationItem({
+  row,
+  viewer,
+  active = false,
+  compact = false,
+}: {
+  row: ConversationRow;
+  viewer: Viewer;
+  /** Masaüstü kenar listesinde açık olan sohbet. */
+  active?: boolean;
+  /** Kenar listesi için yatay iç boşluklu satır. */
+  compact?: boolean;
+}) {
   const name = displayName(row.other, viewer);
   const pendingRequest = row.status !== "ACTIVE" && row.isInitiator;
 
@@ -17,7 +29,13 @@ export function ConversationItem({ row, viewer }: { row: ConversationRow; viewer
     <li>
       <Link
         href={`/mesajlar/${row.id}`}
-        className={cn("flex min-h-16 items-center gap-3 py-3 rounded-card", focusRing)}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex min-h-16 items-center gap-3 py-3 rounded-card",
+          compact && "px-2 hover:bg-surface-2",
+          active && "bg-surface-2",
+          focusRing,
+        )}
       >
         <Avatar
           size={48}

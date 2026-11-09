@@ -29,7 +29,7 @@ export function LoginForm({ next = "" }: { next?: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      <form method="post" onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <input type="hidden" name="next" value={next} />
 
         {generalError ? <FormAlert tone="danger">{generalError}</FormAlert> : null}

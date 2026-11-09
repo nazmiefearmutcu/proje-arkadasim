@@ -36,7 +36,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           </ButtonLink>
         </>
       ) : (
-        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+        <form method="post" onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
           <input type="hidden" name="token" value={token} />
 
           <Field

@@ -43,10 +43,12 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
       }}
       className={cn(
         "fixed inset-x-0 bottom-0 m-0 mx-auto h-auto max-h-[85dvh] w-full max-w-[640px] overflow-y-auto rounded-t-sheet bg-surface p-0 text-ink shadow-sheet backdrop:bg-scrim",
+        // Masaüstünde alttan çıkan sayfa yerine ortalanmış iletişim kutusu.
+        "lg:inset-0 lg:m-auto lg:max-h-[80dvh] lg:max-w-[480px] lg:rounded-sheet",
       )}
     >
-      <div className="flex flex-col pb-[calc(16px+env(safe-area-inset-bottom))]">
-        <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 rounded-full bg-line" />
+      <div className="flex flex-col pb-[calc(16px+env(safe-area-inset-bottom))] lg:pb-4 lg:pt-2">
+        <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 rounded-full bg-line lg:hidden" />
         <div className="flex items-center justify-between gap-3 px-4 pt-2 pb-2">
           <h2 id={titleId} className="t-section text-ink">
             {title}

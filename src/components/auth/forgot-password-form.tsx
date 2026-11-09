@@ -31,7 +31,7 @@ export function ForgotPasswordForm() {
       ) : null}
       {generalError ? <FormAlert tone="danger">{generalError}</FormAlert> : null}
 
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      <form method="post" onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <Field id="forgot-email" label="E-posta" hint="Hesabına bağlı e-posta adresini yaz." error={fieldErrors.email}>
           <Input
             type="email"

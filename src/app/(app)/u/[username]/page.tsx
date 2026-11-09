@@ -132,7 +132,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
       <Section title="Projeler">
         {ownedProjects.length > 0 ? (
-          <div className="flex flex-col gap-3">
+          <div data-wide className="grid gap-3 lg:grid-cols-2">
             {ownedProjects.map((project) => (
               <ProjectCard key={project.id} project={project} viewer={viewer} />
             ))}
@@ -154,7 +154,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
       <Section title="Katıldığı projeler">
         {memberProjects.length > 0 ? (
-          <div className="flex flex-col gap-3">
+          <div data-wide className="grid gap-3 lg:grid-cols-2">
             {memberProjects.map((project) => (
               <ProjectCard key={project.id} project={project} viewer={viewer} />
             ))}

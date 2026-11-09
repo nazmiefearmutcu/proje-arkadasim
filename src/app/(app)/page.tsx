@@ -40,16 +40,19 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       <PageHeader title="Ana sayfa" description="Takip ettiğin kişilerin paylaştığı projeler" />
 
       {feed.items.length > 0 ? (
-        <section aria-label="Akış" className="flex flex-col gap-3">
-          {feed.items.map((project) => (
-            <ProjectCard key={project.id} project={project} viewer={viewer} />
-          ))}
-          {feed.hasMore ? (
-            <ButtonLink href={`/?sayfa=${page + 1}`} variant="secondary" className="w-full">
-              Daha fazla göster
-            </ButtonLink>
-          ) : null}
-        </section>
+        <div data-wide className="flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section aria-label="Akış" className="grid min-w-0 content-start gap-3 lg:grid-cols-2">
+            {feed.items.map((project) => (
+              <ProjectCard key={project.id} project={project} viewer={viewer} />
+            ))}
+            {feed.hasMore ? (
+              <ButtonLink href={`/?sayfa=${page + 1}`} variant="secondary" className="w-full lg:col-span-2">
+                Daha fazla göster
+              </ButtonLink>
+            ) : null}
+          </section>
+          <HomeRail viewer={viewer} />
+        </div>
       ) : page > 1 ? (
         <EmptyState
           title="Bu sayfada proje yok"
@@ -107,6 +110,40 @@ async function FeedEmpty({ viewer }: { viewer: CurrentUser }) {
         </Section>
       ) : null}
     </>
+  );
+}
+
+/** Masaüstü (xl) sağ sütunu: takip önerileri. Telefonda ve dar ekranlarda gösterilmez. */
+async function HomeRail({ viewer }: { viewer: CurrentUser }) {
+  const suggestions = await getSuggestions(viewer.id, SUGGESTION_COUNT);
+  if (suggestions.length === 0) return null;
+
+  return (
+    <aside aria-label="Önerilen kişiler" className="hidden xl:block">
+      <div className="sticky top-[84px] rounded-card border border-line bg-surface p-4">
+        <Section
+          title="Önerilen kişiler"
+          right={
+            <ButtonLink href="/network?sekme=tanistirmalar" variant="ghost">
+              Tümü
+            </ButtonLink>
+          }
+        >
+          <ul className="flex flex-col divide-y divide-line">
+            {suggestions.map((suggestion) => (
+              <li key={suggestion.person.id}>
+                <UserRow
+                  person={suggestion.person}
+                  name={displayName(suggestion.person, viewer)}
+                  reason={suggestion.reason || undefined}
+                  action={<FollowButton userId={suggestion.person.id} initialFollowing={false} />}
+                />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      </div>
+    </aside>
   );
 }
 
@@ -171,7 +208,7 @@ async function Landing({
         }
       >
         {latest.items.length > 0 ? (
-          <div className="flex flex-col gap-3">
+          <div data-wide className="grid gap-3 lg:grid-cols-3">
             {latest.items.map((project) => (
               <ProjectCard key={project.id} project={project} viewer={viewer} />
             ))}

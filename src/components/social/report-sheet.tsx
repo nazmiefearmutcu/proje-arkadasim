@@ -65,7 +65,7 @@ function ReportForm({ targetType, targetId, subject, onClose }: ReportFormProps)
   const formError = state && !state.ok && !state.fieldErrors ? state.error : null;
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4 px-2 pt-2 pb-2">
+    <form method="post" onSubmit={onSubmit} className="flex flex-col gap-4 px-2 pt-2 pb-2">
       <input type="hidden" name="targetType" value={targetType} readOnly />
       <input type="hidden" name="targetId" value={targetId} readOnly />
       <p className="t-body text-ink-2">{subject} için bir neden seç. Şikayetin ekibimiz tarafından incelenir.</p>

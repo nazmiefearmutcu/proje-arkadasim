@@ -72,7 +72,7 @@ function InviteForm({
   const formError = state && !state.ok && !state.fieldErrors ? state.error : null;
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4 px-2 pt-2 pb-2">
+    <form method="post" onSubmit={onSubmit} className="flex flex-col gap-4 px-2 pt-2 pb-2">
       <input type="hidden" name="username" value={username} readOnly />
       <p className="t-body text-ink-2">{name} için proje ve rol seç.</p>
       {formError ? (

@@ -45,7 +45,7 @@ export function RevokeVerificationForm({ userId, username }: { userId: string; u
   }
 
   return (
-    <form
+    <form method="post"
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();

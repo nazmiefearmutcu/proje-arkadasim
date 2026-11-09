@@ -68,7 +68,7 @@ export function ProjectFilters({ initial, activeCount }: ProjectFiltersProps) {
       </Button>
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Filtreler">
-        <form onSubmit={apply} className="flex flex-col gap-4 px-2 pt-2 pb-2">
+        <form method="post" onSubmit={apply} className="flex flex-col gap-4 px-2 pt-2 pb-2">
           <Field id="filter-q" label="Arama" hint="Başlık, özet, etiket ya da rol adı.">
             <Input value={q} onChange={(event) => setQ(event.target.value)} autoComplete="off" />
           </Field>

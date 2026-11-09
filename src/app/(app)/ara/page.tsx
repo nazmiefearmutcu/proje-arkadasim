@@ -135,7 +135,7 @@ async function ProjectResults({ q, viewer }: { q: string; viewer: CurrentUser | 
 
   const viewerView = viewer ? { verificationStatus: viewer.verificationStatus, role: viewer.role } : null;
   return (
-    <ul className="flex flex-col gap-3">
+    <ul data-wide className="grid gap-3 lg:grid-cols-2">
       {projects.map((project) => (
         <li key={project.id}>
           <ProjectCard project={project} viewer={viewerView} />

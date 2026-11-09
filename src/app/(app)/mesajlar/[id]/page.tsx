@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Chat } from "@/components/messaging/chat";
+import { ConversationRail } from "@/components/messaging/conversation-rail";
 import { requireVerified } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { getConversationForUser, markRead } from "@/lib/messaging/service";
@@ -22,21 +23,24 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   });
 
   return (
-    <Chat
-      conversationId={detail.id}
-      other={{
-        id: detail.other.id,
-        username: detail.other.username,
-        name: displayName(detail.other, user),
-        avatarPath: detail.other.avatarPath,
-        disciplineGroup: detail.other.disciplineGroup,
-      }}
-      initialStatus={detail.status}
-      isInitiator={detail.isInitiator}
-      blocked={detail.blocked}
-      blockedByViewer={ownBlock !== null}
-      initialMessages={detail.messages}
-      renderedAt={new Date().toISOString()}
-    />
+    <div data-wide className="lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-6">
+      <ConversationRail viewer={user} activeId={detail.id} />
+      <Chat
+        conversationId={detail.id}
+        other={{
+          id: detail.other.id,
+          username: detail.other.username,
+          name: displayName(detail.other, user),
+          avatarPath: detail.other.avatarPath,
+          disciplineGroup: detail.other.disciplineGroup,
+        }}
+        initialStatus={detail.status}
+        isInitiator={detail.isInitiator}
+        blocked={detail.blocked}
+        blockedByViewer={ownBlock !== null}
+        initialMessages={detail.messages}
+        renderedAt={new Date().toISOString()}
+      />
+    </div>
   );
 }

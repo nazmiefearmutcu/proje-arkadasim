@@ -77,7 +77,7 @@ export function ReviewForm({ attemptId, defaults }: { attemptId: string; default
   }
 
   return (
-    <form
+    <form method="post"
       className="flex flex-col gap-4"
       // Enter tuşu formu gönderip onaylamasın: onay yalnızca "Onayla" düğmesiyle yapılır.
       onSubmit={(event) => event.preventDefault()}

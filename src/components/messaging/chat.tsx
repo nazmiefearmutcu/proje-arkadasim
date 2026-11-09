@@ -238,12 +238,12 @@ export function Chat({
   const otherUrl = `/u/${encodeURIComponent(other.username)}`;
 
   return (
-    <div className="fixed inset-x-0 top-[60px] bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 mx-auto flex w-full max-w-[640px] flex-col bg-paper">
+    <div className="fixed inset-x-0 top-[60px] bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 mx-auto flex w-full max-w-[640px] flex-col bg-paper lg:sticky lg:top-[84px] lg:z-auto lg:mx-0 lg:h-[calc(100dvh-60px-72px)] lg:max-w-none lg:overflow-hidden lg:rounded-card lg:border lg:border-line">
       <header className="flex items-center gap-2 border-b border-line bg-surface px-2 py-1.5">
         <Link
           href="/mesajlar"
           aria-label="Mesajlara dön"
-          className={cn("flex size-11 shrink-0 items-center justify-center rounded-control text-ink-2", focusRing)}
+          className={cn("flex size-11 shrink-0 items-center justify-center rounded-control text-ink-2 lg:hidden", focusRing)}
         >
           <ChevronLeft aria-hidden="true" strokeWidth={1.75} className="size-5" />
         </Link>
@@ -366,7 +366,7 @@ export function Chat({
             {error}
           </p>
         ) : null}
-        <form
+        <form method="post"
           onSubmit={(event) => {
             event.preventDefault();
             void send();

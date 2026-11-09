@@ -44,7 +44,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
         }
       />
 
-      <nav aria-label="Proje listesi" className="flex gap-2 overflow-x-auto pb-1">
+      <nav data-wide aria-label="Proje listesi" className="flex gap-2 overflow-x-auto pb-1">
         <Chip href="/projeler" selected={!filters.mine} className="shrink-0">
           Açık projeler
         </Chip>
@@ -53,7 +53,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
         </Chip>
       </nav>
 
-      <div className="mt-3 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="Disiplinler">
+      <div className="mt-3 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" aria-label="Disiplinler">
         <Chip
           href={projectsHref({ mine: filters.mine, q: filters.q, category: filters.category, workMode: filters.workMode, city: filters.city, stage: filters.stage })}
           selected={filters.disciplineGroup === null}
@@ -121,7 +121,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
           )
         ) : (
           <>
-            <ul className="flex flex-col gap-3">
+            <ul className="grid gap-3 lg:grid-cols-2">
               {list.items.map((project) => (
                 <li key={project.id}>
                   <ProjectCard project={project} viewer={viewer} />

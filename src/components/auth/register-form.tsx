@@ -159,7 +159,7 @@ export function RegisterForm() {
   const consentDescribedBy = consentError ? CONSENT_ERROR_ID : undefined;
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+    <form method="post" onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
       <Stepper current={step} />
 
       {step === 1 ? (
