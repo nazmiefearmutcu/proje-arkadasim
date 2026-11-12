@@ -10,7 +10,7 @@ import { NAV_ITEMS, isNavActive, navAccessibleName } from "./nav-items";
 import { useCounters } from "./use-counters";
 
 /**
- * Alt menü (64 px + güvenli alan). Paylaş ortada, tükenmez mavisi bir daire olarak yükselir.
+ * Alt menü (64 px + güvenli alan). Paylaş ortada dolu mavi blok; seçili öğe açık mavi blok.
  * Network ve Mesajlarım'da bekleyen öğe rozetleri gösterilir. Rozet sayısı bağlantının erişilebilir adına
  * bağlamıyla eklenir ("Mesajlarım, 3 okunmamış"), bildirim zilindeki gibi; çıplak sayı okunmaz.
  * Masaüstünde (lg) gizlenir; yerini sol kenar menü (SideNav) alır.
@@ -38,23 +38,19 @@ export function BottomNav({ initial }: { initial: Counters | null }) {
                 aria-current={active ? "page" : undefined}
                 aria-label={accessibleName}
                 className={cn(
-                  "flex min-h-11 w-full flex-col items-center justify-end gap-1 pb-2 text-[11px] leading-[1.2]",
-                  active ? "font-[650] text-ink" : "font-[450] text-ink-3",
+                  "mx-0.5 flex h-[52px] w-full flex-col items-center justify-center gap-0.5 self-center rounded-control text-[11px] leading-[1.2]",
+                  item.primary
+                    ? "bg-pen font-[700] text-pen-ink"
+                    : active
+                      ? "bg-pen-soft font-[700] text-pen"
+                      : "font-[500] text-ink-2",
                   focusRing,
                 )}
               >
-                {item.primary ? (
-                  <span className="flex size-[52px] items-center justify-center rounded-full bg-pen text-pen-ink shadow-fab">
-                    <Icon aria-hidden="true" strokeWidth={1.75} className="size-6" />
-                  </span>
-                ) : (
-                  <span className="relative inline-flex size-6 items-center justify-center">
-                    <Icon aria-hidden="true" strokeWidth={1.75} className="size-5" />
-                    {badgeCount > 0 ? (
-                      <Badge count={badgeCount} className="absolute -top-1.5 -right-2.5" />
-                    ) : null}
-                  </span>
-                )}
+                <span className="relative inline-flex size-6 items-center justify-center">
+                  <Icon aria-hidden="true" strokeWidth={item.primary ? 2.4 : 1.75} className="size-5" />
+                  {badgeCount > 0 ? <Badge count={badgeCount} className="absolute -top-1.5 -right-2.5" /> : null}
+                </span>
                 <span>{item.label}</span>
               </Link>
             </li>

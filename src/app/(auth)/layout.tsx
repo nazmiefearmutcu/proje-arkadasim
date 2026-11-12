@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-8 px-4 pt-8 pb-[calc(32px+env(safe-area-inset-bottom))]">
       <Link href="/" className={`self-start rounded-control py-2 ${focusRing}`}>
-        <Logo />
+        <Logo onLight className="text-ink" />
       </Link>
       <main className="flex flex-col">{children}</main>
     </div>

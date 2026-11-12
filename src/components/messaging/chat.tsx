@@ -340,10 +340,10 @@ export function Chat({
                 <div
                   className={cn(
                     "max-w-[80%] break-words whitespace-pre-wrap px-3.5 py-2 t-body",
-                    "rounded-[18px]",
+                    "rounded-[10px]",
                     message.mine
-                      ? "rounded-br-[6px] bg-pen text-pen-ink"
-                      : "rounded-bl-[6px] border border-line bg-surface text-ink",
+                      ? "rounded-br-[3px] bg-pen text-pen-ink"
+                      : "rounded-bl-[3px] border border-line bg-surface text-ink",
                     message.pending && "opacity-60",
                   )}
                 >

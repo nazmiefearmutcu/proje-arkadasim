@@ -22,7 +22,7 @@ export function chipClasses(selected = false, className?: string, style: ChipSty
     "inline-flex items-center gap-1.5 rounded-chip px-3 py-1 t-label",
     style.interactive ? "min-h-11" : "min-h-8",
     style.nowrap ? "whitespace-nowrap" : "max-w-full whitespace-normal [overflow-wrap:anywhere]",
-    selected ? "bg-pen-soft text-pen" : "bg-surface-2 text-ink-2",
+    selected ? "border border-pen bg-pen-soft text-pen" : "border border-line bg-surface text-ink-2",
     focusRing,
     className,
   );

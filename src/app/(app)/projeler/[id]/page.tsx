@@ -5,11 +5,8 @@ import { notFound } from "next/navigation";
 import { CATEGORIES, STAGES, WORK_MODES, labelOf } from "@/config/taxonomy";
 import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
-import { PageHeader } from "@/components/ui/page-header";
-import { Section } from "@/components/ui/section";
 import { focusRing } from "@/components/ui/styles";
-import { DisciplineChip } from "@/components/common/discipline-chip";
-import { DisciplineSpine } from "@/components/common/discipline-spine";
+import { RoleStrip } from "@/components/common/role-strip";
 import { UserRow } from "@/components/common/user-row";
 import { VerifiedStamp } from "@/components/common/verified-stamp";
 import { OwnerPanel } from "@/components/projects/owner-panel";
@@ -49,7 +46,6 @@ export default async function Page({
   const isNew = query.yeni === "1";
   const canSeeProfiles = viewer !== null && (viewer.verificationStatus === "VERIFIED" || viewer.role === "ADMIN");
   const ownerName = displayName(project.owner, viewer);
-  const spineGroups = [...new Set(project.roles.map((role) => role.disciplineGroup))];
 
   const { isOwner, isMember, pendingRequest, pendingInviteId } = project.viewer;
   let viewerState: ProjectViewerState = "open";
@@ -64,118 +60,143 @@ export default async function Page({
 
   return (
     <>
-      <DisciplineSpine orientation="horizontal" groups={spineGroups} className="mb-4" />
-
       {isNew ? (
         <p role="status" className="mb-4 rounded-card bg-ok-soft p-4 t-body text-ok">
           Projen yayında. Takipçilerin ana sayfalarında görecek.
         </p>
       ) : null}
 
-      <PageHeader title={project.title} />
-
-      <div className="flex flex-wrap gap-1.5">
-        <Chip>{labelOf(CATEGORIES, project.category)}</Chip>
-        <Chip>{labelOf(STAGES, project.stage)}</Chip>
-        <Chip>{labelOf(WORK_MODES, project.workMode)}</Chip>
-        {project.city ? <Chip>{project.city}</Chip> : null}
-        {project.status === "CLOSED" ? <Chip selected>Kapandı</Chip> : null}
-      </div>
-
-      <div className="mt-4 flex items-center gap-3 border-b border-line pb-4">
-        <Avatar
-          size={48}
-          name={ownerName}
-          seed={project.owner.username}
-          avatarPath={project.owner.avatarPath}
-          disciplineGroup={project.owner.disciplineGroup}
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="t-label min-w-0 truncate text-ink">{ownerName}</span>
-            {project.owner.verified ? <VerifiedStamp size="sm" academicStatus={project.owner.academicStatus} /> : null}
-          </div>
-          {project.owner.university ? <span className="t-meta truncate text-ink-2">{project.owner.university}</span> : null}
-          {canSeeProfiles ? (
-            <Link
-              href={`/u/${project.owner.username}`}
-              className={cn(
-                "t-meta inline-flex min-h-11 w-fit items-center rounded-control text-pen underline-offset-2 hover:underline",
-                focusRing,
-              )}
-            >
-              Profile git
-            </Link>
-          ) : null}
-        </div>
-        <span className="t-meta shrink-0 text-ink-3">{relativeTimeTr(project.createdAt)}</span>
-      </div>
-
-      <Section title="Açıklama">
-        <p className="t-body t-prose whitespace-pre-line text-ink-2">{project.description}</p>
-      </Section>
-
-      <Section title="Aranan roller">
-        <ul className="flex flex-col divide-y divide-line">
-          {project.roles.map((role) => (
-            <li key={role.id} className="flex flex-col gap-2 py-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <h3 className="t-label text-ink">{role.title}</h3>
-                  <DisciplineChip id={role.disciplineGroup} />
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="t-meta text-ink-2">
-                    {role.filled}/{role.slots} dolu
-                  </span>
-                  {role.full ? <Chip selected>Dolu</Chip> : null}
-                </div>
-              </div>
-              {role.description ? <p className="t-body text-ink-2">{role.description}</p> : null}
-            </li>
-          ))}
-        </ul>
-      </Section>
-
-      <Section title="Ekip">
-        <ul className="flex flex-col divide-y divide-line">
-          {project.members.map((member) => {
-            // Misafir ve doğrulanmamış görüntüleyici: "Ad S.", bölüm yok, profil bağlantısı yok (karar R2).
-            const row = (
-              <UserRow
-                person={canSeeProfiles ? member.person : { ...member.person, department: null }}
-                name={displayName(member.person, viewer)}
-                reason={member.isOwner ? "Proje sahibi" : (member.roleTitle ?? "Ekip üyesi")}
+      <div
+        data-wide
+        className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr_auto] lg:items-start lg:gap-x-8"
+      >
+        <article className="paper-shadow flex min-w-0 flex-col gap-[3px] lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <div className="flex flex-col gap-5 rounded-t-card border-b-2 border-dashed border-perf bg-surface px-5 pt-6 pb-6 lg:px-10 lg:pt-9 lg:pb-8">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <Avatar
+                size={48}
+                name={ownerName}
+                seed={project.owner.username}
+                avatarPath={project.owner.avatarPath}
+                disciplineGroup={project.owner.disciplineGroup}
               />
-            );
-            return (
-              <li key={member.userId}>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 {canSeeProfiles ? (
-                  <Link href={`/u/${member.person.username}`} className={cn("block rounded-control", focusRing)}>
-                    {row}
+                  <Link
+                    href={`/u/${project.owner.username}`}
+                    className={cn(
+                      "t-label w-fit max-w-full truncate rounded-control text-ink underline-offset-2 hover:underline",
+                      focusRing,
+                    )}
+                  >
+                    {ownerName}
                   </Link>
                 ) : (
-                  row
+                  <span className="t-label min-w-0 truncate text-ink">{ownerName}</span>
                 )}
-              </li>
-            );
-          })}
-        </ul>
-      </Section>
+                {project.owner.university ? (
+                  <span className="t-meta truncate text-ink-2">{project.owner.university}</span>
+                ) : null}
+                {project.owner.verified ? (
+                  <span className="inline-flex items-center gap-1.5 text-[13px] leading-[1.4] font-[650] text-stamp">
+                    <VerifiedStamp size="sm" academicStatus={project.owner.academicStatus} />
+                    {project.owner.academicStatus === "GRADUATE" ? "Mezun belgesi doğrulandı" : "Öğrenci belgesi doğrulandı"}
+                  </span>
+                ) : null}
+              </div>
+              <span className="t-meta shrink-0 text-ink-2">{relativeTimeTr(project.createdAt)}</span>
+            </div>
 
-      {project.tags.length > 0 ? (
-        <Section title="Etiketler">
-          <ul className="flex flex-wrap gap-1.5">
-            {project.tags.map((tag) => (
-              <li key={tag}>
-                <Chip>{tag}</Chip>
-              </li>
-            ))}
+            <h1 className="t-page max-w-[16em] text-ink">{project.title}</h1>
+
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-[15px] leading-[1.4] font-[550] text-ink">
+              <span>{labelOf(CATEGORIES, project.category)}</span>
+              <span>{labelOf(STAGES, project.stage)}</span>
+              <span>{labelOf(WORK_MODES, project.workMode)}</span>
+              {project.city ? <span>{project.city}</span> : null}
+              {project.status === "CLOSED" ? <span className="text-danger">Başvurulara kapandı</span> : null}
+            </div>
+
+            <p className="t-prose text-[16px] leading-[1.6] whitespace-pre-line text-ink [overflow-wrap:anywhere] lg:text-[17px]">
+              {project.description}
+            </p>
+
+            {project.tags.length > 0 ? (
+              <ul aria-label="Etiketler" className="flex flex-wrap gap-1.5">
+                {project.tags.map((tag) => (
+                  <li key={tag}>
+                    <Chip>{tag}</Chip>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {project.roles.length > 0 ? (
+              <p className="t-meta text-ink-2">Aşağıdaki her şerit aranan bir rol. Dolan rolün şeridi koparılmış görünür.</p>
+            ) : null}
+          </div>
+
+          {project.roles.length > 0 ? (
+            <ul aria-label="Aranan roller" className="flex flex-col gap-[3px] sm:flex-row sm:flex-wrap">
+              {project.roles.map((role) => (
+                <li key={role.id} className="flex min-w-0 sm:flex-1 sm:basis-[220px]">
+                  <RoleStrip
+                    size="page"
+                    title={role.title}
+                    disciplineGroup={role.disciplineGroup}
+                    full={role.full}
+                    className="w-full"
+                  >
+                    {role.description ? (
+                      <span className="text-[14px] leading-[1.45] [overflow-wrap:anywhere]">{role.description}</span>
+                    ) : null}
+                    <span className="mt-auto pt-1 text-[13px] leading-[1.4] font-[650]">
+                      {role.full ? "Bu şerit koparıldı, rol doldu" : `${role.filled}/${role.slots} dolu`}
+                    </span>
+                  </RoleStrip>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </article>
+
+        <section
+          aria-labelledby="ekip-baslik"
+          className={cn(
+            "paper-shadow flex flex-col rounded-card bg-surface px-5 pt-5 pb-2 lg:col-start-2",
+            showActions ? "lg:row-start-2" : "lg:row-start-1",
+          )}
+        >
+          <h2 id="ekip-baslik" className="t-section pb-2 text-ink">
+            Ekip
+          </h2>
+          <ul className="flex flex-col divide-y divide-line">
+            {project.members.map((member) => {
+              // Misafir ve doğrulanmamış görüntüleyici: "Ad S.", bölüm yok, profil bağlantısı yok (karar R2).
+              const row = (
+                <UserRow
+                  person={canSeeProfiles ? member.person : { ...member.person, department: null }}
+                  name={displayName(member.person, viewer)}
+                  reason={member.isOwner ? "Proje sahibi" : (member.roleTitle ?? "Ekip üyesi")}
+                />
+              );
+              return (
+                <li key={member.userId}>
+                  {canSeeProfiles ? (
+                    <Link href={`/u/${member.person.username}`} className={cn("block rounded-control", focusRing)}>
+                      {row}
+                    </Link>
+                  ) : (
+                    row
+                  )}
+                </li>
+              );
+            })}
           </ul>
-        </Section>
-      ) : null}
+        </section>
 
       {isOwner && project.ownerView ? (
+        <div className="paper-shadow min-w-0 rounded-card bg-surface px-5 pb-5 lg:col-start-1 lg:row-start-3 lg:px-10">
         <OwnerPanel
           projectId={project.id}
           status={project.status === "CLOSED" ? "CLOSED" : "OPEN"}
@@ -202,6 +223,7 @@ export default async function Page({
               name: displayName(member.person, viewer),
             }))}
         />
+        </div>
       ) : null}
 
       {showActions ? (
@@ -215,6 +237,7 @@ export default async function Page({
             .map((role) => ({ id: role.id, title: role.title, full: role.full }))}
         />
       ) : null}
+      </div>
     </>
   );
 }

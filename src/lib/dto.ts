@@ -60,6 +60,7 @@ export const projectCardInclude = {
   roles: {
     select: {
       id: true,
+      title: true,
       disciplineGroup: true,
       slots: true,
       // Açık kontenjan = kontenjan - bu roldeki üye sayısı. Dolu roller sayılmaz.
@@ -86,18 +87,30 @@ export type ProjectCardData = {
   /** Rollerin disiplin grupları, rol sırasıyla, tekrarsız. */
   disciplineGroups: string[];
   openRoleCount: number;
+  /** Rol şeritleri, rol sırasıyla. `full`: kontenjanı dolmuş ("koparılmış") rol. */
+  roles: ProjectCardRole[];
   owner: PersonSummary;
+};
+
+export type ProjectCardRole = {
+  id: string;
+  title: string;
+  disciplineGroup: string;
+  full: boolean;
 };
 
 export function toProjectCardData(row: ProjectCardRow): ProjectCardData {
   const disciplineGroups: string[] = [];
+  const roles: ProjectCardRole[] = [];
   let openRoleCount = 0;
 
   for (const role of row.roles) {
     if (!disciplineGroups.includes(role.disciplineGroup)) {
       disciplineGroups.push(role.disciplineGroup);
     }
-    openRoleCount += Math.max(0, role.slots - role._count.members);
+    const open = Math.max(0, role.slots - role._count.members);
+    openRoleCount += open;
+    roles.push({ id: role.id, title: role.title, disciplineGroup: role.disciplineGroup, full: open === 0 });
   }
 
   return {
@@ -112,6 +125,7 @@ export function toProjectCardData(row: ProjectCardRow): ProjectCardData {
     createdAt: row.createdAt,
     disciplineGroups,
     openRoleCount,
+    roles,
     owner: toPersonSummary(row.owner),
   };
 }

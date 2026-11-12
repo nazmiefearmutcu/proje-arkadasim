@@ -20,7 +20,7 @@ import { VERIFICATION_STATUSES, labelOf } from "@/config/taxonomy";
 import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
-import { focusRing } from "@/components/ui/styles";
+import { focusRing, focusRingInverse } from "@/components/ui/styles";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/cn";
 
@@ -82,12 +82,12 @@ export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
         onClick={() => setOpen(true)}
         aria-label={user ? "Hesap menüsünü aç" : "Misafir menüsünü aç"}
         aria-haspopup="dialog"
-        className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-full", focusRing)}
+        className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-full", focusRingInverse)}
       >
         {user ? (
           <Avatar name={user.name} seed={user.username} avatarPath={user.avatarPath} disciplineGroup={user.disciplineGroup} />
         ) : (
-          <span className="inline-flex size-9 items-center justify-center rounded-full bg-surface-2 text-ink-2">
+          <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/15 text-pen-ink">
             <UserRound aria-hidden="true" strokeWidth={1.75} className="size-5" />
           </span>
         )}

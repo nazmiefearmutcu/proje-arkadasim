@@ -3,113 +3,76 @@
 /*
  * Tasarım tokenları. Ham değerler :root üzerinde CSS değişkeni olarak tutulur; @theme inline
  * bunları bg-paper, text-ink-2, border-line, bg-pen gibi yardımcı sınıflara açar.
- * Ayrıntılar: docs/design-system.md
+ * Tek tema vardır (açık): kimlik belgesi isteyen bir ürün için güven veren kurumsal mavi, beyaz kâğıt
+ * ve açık gri-mavi zemin. Sistem koyu temada olsa da görünüm aynıdır. Ayrıntılar: docs/design-system.md
  */
 :root {
-  --paper: #f4f6f9;
-  --surface: #ffffff;
-  --surface-2: #eef1f6;
-  --ink: #161a33;
-  --ink-2: #4b5070;
-  /* AA küçük metin: paper 4.83, surface 5.23, surface-2 4.62 (eski #7a7f9a 3.6–3.9 idi). */
-  --ink-3: #666b86;
-  --line: #dfe3ec;
-  --pen: #2340c8;
-  --pen-ink: #ffffff;
-  --pen-soft: #e6eafb;
-  --stamp: #7a3fa8;
-  --stamp-soft: #f1e9f8;
-  /* ok-soft üzerinde 4.64, surface üzerinde 5.33 (eski #1e7f4f ok-soft üzerinde 4.35 idi). */
-  --ok: #1d7a4c;
-  --ok-soft: #e3f3ea;
-  /* warn-soft üzerinde 4.65, surface üzerinde 5.21 (eski #a86a00 warn-soft üzerinde 3.96 idi). */
-  --warn: #996000;
-  --warn-soft: #fbf1dc;
-  --danger: #c2362e;
-  --danger-soft: #fbe6e4;
+  color-scheme: light;
 
-  --d-yazilim: #0b7285;
-  --d-elektronik: #e8590c;
-  --d-makine: #495057;
-  --d-endustri: #e0a800;
-  --d-mimarlik: #9c6644;
-  --d-tasarim: #d6336c;
-  --d-isletme: #2f9e44;
-  --d-saglik: #c92a2a;
-  --d-hukuk: #3b5bdb;
-  --d-sosyal: #845ef7;
-  --d-temel: #74b816;
-  --d-sanat: #ae3ec9;
+  --paper: #eef2f9;
+  --surface: #ffffff;
+  --surface-2: #f3f6fc;
+  --ink: #0f1a3a;
+  --ink-2: #55617f;
+  --ink-3: #5f6a86;
+  --line: #dce2ee;
+  /* Kesik çizgi (koparma hattı) ve koparılmış şerit kenarı. */
+  --perf: #c2cadb;
+  --torn: #a9b4cc;
+  --pen: #1746b8;
+  --pen-strong: #103487;
+  --pen-ink: #ffffff;
+  --pen-soft: #e4ecff;
+  /* Yeşil yalnız "belgesi doğrulandı" ve başarı durumunda kullanılır. */
+  --stamp: #12754a;
+  --stamp-soft: #e3f4ea;
+  --ok: #12754a;
+  --ok-soft: #e3f4ea;
+  --warn: #8a5a00;
+  --warn-soft: #fbf1dc;
+  --danger: #b8322a;
+  --danger-soft: #fbe6e4;
+  /* Logodaki tik: lacivert defter üzerinde açık yeşil. */
+  --tick: #7cf0a2;
 
   /*
-   * Avatar baş harfleri (fotoğrafsız avatar). Tek bir mürekkep açık temada her disiplin renginde 4.5:1
-   * sağlayamaz (beyaz sarıda 2.2:1, koyu mürekkep gri ve mavide 2–3:1). Bu yüzden her disiplin rengi
-   * kendi mürekkebini seçer: koyu renklerde --avatar-ink, açık renklerde --avatar-ink-dark.
-   * Açık tema en düşük: tasarım 4.62 (beyaz), sosyal 4.57 (#0a0c18). Koyu temada hepsi koyu mürekkep.
+   * Disiplin renkleri: rol şeritleri ve avatar zeminleri. Hepsi açık ve doygun; üzerlerindeki yazı
+   * her zaman koyu mürekkeptir (--avatar-ink) ve her birinde en az 4.5:1 kontrast verir.
    */
-  --avatar-ink: #ffffff;
-  --avatar-ink-dark: #0a0c18;
+  --d-yazilim: #6cc5d6;
+  --d-elektronik: #f59b55;
+  --d-makine: #b4bac0;
+  --d-endustri: #e3c04f;
+  --d-mimarlik: #d69c7e;
+  --d-tasarim: #f08cb0;
+  --d-isletme: #7ccb7e;
+  --d-saglik: #f28b82;
+  --d-hukuk: #8fa8f5;
+  --d-sosyal: #b79bf5;
+  --d-temel: #b5d95a;
+  --d-sanat: #de95ee;
+
+  --avatar-ink: #0f1a3a;
   --d-yazilim-ink: var(--avatar-ink);
-  --d-elektronik-ink: var(--avatar-ink-dark);
+  --d-elektronik-ink: var(--avatar-ink);
   --d-makine-ink: var(--avatar-ink);
-  --d-endustri-ink: var(--avatar-ink-dark);
+  --d-endustri-ink: var(--avatar-ink);
   --d-mimarlik-ink: var(--avatar-ink);
   --d-tasarim-ink: var(--avatar-ink);
-  --d-isletme-ink: var(--avatar-ink-dark);
+  --d-isletme-ink: var(--avatar-ink);
   --d-saglik-ink: var(--avatar-ink);
   --d-hukuk-ink: var(--avatar-ink);
-  --d-sosyal-ink: var(--avatar-ink-dark);
-  --d-temel-ink: var(--avatar-ink-dark);
+  --d-sosyal-ink: var(--avatar-ink);
+  --d-temel-ink: var(--avatar-ink);
   --d-sanat-ink: var(--avatar-ink);
 }
 
 /*
- * Modal arka planı (sheet). Temadan bağımsız koyu perde: --ink koyu temada neredeyse beyaz olduğu için
- * kullanılmaz. ::backdrop eski tarayıcılarda :root değişkenlerini miras almaz; orada da tanımlanır.
+ * Modal arka planı (sheet). ::backdrop eski tarayıcılarda :root değişkenlerini miras almaz; orada da tanımlanır.
  */
 :root,
 ::backdrop {
-  --scrim: rgb(10 12 24 / 0.5);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0f1222;
-    --surface: #171b30;
-    --surface-2: #1f2440;
-    --ink: #eceef7;
-    --ink-2: #b3b8d3;
-    --ink-3: #858aa8;
-    --line: #2a3050;
-    --pen: #7b93ff;
-    --pen-ink: #0f1222;
-    --pen-soft: #222a55;
-    --stamp: #c49bea;
-    --stamp-soft: #2c2143;
-    --ok: #5bcb8f;
-    --ok-soft: #173327;
-    --warn: #e9b44c;
-    --warn-soft: #3a2e12;
-    --danger: #ff7b72;
-    --danger-soft: #3d1a1a;
-
-    --d-yazilim: #22b8cf;
-    --d-elektronik: #ff8a3d;
-    --d-makine: #adb5bd;
-    --d-endustri: #f2c230;
-    --d-mimarlik: #c08a63;
-    --d-tasarim: #f06595;
-    --d-isletme: #51cf66;
-    --d-saglik: #ff6b6b;
-    --d-hukuk: #748ffc;
-    --d-sosyal: #9775fa;
-    --d-temel: #94d82d;
-    --d-sanat: #da77f2;
-
-    /* Koyu temadaki disiplin renklerinin hepsi açık: baş harfler koyu mürekkeple (en düşük sosyal 5.52). */
-    --avatar-ink: #0f1222;
-    --avatar-ink-dark: #0f1222;
-  }
+  --scrim: rgb(10 18 44 / 0.5);
 }
 
 @theme inline {
@@ -120,7 +83,10 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
+  --color-perf: var(--perf);
+  --color-torn: var(--torn);
   --color-pen: var(--pen);
+  --color-pen-strong: var(--pen-strong);
   --color-pen-ink: var(--pen-ink);
   --color-pen-soft: var(--pen-soft);
   --color-stamp: var(--stamp);
@@ -133,16 +99,17 @@
   --color-danger-soft: var(--danger-soft);
   --color-scrim: var(--scrim);
 
-  /* next/font değişkeni --font-geologica olarak tanımlanır; --font-sans ona bağlanır (döngü olmasın). */
-  --font-sans: var(--font-geologica), system-ui, sans-serif;
+  /* next/font değişkeni --font-archivo olarak tanımlanır; --font-sans ona bağlanır (döngü olmasın). */
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
 
-  --radius-chip: 999px;
-  --radius-control: 12px;
-  --radius-card: 16px;
-  --radius-sheet: 22px;
+  /* Kâğıt köşeleri: hap biçimi yok, her şey keskin. */
+  --radius-chip: 3px;
+  --radius-control: 3px;
+  --radius-card: 3px;
+  --radius-sheet: 6px;
 
-  --shadow-fab: 0 8px 18px -8px color-mix(in srgb, var(--pen) 70%, transparent);
-  --shadow-sheet: 0 -16px 40px -16px rgb(22 26 51 / 0.35);
+  --shadow-fab: 0 6px 14px -8px rgb(15 26 58 / 0.45);
+  --shadow-sheet: 0 -16px 40px -16px rgb(15 26 58 / 0.35);
 }
 
 html {
@@ -152,8 +119,13 @@ html {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--font-archivo), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Kâğıt gölgesi: ilan gövdesi ve şeritleri arasındaki boşlukları da izleyen tek gölge. */
+@utility paper-shadow {
+  filter: drop-shadow(0 10px 12px rgb(15 26 58 / 0.14));
 }
 
 /*
@@ -184,33 +156,36 @@ body {
   .t-label {
     font-size: 14px;
     line-height: 1.3;
-    font-weight: 550;
+    font-weight: 600;
   }
+  /* Başlıklar aynı ailenin dar ve kalın kesimi (Archivo, genişlik ekseni %75 ve altı): afiş gibi. */
   .t-card {
-    font-size: 18px;
-    line-height: 1.25;
-    font-weight: 650;
+    font-size: 24px;
+    line-height: 1.08;
+    font-weight: 800;
+    font-stretch: 75%;
   }
   .t-section {
-    font-size: 20px;
-    line-height: 1.25;
-    font-weight: 700;
+    font-size: 24px;
+    line-height: 1.1;
+    font-weight: 800;
+    font-stretch: 75%;
   }
   .t-page {
-    font-size: 26px;
-    line-height: 1.15;
-    font-weight: 750;
-    letter-spacing: -0.015em;
+    font-size: 36px;
+    line-height: 1;
+    font-weight: 800;
+    font-stretch: 70%;
   }
   .t-hero {
-    font-size: 36px;
-    line-height: 1.05;
+    font-size: clamp(48px, 8.4vw, 112px);
+    line-height: 0.9;
     font-weight: 800;
-    letter-spacing: -0.025em;
+    font-stretch: 66%;
   }
-  @media (min-width: 400px) {
-    .t-hero {
-      font-size: 40px;
+  @media (min-width: 1024px) {
+    .t-page {
+      font-size: 48px;
     }
   }
   .t-prose {

@@ -453,7 +453,7 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
         {errorFor("roles", false) ? <p className="t-meta text-danger">{errorFor("roles", false)}</p> : null}
       </Section>
 
-      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 -mx-4 mt-4 flex flex-wrap gap-2 border-t border-line bg-surface px-4 py-3">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 -mx-4 mt-4 flex flex-wrap gap-2 border-t border-line bg-surface px-4 py-3 lg:bottom-0 lg:mx-0 lg:border-t-0 lg:bg-paper lg:px-0">
         <Button type="submit" loading={isPending} className="flex-1 sm:flex-none">
           {submitLabel}
         </Button>

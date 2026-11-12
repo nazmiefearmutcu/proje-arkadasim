@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { chipClasses } from "@/components/ui/chip-classes";
-import { focusRing } from "@/components/ui/styles";
+import { focusRingInverse } from "@/components/ui/styles";
 import { cn } from "@/lib/cn";
 import { suggestionToQuery } from "@/lib/search-suggestions";
 
@@ -100,8 +100,8 @@ function SearchField({ suggestions }: SearchBarProps) {
             if (event.key === "Escape") setOpen(false);
           }}
           className={cn(
-            "h-11 w-full rounded-chip border border-transparent bg-surface-2 pr-4 pl-11 text-[16px] text-ink [&::-webkit-search-cancel-button]:appearance-none",
-            focusRing,
+            "h-11 w-full rounded-control border border-transparent bg-surface pr-4 pl-11 text-[16px] text-ink [&::-webkit-search-cancel-button]:appearance-none",
+            focusRingInverse,
           )}
         />
         {value.length === 0 && hint ? (
@@ -121,7 +121,7 @@ function SearchField({ suggestions }: SearchBarProps) {
         // Spec §3.1: odaklanınca öneri çipleri görünür. Çipler satır kırarak dizilir; her biri 44 px dokunma hedefi.
         <ul
           aria-label="Önerilen aramalar"
-          className="absolute inset-x-0 top-full z-40 mt-2 flex flex-wrap gap-2 rounded-card border border-line bg-surface p-3"
+          className="paper-shadow absolute inset-x-0 top-full z-40 mt-2 flex flex-wrap gap-2 rounded-card border border-line bg-surface p-3 text-ink"
         >
           {suggestions.map((suggestion) => (
             <li key={suggestion} className="flex max-w-full">

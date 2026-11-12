@@ -4,8 +4,7 @@ import { describe, expect, it } from "vitest";
 import { DISCIPLINE_GROUP_IDS } from "@/config/taxonomy";
 
 // globals.css tokenlarını okur ve WCAG kontrastlarını sayıyla doğrular (docs/design-system.md).
-// Açık tema :root bloğundan, koyu tema prefers-color-scheme: dark içindeki :root bloğundan gelir;
-// koyu blok yalnız değiştirdiği tokenları tanımlar, gerisi açık temadan miras kalır.
+// Tek tema vardır (açık); tokenlar :root bloğundan okunur. Koyu tema bilerek yoktur.
 
 const css = readFileSync(fileURLToPath(new URL("../src/app/globals.css", import.meta.url)), "utf8").replace(
   /\/\*[\s\S]*?\*\//g,
@@ -27,8 +26,6 @@ function block(pattern: RegExp): string {
 }
 
 const light = declarations(block(/(?:^|\n):root\s*\{([^}]*)\}/));
-const darkOverrides = declarations(block(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/));
-const dark = { ...light, ...darkOverrides };
 
 function resolve(theme: Record<string, string>, name: string, depth = 0): string {
   const value = theme[name];
@@ -60,53 +57,59 @@ function contrast(theme: Record<string, string>, foreground: string, background:
 
 const AA = 4.5;
 
-describe("avatar initials ink (F45)", () => {
-  for (const [themeName, theme] of [
-    ["light", light],
-    ["dark", dark],
-  ] as const) {
-    it.each(DISCIPLINE_GROUP_IDS.map((id) => [id]))(`%s initials reach 4.5:1 in the ${themeName} theme`, (id) => {
-      expect(contrast(theme, `--d-${id}-ink`, `--d-${id}`)).toBeGreaterThanOrEqual(AA);
-    });
-  }
+describe("discipline colours carry dark ink (avatars and role strips)", () => {
+  it.each(DISCIPLINE_GROUP_IDS.map((id) => [id]))("%s initials and strip text reach 4.5:1", (id) => {
+    expect(contrast(light, `--d-${id}-ink`, `--d-${id}`)).toBeGreaterThanOrEqual(AA);
+    expect(contrast(light, "--ink", `--d-${id}`)).toBeGreaterThanOrEqual(AA);
+  });
 
-  it("defines --avatar-ink for both themes", () => {
+  it("defines --avatar-ink", () => {
     expect(light["--avatar-ink"]).toBeDefined();
-    expect(darkOverrides["--avatar-ink"]).toBeDefined();
   });
 });
 
-describe("light theme text pairs reach AA for small text (F46)", () => {
+describe("text pairs reach AA for small text", () => {
   it.each([
     ["--ink-3", "--paper"],
     ["--ink-3", "--surface"],
     ["--ink-3", "--surface-2"],
+    ["--ink-2", "--paper"],
+    ["--ink-2", "--surface-2"],
     ["--warn", "--warn-soft"],
     ["--warn", "--surface"],
     ["--warn", "--paper"],
     ["--ok", "--ok-soft"],
     ["--ok", "--surface"],
     ["--danger", "--danger-soft"],
+    ["--danger", "--surface"],
     ["--stamp", "--stamp-soft"],
+    ["--stamp", "--surface"],
     ["--pen", "--pen-soft"],
-    ["--ink-2", "--surface-2"],
+    ["--pen", "--surface"],
+    ["--pen", "--paper"],
+    ["--pen-ink", "--pen"],
+    ["--pen-ink", "--pen-strong"],
+    ["--surface", "--stamp"],
   ])("%s on %s", (foreground, background) => {
     expect(contrast(light, foreground, background)).toBeGreaterThanOrEqual(AA);
   });
 
-  it("leaves the dark theme text tokens unchanged", () => {
-    expect(darkOverrides["--ink-3"]).toBe("#858aa8");
-    expect(darkOverrides["--warn"]).toBe("#e9b44c");
-    expect(darkOverrides["--ok"]).toBe("#5bcb8f");
+  it("has a single theme: no dark colour-scheme override", () => {
+    expect(css).not.toMatch(/prefers-color-scheme:\s*dark/);
+    expect(light["color-scheme"] ?? css.match(/color-scheme:\s*(\w+)/)?.[1]).toBe("light");
+  });
+
+  it("makes the logo tick readable on the navy notebook and the blue bar", () => {
+    expect(contrast(light, "--tick", "--ink")).toBeGreaterThanOrEqual(7);
+    expect(contrast(light, "--tick", "--pen")).toBeGreaterThanOrEqual(AA);
   });
 });
 
 describe("modal scrim (F47)", () => {
   const scrimBlock = declarations(block(/:root,\s*::backdrop\s*\{([^}]*)\}/));
 
-  it("is one theme-independent dark token, also defined on ::backdrop", () => {
+  it("is one dark token, also defined on ::backdrop", () => {
     expect(scrimBlock["--scrim"]).toMatch(/^rgb\(\s*\d+ \d+ \d+ \/ 0?\.\d+\s*\)$/);
-    expect(darkOverrides["--scrim"]).toBeUndefined();
     expect(scrimBlock["--scrim"]).not.toContain("--ink");
   });
 

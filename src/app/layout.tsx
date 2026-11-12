@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geologica } from "next/font/google";
+import { Archivo } from "next/font/google";
 import "./globals.css";
 
-const geologica = Geologica({
+// Tek aile, iki genişlik: gövde normal, başlıklar dar ve kalın (genişlik ekseni).
+const archivo = Archivo({
   subsets: ["latin", "latin-ext"],
-  variable: "--font-geologica",
+  axes: ["wdth"],
+  variable: "--font-archivo",
   display: "swap",
 });
 
@@ -21,10 +23,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F4F6F9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1222" },
-  ],
+  colorScheme: "light",
+  themeColor: "#1746B8",
 };
 
 export default function RootLayout({
@@ -33,8 +33,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
-      <body className={`${geologica.variable} bg-paper text-ink antialiased`}>
+    // Yazı tipi değişkeni <html> üzerinde durur: Tailwind'in temel stili yazı tipini kökte okur.
+    <html lang="tr" className={archivo.variable}>
+      <body className="bg-paper text-ink antialiased">
         {children}
       </body>
     </html>

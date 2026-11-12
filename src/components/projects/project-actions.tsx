@@ -37,7 +37,7 @@ export function ProjectActions({ projectId, viewerState, pendingRequestId, roles
   const loginHref = `/giris?next=${encodeURIComponent(`/projeler/${projectId}`)}`;
 
   return (
-    <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 -mx-4 mt-4 flex flex-col gap-2 border-t border-line bg-surface px-4 py-3">
+    <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 -mx-4 flex flex-col gap-2 border-t border-line bg-surface px-4 py-3 lg:paper-shadow lg:static lg:z-auto lg:col-start-2 lg:row-start-1 lg:mx-0 lg:rounded-card lg:border-0 lg:p-5">
       {viewerState === "guest" ? (
         <>
           <p className="t-meta text-ink-2">Bu projeye katılmak için giriş yapman gerekiyor.</p>

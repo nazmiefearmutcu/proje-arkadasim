@@ -1,5 +1,4 @@
-import { DISCIPLINE_GROUPS } from "@/config/taxonomy";
-import { DisciplineSpine } from "@/components/common/discipline-spine";
+import { Check } from "lucide-react";
 import { ProjectCard } from "@/components/common/project-card";
 import { UserRow } from "@/components/common/user-row";
 import { FollowButton } from "@/components/social/follow-button";
@@ -120,7 +119,7 @@ async function HomeRail({ viewer }: { viewer: CurrentUser }) {
 
   return (
     <aside aria-label="Önerilen kişiler" className="hidden xl:block">
-      <div className="sticky top-[84px] rounded-card border border-line bg-surface p-4">
+      <div className="paper-shadow sticky top-[84px] rounded-card bg-surface px-5 pt-3 pb-1">
         <Section
           title="Önerilen kişiler"
           right={
@@ -167,36 +166,67 @@ async function Landing({
   query: Record<string, string | string[] | undefined>;
 }) {
   const latest = await listProjects({ pageSize: LANDING_PROJECT_COUNT });
-  const groupIds = DISCIPLINE_GROUPS.map((group) => group.id);
 
   return (
     <>
       <DeletedNotice query={query} />
-      <section className="flex flex-col gap-4 pt-2 pb-2">
-        <h1 className="t-hero text-ink">Bölümünün dışında bir ekip kur.</h1>
-        <div className="[&>div]:h-3">
-          <DisciplineSpine orientation="horizontal" groups={groupIds} />
-        </div>
-        <p className="t-body t-prose text-ink-2">
-          Proje Arkadaşım, Türkiye&apos;deki üniversite öğrencileri ve mezunları için. Herkesin belgesi doğrulanmış;
-          projeni paylaş, farklı bölümlerden ekip arkadaşı bul.
+      <section
+        data-wide
+        className="flex flex-col gap-6 rounded-card bg-pen px-5 pt-8 pb-8 text-pen-ink lg:gap-8 lg:px-12 lg:pt-14 lg:pb-12"
+      >
+        <h1 className="t-hero max-w-[9em]">Bölümünün dışında bir ekip kur.</h1>
+        <p className="max-w-[34em] text-[17px] leading-[1.5] text-pen-ink/85 lg:text-[20px]">
+          Projeni panoya as, aradığın rolleri şeritlere yaz. Başka bölümlerden öğrenciler ve mezunlar kendine uyan
+          şeridi koparıp ekibine katılsın.
         </p>
 
         {viewer ? (
-          <div className="flex flex-col gap-3 rounded-card border border-line p-4">
-            <p className="t-label text-ink">Belgeni doğrula, proje paylaşmaya başla</p>
-            <ButtonLink href="/dogrulama" className="w-full sm:w-auto">
+          <div className="flex flex-col gap-3">
+            <p className="text-[16px] leading-[1.4] font-[600]">Belgeni doğrula, proje paylaşmaya başla</p>
+            <ButtonLink href="/dogrulama" variant="inverse" className="h-12 w-full px-6 text-[16px] sm:w-fit">
               Belgeni yükle
             </ButtonLink>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href="/kayit">Hesap oluştur</ButtonLink>
-            <ButtonLink href="/projeler" variant="secondary">
-              Projeleri keşfet
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/kayit" variant="inverse" className="h-12 px-6 text-[16px]">
+              Hesap oluştur
+            </ButtonLink>
+            <ButtonLink href="/projeler" variant="inverse-outline" className="h-12 px-6 text-[16px]">
+              Panodaki projelere bak
             </ButtonLink>
           </div>
         )}
+
+        <p className="flex max-w-[40em] items-start gap-2 text-[15px] leading-[1.5] text-pen-ink/85">
+          <span aria-hidden="true" className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--tick)] text-ink">
+            <Check strokeWidth={3} className="size-3.5" />
+          </span>
+          Yalnızca öğrenci ya da mezun belgesi doğrulanmış kişiler proje paylaşabilir ve projelere katılabilir.
+          Panoya herkes bakabilir.
+        </p>
+
+        <ol className="flex flex-col gap-5 border-t border-white/25 pt-6 sm:flex-row sm:gap-8">
+          <li className="flex flex-1 flex-col gap-1.5">
+            <span aria-hidden="true" className="text-[40px] leading-none font-[800] [font-stretch:70%]">1</span>
+            <span className="text-[16px] leading-[1.4] font-[650]">Hesabını aç, belgeni yükle</span>
+            <span className="text-[14px] leading-[1.45] text-pen-ink/85">
+              e-Devlet öğrenci ya da mezun belgen saniyeler içinde kontrol edilir.
+            </span>
+          </li>
+          <li className="flex flex-1 flex-col gap-1.5">
+            <span aria-hidden="true" className="text-[40px] leading-none font-[800] [font-stretch:70%]">2</span>
+            <span className="text-[16px] leading-[1.4] font-[650]">Projeni paylaş ya da bir şerit kopar</span>
+            <span className="text-[14px] leading-[1.45] text-pen-ink/85">Her şerit bir rol. Dolunca koparılmış görünür.</span>
+          </li>
+          <li className="flex flex-1 flex-col gap-1.5">
+            <span aria-hidden="true" className="text-[40px] leading-none font-[800] [font-stretch:70%]">3</span>
+            <span className="text-[16px] leading-[1.4] font-[650]">Ekibinle yazış, üretmeye başla</span>
+            <span className="text-[14px] leading-[1.45] text-pen-ink/85">
+              Mesajlar yalnızca ekip arkadaşlarından ve kabul ettiğin kişilerden gelir.
+            </span>
+          </li>
+        </ol>
       </section>
 
       <Section
@@ -221,13 +251,6 @@ async function Landing({
         )}
       </Section>
 
-      <Section title="Nasıl çalışır">
-        <ol className="flex flex-col gap-3 pl-5 list-decimal marker:text-ink-3">
-          <li className="t-body text-ink-2">Hesabını oluştur ve belgeni yükle</li>
-          <li className="t-body text-ink-2">Projeni paylaş veya bir projeye başvur</li>
-          <li className="t-body text-ink-2">Ekibinle mesajlaş ve üretmeye başla</li>
-        </ol>
-      </Section>
     </>
   );
 }

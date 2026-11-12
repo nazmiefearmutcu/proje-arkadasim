@@ -36,7 +36,7 @@ export function UserRow({ person, name, reason, action, href }: UserRowProps) {
           {person.verified ? <VerifiedStamp size="sm" academicStatus={person.academicStatus} /> : null}
         </div>
         {person.department || person.university ? (
-          <div className="t-meta flex min-w-0 flex-col text-ink-2 sm:flex-row sm:gap-2">
+          <div className="t-meta flex min-w-0 flex-col text-ink-2">
             {person.department ? <span className="truncate">{person.department}</span> : null}
             {person.university ? <span className="truncate">{person.university}</span> : null}
           </div>

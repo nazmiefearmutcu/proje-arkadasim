@@ -2,14 +2,18 @@ import Link, { type LinkProps } from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Spinner } from "./spinner";
-import { focusRing } from "./styles";
+import { focusRing, focusRingInverse } from "./styles";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "inverse" | "inverse-outline";
 export type ButtonSize = "md" | "sm";
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-pen text-pen-ink hover:opacity-90",
-  secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
+  primary: "bg-pen text-pen-ink hover:bg-pen-strong",
+  secondary: "border-[1.5px] border-pen bg-surface text-pen hover:bg-pen-soft",
+  /** Mavi zemin üzerindeki birincil düğme (açılış paneli): beyaz zemin, mavi yazı. */
+  inverse: "bg-surface text-pen hover:bg-pen-soft",
+  /** Mavi zemin üzerindeki ikincil düğme: beyaz çerçeve. */
+  "inverse-outline": "border-[1.5px] border-pen-ink text-pen-ink hover:bg-white/15",
   ghost: "text-pen hover:bg-pen-soft",
   danger: "bg-danger text-surface hover:opacity-90",
 };
@@ -26,10 +30,10 @@ export function buttonClasses(
   className?: string,
 ): string {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-control font-[550] whitespace-nowrap transition-colors select-none disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex items-center justify-center gap-2 rounded-control font-[650] whitespace-nowrap transition-colors select-none disabled:pointer-events-none disabled:opacity-50",
     variantClasses[variant],
     sizeClasses[size],
-    focusRing,
+    variant === "inverse" || variant === "inverse-outline" ? focusRingInverse : focusRing,
     className,
   );
 }

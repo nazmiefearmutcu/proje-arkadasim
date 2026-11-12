@@ -10,7 +10,7 @@ export interface VerifiedStampProps {
 
 /**
  * Belge doğrulama mührü. Çağıran taraf yalnız doğrulanmış kullanıcılar için render eder.
- * `sm`: 18 px halka ve onay işareti. `lg`: mühür ve "Doğrulanmış öğrenci/mezun" yazısı.
+ * Yeşil yalnız bu anlamda kullanılır. `sm`: 18 px dolu yeşil daire ve beyaz onay işareti. `lg`: mühür ve "Doğrulanmış öğrenci/mezun" yazısı.
  */
 export function VerifiedStamp({ size = "sm", academicStatus, className }: VerifiedStampProps) {
   const label =
@@ -24,11 +24,11 @@ export function VerifiedStamp({ size = "sm", academicStatus, className }: Verifi
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-stamp text-stamp rotate-[-8deg]",
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-stamp text-surface",
         size === "sm" ? "size-[18px]" : "size-6",
       )}
     >
-      <Check strokeWidth={2.5} className={size === "sm" ? "size-3" : "size-3.5"} aria-hidden="true" />
+      <Check strokeWidth={3} className={size === "sm" ? "size-3" : "size-3.5"} aria-hidden="true" />
     </span>
   );
 

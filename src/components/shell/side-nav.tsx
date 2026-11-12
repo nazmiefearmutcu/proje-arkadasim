@@ -35,7 +35,7 @@ export function SideNav({ initial }: { initial: Counters | null }) {
                 aria-label={navAccessibleName(item, badgeCount)}
                 className={cn(
                   "flex min-h-11 items-center gap-3 rounded-control px-3 t-body",
-                  active ? "bg-surface-2 font-[650] text-ink" : "font-[450] text-ink-2 hover:bg-surface-2 hover:text-ink",
+                  active ? "bg-pen-soft font-[700] text-pen" : "font-[500] text-ink hover:bg-surface",
                   focusRing,
                 )}
               >
@@ -53,7 +53,7 @@ export function SideNav({ initial }: { initial: Counters | null }) {
           href={share.href}
           aria-current={isNavActive(pathname, share.href) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 items-center justify-center gap-2 rounded-control bg-pen px-4 t-label text-pen-ink shadow-fab",
+            "flex min-h-12 items-center justify-center gap-2 rounded-control bg-pen px-4 text-[15px] font-[700] text-pen-ink hover:bg-pen-strong",
             focusRing,
           )}
         >

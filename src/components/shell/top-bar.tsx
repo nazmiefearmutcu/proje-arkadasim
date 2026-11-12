@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/common/logo";
-import { focusRing } from "@/components/ui/styles";
+import { focusRingInverse } from "@/components/ui/styles";
 import type { Counters } from "@/lib/counters";
 import { getSearchSuggestions, type SuggestionUser } from "@/lib/search-suggestions";
 import { AvatarMenu } from "./avatar-menu";
@@ -24,7 +24,7 @@ export interface TopBarProps {
 }
 
 /**
- * Üst bar (60 px, yapışkan): profil menüsü, büyük arama kutusu ve bildirim zili.
+ * Üst bar (60 px, yapışkan, marka mavisi bant): profil menüsü, büyük arama kutusu ve bildirim zili.
  * Masaüstünde (lg) solda marka, ortada arama, sağda zil ve profil menüsü yer alır.
  * Sunucu bileşenidir; öneriler ve kullanıcı alanları burada hazırlanıp istemci bileşenlerine verilir.
  */
@@ -32,11 +32,11 @@ export function TopBar({ user, counters, logout }: TopBarProps) {
   const suggestions = getSearchSuggestions(user);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface">
+    <header className="sticky top-0 z-30 bg-pen text-pen-ink">
       <div className="mx-auto flex h-[60px] max-w-[640px] items-center gap-2 px-3 lg:max-w-[1440px] lg:gap-8 lg:px-6">
         <Link
           href="/"
-          className={`hidden w-[220px] shrink-0 rounded-control py-2 lg:order-1 lg:inline-flex ${focusRing}`}
+          className={`hidden w-[220px] shrink-0 rounded-control py-2 lg:order-1 lg:inline-flex ${focusRingInverse}`}
         >
           <Logo />
         </Link>
