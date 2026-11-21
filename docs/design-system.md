@@ -76,4 +76,4 @@ Avatars are squares with 2 px corners. Touch targets are at least 44 px on phone
 - `VerifiedLine` (green tick + text) and `VerifiedStamp` (green square seal).
 - Landing (`components/landing`): black grid hero with the discipline matrix and the three steps, the
   "Şerit mantığı" board, three principle cards, the dark campus band and the closing call to action.
-- `Logo` / `LogoMark`: task notebook with a large light-green tick; outline uses `currentColor`.
+- `Logo` / `LogoMark`: a flat geometric panda face on a white square tile with a thin black frame; it reads the same on the black bar and on white. The favicon is the same panda.
