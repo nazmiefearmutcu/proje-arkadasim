@@ -35,7 +35,7 @@ function Screen({
       <Reveal className="flex max-w-4xl flex-col items-center gap-4">
         <h2
           id={id ? `${id}-baslik` : undefined}
-          className="font-display text-[40px] leading-[1.05] font-[700] tracking-[-0.03em] sm:text-[64px] lg:text-[80px]"
+          className="font-display text-[34px] leading-[1.06] font-[700] tracking-[-0.03em] text-balance sm:text-[64px] lg:text-[80px]"
         >
           {title}
         </h2>
@@ -51,16 +51,16 @@ function Screen({
 /** 1. ekran: başlık, iki düğme ve otomatik dönen disiplin tablosu. */
 export function LandingHero({ signedIn }: { signedIn: boolean }) {
   return (
-    <section className="flex min-h-[calc(100svh-60px)] flex-col items-center justify-center gap-12 bg-pen px-5 py-16 text-center text-pen-ink sm:px-8 lg:gap-16">
-      <div className="flex max-w-5xl flex-col items-center gap-6">
-        <h1 className="font-display text-[42px] leading-[1.04] font-[700] tracking-[-0.035em] sm:text-[68px] lg:text-[88px]">
+    <section className="flex min-h-[calc(100svh-60px)] flex-col items-center justify-center gap-8 bg-pen px-4 py-8 text-center text-pen-ink sm:gap-12 sm:px-8 sm:py-16 lg:gap-16">
+      <div className="flex max-w-5xl flex-col items-center gap-5 sm:gap-6">
+        <h1 className="font-display text-[32px] leading-[1.06] font-[700] tracking-[-0.03em] text-balance min-[400px]:text-[36px] sm:text-[68px] lg:text-[88px]">
           Bir kişiden çıkamayan, birçok kişiden çıkar.
         </h1>
         <div className="flex flex-wrap justify-center gap-3">
-          <ButtonLink href={signedIn ? "/dogrulama" : "/kayit"} variant="inverse" className="h-12 rounded-full px-7 text-[16px]">
+          <ButtonLink href={signedIn ? "/dogrulama" : "/kayit"} variant="inverse" className="h-11 rounded-full px-5 text-[15px] sm:h-12 sm:px-7 sm:text-[16px]">
             {signedIn ? "Belgeni yükle" : "Hesap oluştur"}
           </ButtonLink>
-          <ButtonLink href="/projeler" variant="inverse-outline" className="h-12 rounded-full px-7 text-[16px]">
+          <ButtonLink href="/projeler" variant="inverse-outline" className="h-11 rounded-full px-5 text-[15px] sm:h-12 sm:px-7 sm:text-[16px]">
             Projelere bak
           </ButtonLink>
         </div>

@@ -47,7 +47,7 @@ export function DisciplineMatrix() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const rootRef = useRef<HTMLDivElement>(null);
-  const projectRef = useRef<HTMLParagraphElement>(null);
+  const projectRef = useRef<HTMLSpanElement>(null);
   const tileRefs = useRef(new Map<FieldId, HTMLDivElement>());
 
   useEffect(() => {
@@ -132,17 +132,17 @@ export function DisciplineMatrix() {
       </svg>
 
       <Row items={top} lit={scene.lit} tileRefs={tileRefs} />
-      <div className="relative my-10 flex h-28 items-center justify-center sm:my-14 sm:h-32">
+      <div className="relative my-7 flex h-20 items-center justify-center sm:my-14 sm:h-32">
         <div
           className="matrix-halo absolute inset-x-8 inset-y-0 rounded-full opacity-60 blur-3xl"
           style={{ background: `radial-gradient(closest-side, ${litColors[0]}55, ${litColors[1] ?? litColors[0]}22, transparent)` }}
         />
         <p
-          ref={projectRef}
           key={index}
-          className="matrix-project relative z-10 max-w-[80%] text-center font-display text-[26px] leading-tight font-[700] tracking-tight text-white sm:text-[40px]"
+          className="matrix-project relative z-10 max-w-[70%] text-center font-display text-[19px] leading-tight font-[700] tracking-tight text-balance text-white sm:max-w-[80%] sm:text-[40px]"
         >
-          {scene.project}
+          {/* Ölçüm satır içi öğeden yapılır: blok kutu değil, görünen yazının genişliği hedeflenir. */}
+          <span ref={projectRef}>{scene.project}</span>
         </p>
       </div>
       <Row items={bottom} lit={scene.lit} tileRefs={tileRefs} />
@@ -160,7 +160,7 @@ function Row({
   tileRefs: React.RefObject<Map<FieldId, HTMLDivElement>>;
 }) {
   return (
-    <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+    <div className="relative z-10 grid grid-cols-4 gap-1.5 sm:gap-4">
       {items.map((item) => {
         const on = lit.includes(item.id);
         return (
@@ -171,7 +171,7 @@ function Row({
               else tileRefs.current.delete(item.id);
             }}
             className={cn(
-              "relative overflow-hidden rounded-[3px] border bg-pen px-4 py-5 text-center transition-all duration-700 sm:py-6",
+              "relative overflow-hidden rounded-[3px] border bg-pen px-1 py-3 text-center transition-all duration-700 sm:px-4 sm:py-6",
               on ? "matrix-on" : "border-white/10",
             )}
             style={
@@ -186,7 +186,7 @@ function Row({
           >
             <span
               className={cn(
-                "relative z-10 font-display text-[17px] font-[700] tracking-tight transition-colors duration-700 sm:text-[20px]",
+                "relative z-10 block truncate font-display text-[12.5px] font-[700] tracking-tight transition-colors duration-700 min-[400px]:text-[13.5px] sm:text-[20px]",
                 on ? "" : "text-white/30",
               )}
               style={on ? { textShadow: `0 0 18px ${item.color}` } : undefined}
