@@ -74,6 +74,12 @@ Avatars are squares with 2 px corners. Touch targets are at least 44 px on phone
 - `RoleStrip`: discipline badge, title, optional description, black "Şeridi kopar" link or a footer; a
   filled role is the grey "Şerit dolu" box.
 - `VerifiedLine` (green tick + text) and `VerifiedStamp` (green square seal).
-- Landing (`components/landing`): black grid hero with the discipline matrix and the three steps, the
-  "Şerit mantığı" board, three principle cards, the dark campus band and the closing call to action.
-- `Logo` / `LogoMark`: a flat geometric panda face on a white square tile with a thin black frame; it reads the same on the black bar and on white. The favicon is the same panda.
+- Landing (`components/landing`): Apple-style full-screen sections, each one colour (black or white), one
+  headline and almost no copy. A page that contains `data-bleed` hides the side menu and spans the full
+  width. Screens: hero with the auto-cycling discipline matrix (dim tiles have no colour; lit tiles glow in
+  their own colour with a shine, and the centre shows a project those disciplines could build), tearing
+  role strips, a document being scanned and verified, chat bubbles, and the closing call with the panda.
+  Visuals fade in on scroll (`Reveal`); every animation stops under `prefers-reduced-motion`.
+- `Logo` / `LogoMark` / `PandaMark`: a flat silhouette of a sitting panda (black ears, arms, legs and eye
+  patches, white face and belly) on a white square tile; it reads the same on the black bar and on white.
+  The favicon is the same panda.

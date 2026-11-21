@@ -39,7 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         logout={logoutAction}
       />
       <SideNav initial={counters} />
-      <div className="w-full lg:pl-[230px]">
+      <div className="app-content w-full lg:pl-[230px]">
         <main className="mx-auto flex w-full max-w-[640px] min-w-0 flex-col px-4 pt-4 pb-[calc(88px+env(safe-area-inset-bottom))] lg:max-w-[808px] lg:px-6 lg:pt-6 lg:pb-12 lg:has-[[data-wide]]:max-w-[1210px]">
           {children}
         </main>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CampusBand, ClosingCta, LandingHero, Principles, StripMechanics } from "@/components/landing/landing-sections";
+import { ChatScreen, ClosingScreen, LandingHero, StripScreen, VerifiedScreen } from "@/components/landing/landing-sections";
 import { ProjectCard } from "@/components/common/project-card";
 import { UserRow } from "@/components/common/user-row";
 import { FollowButton } from "@/components/social/follow-button";
@@ -11,7 +11,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
 import { getCurrentUser } from "@/lib/auth/guards";
 import type { CurrentUser } from "@/lib/auth/user-select";
-import { listProjects } from "@/lib/projects/queries";
 import { displayName } from "@/lib/permissions";
 import { getHomeFeed, normalizeFeedPage } from "@/lib/social/feed";
 import { getFollowCounts } from "@/lib/social/follow-queries";
@@ -22,7 +21,6 @@ export const metadata = { title: "Ana sayfa" };
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const SUGGESTION_COUNT = 5;
-const LANDING_PROJECT_COUNT = 3;
 
 export default async function Page({ searchParams }: { searchParams: SearchParams }) {
   const query = await searchParams;
@@ -163,46 +161,24 @@ function DeletedNotice({ query }: { query: Record<string, string | string[] | un
   );
 }
 
-/** Misafir ve doğrulanmamış kullanıcılar için tanıtım sayfası. */
-async function Landing({
+/** Misafir ve doğrulanmamış kullanıcılar için tanıtım sayfası: tam ekran, tek başlıklı bölümler. */
+function Landing({
   viewer,
   query,
 }: {
   viewer: CurrentUser | null;
   query: Record<string, string | string[] | undefined>;
 }) {
-  const latest = await listProjects({ pageSize: LANDING_PROJECT_COUNT });
   const signedIn = viewer !== null;
 
   return (
-    <div data-wide className="flex flex-col gap-6">
+    <div data-bleed className="flex flex-col">
       <DeletedNotice query={query} />
       <LandingHero signedIn={signedIn} />
-      <StripMechanics />
-
-      <section aria-labelledby="son-projeler" className="flex flex-col gap-4">
-        <div className="flex items-end justify-between gap-3">
-          <h2 id="son-projeler" className="t-page text-ink">
-            Panodaki son projeler
-          </h2>
-          <Link href="/projeler" className={cn("rounded-control text-[13px] font-[650] text-ink hover:underline", focusRing)}>
-            Tüm projeler
-          </Link>
-        </div>
-        {latest.items.length > 0 ? (
-          <div className="flex flex-col gap-4">
-            {latest.items.map((project) => (
-              <ProjectCard key={project.id} project={project} viewer={viewer} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState title="Henüz açık proje yok" text="İlk projeyi paylaşan sen olabilirsin." />
-        )}
-      </section>
-
-      <Principles />
-      <CampusBand />
-      <ClosingCta signedIn={signedIn} />
+      <StripScreen />
+      <VerifiedScreen />
+      <ChatScreen />
+      <ClosingScreen signedIn={signedIn} />
     </div>
   );
 }

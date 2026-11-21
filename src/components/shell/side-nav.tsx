@@ -29,7 +29,7 @@ export function SideNav({ initial }: { initial: Counters | null }) {
   const settingsActive = pathname === "/ayarlar" || pathname.startsWith("/ayarlar/");
 
   return (
-    <aside className="fixed top-[60px] bottom-0 left-0 z-20 hidden w-[230px] flex-col border-r border-line bg-surface lg:flex">
+    <aside className="app-side-nav fixed top-[60px] bottom-0 left-0 z-20 hidden w-[230px] flex-col border-r border-line bg-surface lg:flex">
       <nav aria-label="Ana gezinme" className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         <ul className="flex flex-col gap-1">
           {links.map((item) => {
