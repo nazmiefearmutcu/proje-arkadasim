@@ -7,8 +7,8 @@ import { cn } from "@/lib/cn";
  */
 export function LogoMark({ className, onLight = false }: { className?: string; onLight?: boolean }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" className={cn("size-[34px] shrink-0", className)}>
-      <rect x="5" y="5" width="21" height="24" rx="3" fill="#0F1A3A" stroke="currentColor" strokeWidth="1.5" />
+    <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" className={cn("size-8 shrink-0", className)}>
+      <rect x="5" y="5" width="21" height="24" rx="3" fill="#0D1117" stroke="currentColor" strokeWidth="1.5" />
       <path d="M10.5 2.5v5M15.5 2.5v5M20.5 2.5v5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
       <path d="M9.5 23h6M9.5 26h9" stroke="#FFFFFF" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
       <path
@@ -27,7 +27,7 @@ export function Logo({ className, onLight = false }: { className?: string; onLig
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <LogoMark onLight={onLight} />
-      <span className="text-[21px] leading-none font-[800] [font-stretch:75%] tracking-[0.01em]">Proje Arkadaşım</span>
+      <span className="font-display text-[16px] leading-none font-[700] tracking-tight whitespace-nowrap">Proje Arkadaşım</span>
     </span>
   );
 }

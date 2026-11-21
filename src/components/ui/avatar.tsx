@@ -4,11 +4,13 @@ import { avatarColorsFor } from "./avatar-colors";
 
 export { avatarColorsFor, paletteColorFor, paletteGroupFor } from "./avatar-colors";
 
-export type AvatarSize = 28 | 36 | 48 | 72 | 96;
+export type AvatarSize = 28 | 32 | 36 | 40 | 48 | 72 | 96;
 
 const fontSize: Record<AvatarSize, string> = {
   28: "11px",
-  36: "13px",
+  32: "11px",
+  36: "12px",
+  40: "13px",
   48: "16px",
   72: "24px",
   96: "32px",
@@ -52,7 +54,7 @@ export function Avatar({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-[650] select-none",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-chip font-display font-[700] select-none",
         className,
       )}
       style={{ width: size, height: size, background, color, fontSize: fontSize[size] }}

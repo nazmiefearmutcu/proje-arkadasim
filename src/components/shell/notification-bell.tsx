@@ -23,7 +23,7 @@ export function NotificationBell({ initial }: NotificationBellProps) {
       href={signedIn ? "/bildirimler" : "/giris?next=/bildirimler"}
       aria-label={unread > 0 ? `Bildirimler, ${unread} okunmamış` : "Bildirimler"}
       className={cn(
-        "relative inline-flex size-11 shrink-0 items-center justify-center rounded-control text-pen-ink hover:bg-white/15",
+        "relative inline-flex size-11 shrink-0 items-center justify-center rounded-control text-pen-ink hover:bg-white/10 lg:size-10",
         focusRingInverse,
       )}
     >

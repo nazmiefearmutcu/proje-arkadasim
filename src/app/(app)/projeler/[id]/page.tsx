@@ -7,8 +7,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
 import { focusRing } from "@/components/ui/styles";
 import { RoleStrip } from "@/components/common/role-strip";
+import { ArrowLeft } from "lucide-react";
 import { UserRow } from "@/components/common/user-row";
-import { VerifiedStamp } from "@/components/common/verified-stamp";
+import { VerifiedLine } from "@/components/common/verified-stamp";
 import { OwnerPanel } from "@/components/projects/owner-panel";
 import { ProjectActions, type ProjectViewerState } from "@/components/projects/project-actions";
 import { getCurrentUser } from "@/lib/auth/guards";
@@ -57,6 +58,7 @@ export default async function Page({
   else if (pendingInviteId) viewerState = "invited";
 
   const showActions = !isOwner;
+  const openRoleCount = project.roles.filter((role) => !role.full).length;
 
   return (
     <>
@@ -68,13 +70,24 @@ export default async function Page({
 
       <div
         data-wide
-        className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr_auto] lg:items-start lg:gap-x-8"
+        className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_auto_1fr_auto] lg:items-start lg:gap-x-6"
       >
-        <article className="paper-shadow flex min-w-0 flex-col gap-[3px] lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          <div className="flex flex-col gap-5 rounded-t-card border-b-2 border-dashed border-perf bg-surface px-5 pt-6 pb-6 lg:px-10 lg:pt-9 lg:pb-8">
+        <Link
+          href="/"
+          className={cn(
+            "inline-flex w-fit items-center gap-1.5 rounded-control text-[12px] font-[650] text-ink-2 hover:text-ink lg:col-span-2",
+            focusRing,
+          )}
+        >
+          <ArrowLeft aria-hidden="true" strokeWidth={2} className="size-4" />
+          Ana sayfaya dön
+        </Link>
+
+        <article className="flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-surface lg:col-start-1 lg:row-span-2 lg:row-start-2">
+          <div className="flex flex-col gap-5 p-6 sm:p-7">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <Avatar
-                size={48}
+                size={40}
                 name={ownerName}
                 seed={project.owner.username}
                 avatarPath={project.owner.avatarPath}
@@ -97,19 +110,14 @@ export default async function Page({
                 {project.owner.university ? (
                   <span className="t-meta truncate text-ink-2">{project.owner.university}</span>
                 ) : null}
-                {project.owner.verified ? (
-                  <span className="inline-flex items-center gap-1.5 text-[13px] leading-[1.4] font-[650] text-stamp">
-                    <VerifiedStamp size="sm" academicStatus={project.owner.academicStatus} />
-                    {project.owner.academicStatus === "GRADUATE" ? "Mezun belgesi doğrulandı" : "Öğrenci belgesi doğrulandı"}
-                  </span>
-                ) : null}
+                {project.owner.verified ? <VerifiedLine academicStatus={project.owner.academicStatus} /> : null}
               </div>
-              <span className="t-meta shrink-0 text-ink-2">{relativeTimeTr(project.createdAt)}</span>
+              <span className="t-mono shrink-0 text-ink-3">{relativeTimeTr(project.createdAt)}</span>
             </div>
 
-            <h1 className="t-page max-w-[16em] text-ink">{project.title}</h1>
+            <h1 className="t-page text-ink">{project.title}</h1>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-1 text-[15px] leading-[1.4] font-[550] text-ink">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] leading-[1.4] font-[550] text-ink-2">
               <span>{labelOf(CATEGORIES, project.category)}</span>
               <span>{labelOf(STAGES, project.stage)}</span>
               <span>{labelOf(WORK_MODES, project.workMode)}</span>
@@ -117,7 +125,7 @@ export default async function Page({
               {project.status === "CLOSED" ? <span className="text-danger">Başvurulara kapandı</span> : null}
             </div>
 
-            <p className="t-prose text-[16px] leading-[1.6] whitespace-pre-line text-ink [overflow-wrap:anywhere] lg:text-[17px]">
+            <p className="t-prose text-[15px] leading-relaxed whitespace-pre-line text-ink [overflow-wrap:anywhere]">
               {project.description}
             </p>
 
@@ -131,43 +139,40 @@ export default async function Page({
               </ul>
             ) : null}
 
-            {project.roles.length > 0 ? (
-              <p className="t-meta text-ink-2">Aşağıdaki her şerit aranan bir rol. Dolan rolün şeridi koparılmış görünür.</p>
-            ) : null}
           </div>
 
           {project.roles.length > 0 ? (
-            <ul aria-label="Aranan roller" className="flex flex-col gap-[3px] sm:flex-row sm:flex-wrap">
-              {project.roles.map((role) => (
-                <li key={role.id} className="flex min-w-0 sm:flex-1 sm:basis-[220px]">
-                  <RoleStrip
-                    size="page"
-                    title={role.title}
-                    disciplineGroup={role.disciplineGroup}
-                    full={role.full}
-                    className="w-full"
-                  >
-                    {role.description ? (
-                      <span className="text-[14px] leading-[1.45] [overflow-wrap:anywhere]">{role.description}</span>
-                    ) : null}
-                    <span className="mt-auto pt-1 text-[13px] leading-[1.4] font-[650]">
-                      {role.full ? "Bu şerit koparıldı, rol doldu" : `${role.filled}/${role.slots} dolu`}
-                    </span>
-                  </RoleStrip>
-                </li>
-              ))}
-            </ul>
+            <div className="border-t-[1.5px] border-dashed border-perf bg-surface-2 p-6">
+              <p className="mb-3 text-[12px] font-[500] text-ink-2">
+                Aşağıdaki şeritlerden sana uyan görevi kopar.{" "}
+                {openRoleCount} görev aranıyor, {project.roles.length - openRoleCount} tanesi doldu.
+              </p>
+              <ul aria-label="Aranan roller" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {project.roles.map((role) => (
+                  <li key={role.id} className="flex min-w-0">
+                    <RoleStrip
+                      title={role.title}
+                      disciplineGroup={role.disciplineGroup}
+                      full={role.full}
+                      description={role.description}
+                      footer={role.full ? "Ekibe katıldı" : `${role.filled}/${role.slots} dolu`}
+                      className="w-full"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </article>
 
         <section
           aria-labelledby="ekip-baslik"
           className={cn(
-            "paper-shadow flex flex-col rounded-card bg-surface px-5 pt-5 pb-2 lg:col-start-2",
-            showActions ? "lg:row-start-2" : "lg:row-start-1",
+            "flex flex-col rounded-card border border-line bg-surface px-5 pt-5 pb-2 lg:col-start-2",
+            showActions ? "lg:row-start-3" : "lg:row-start-2",
           )}
         >
-          <h2 id="ekip-baslik" className="t-section pb-2 text-ink">
+          <h2 id="ekip-baslik" className="t-section pb-1 text-ink">
             Ekip
           </h2>
           <ul className="flex flex-col divide-y divide-line">
@@ -196,7 +201,7 @@ export default async function Page({
         </section>
 
       {isOwner && project.ownerView ? (
-        <div className="paper-shadow min-w-0 rounded-card bg-surface px-5 pb-5 lg:col-start-1 lg:row-start-3 lg:px-10">
+        <div className="min-w-0 rounded-card border border-line bg-surface px-5 pb-5 lg:col-start-1 lg:row-start-4 lg:px-7">
         <OwnerPanel
           projectId={project.id}
           status={project.status === "CLOSED" ? "CLOSED" : "OPEN"}

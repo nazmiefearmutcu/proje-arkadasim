@@ -1,12 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo } from "next/font/google";
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-// Tek aile, iki genişlik: gövde normal, başlıklar dar ve kalın (genişlik ekseni).
-const archivo = Archivo({
+// Gövde Inter, başlıklar Plus Jakarta Sans, tarih ve sayılar JetBrains Mono.
+const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
-  axes: ["wdth"],
-  variable: "--font-archivo",
+  weight: ["600", "700", "800"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600"],
+  variable: "--font-jetbrains",
   display: "swap",
 });
 
@@ -24,7 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light",
-  themeColor: "#1746B8",
+  themeColor: "#0D1117",
 };
 
 export default function RootLayout({
@@ -34,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     // Yazı tipi değişkeni <html> üzerinde durur: Tailwind'in temel stili yazı tipini kökte okur.
-    <html lang="tr" className={archivo.variable}>
+    <html lang="tr" className={`${inter.variable} ${jakarta.variable} ${jetbrains.variable}`}>
       <body className="bg-paper text-ink antialiased">
         {children}
       </body>

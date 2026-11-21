@@ -1,81 +1,79 @@
 # Design system
 
-Source of truth: `src/app/globals.css` (tokens) and `src/components/ui`, `src/components/common`.
-The visual direction was drawn first on a Claude Design canvas and then applied here.
+Source of truth: `src/app/globals.css` (tokens) and `src/components/ui`, `src/components/common`,
+`src/components/landing`. The layout follows the owner's two HTML prototypes (the app prototype and the
+landing page draft), recoloured to black and white.
 
 ## Idea
 
-A notice board of paper flyers. Every project is a flyer; the tear-off strips under it are the roles
-the team is looking for. A strip's colour is the role's discipline, and a role that is filled shows as
-a torn-off strip (a dashed, empty slot). The app asks people for an identity document, so the palette
-is chosen for trust: institutional blue, white paper, a light blue-grey ground.
+A notice board for projects. Every project is a card; the role strips under a dashed perforation line are
+the roles the team is looking for. A strip's colour is the role's discipline; a filled role becomes a grey
+"Şerit dolu" box.
 
-## Theme
+## Colour
 
-There is one theme (light). `color-scheme: light` is set on `:root` and there is no
-`prefers-color-scheme: dark` block; `tests/design-tokens.test.ts` asserts both.
+Black and white carry the interface: the top bar, primary buttons, the selected state and the landing
+panels are black (`pen` = `#0d1117`), content sits on white cards over a light grey ground. Colour is kept
+only where it means something:
 
-## Colour tokens
+| Use | Token |
+| --- | --- |
+| Discipline of a role strip / avatar | `--d-<id>` (12 light, saturated colours, dark ink on top) |
+| "Document verified" | `stamp` `#047857` (green, nowhere else) |
+| Logo tick, verified seal on dark | `tick` `#7cf0a2` |
+| Status | `ok`, `warn`, `danger` |
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `paper` | `#eef2f9` | Page ground |
-| `surface` | `#ffffff` | Paper: flyers, cards, sheets, inputs |
-| `surface-2` | `#f3f6fc` | Quiet fills on paper |
-| `ink` | `#0f1a3a` | Text; also the logo notebook |
-| `ink-2` | `#55617f` | Secondary text |
-| `ink-3` | `#5f6a86` | Tertiary text (AA on paper, surface and surface-2) |
-| `line` | `#dce2ee` | Hairlines |
-| `perf` | `#c2cadb` | Dashed perforation between a flyer and its strips |
-| `torn` | `#a9b4cc` | Dashed outline of a torn-off strip |
-| `pen` | `#1746b8` | Brand blue: top bar, primary buttons, links, landing panel |
-| `pen-strong` | `#103487` | Hover on blue |
-| `pen-soft` | `#e4ecff` | Selected state ("you are here") |
-| `stamp` / `ok` | `#12754a` | Green means "document verified" (and success) only |
-| `warn`, `danger` | `#8a5a00`, `#b8322a` | Status |
-| `tick` | `#7cf0a2` | The logo tick |
+| `paper` | `#f3f4f6` | Page ground |
+| `surface` | `#ffffff` | Cards, side menu, inputs |
+| `surface-2` | `#f7f8fa` | Strip area under the perforation, quiet fills |
+| `ink` / `ink-2` / `ink-3` | `#0d1117` / `#4b5260` / `#5c6370` | Text |
+| `line` | `#e1e4e8` | Hairline borders |
+| `perf` | `#c3c8d0` | Dashed perforation |
+| `torn` | `#eceef1` | Filled ("torn off") strip |
+| `pen` / `pen-strong` / `pen-soft` | `#0d1117` / `#2a303a` / `#eceef1` | Brand black, hover, selected |
 
-Blue is the only brand colour. Green is reserved for verification. The vivid colours belong to the
-discipline strips.
-
-### Discipline colours
-
-`--d-<id>` (twelve groups) are light, saturated fills for role strips and avatar backgrounds. Text on
-them is always dark ink (`--avatar-ink`, `#0f1a3a`); every pair reaches at least 4.5:1 and the test
-checks all twelve. Colour never carries the meaning alone: the discipline name is written on the strip.
+There is one theme (light); `tests/design-tokens.test.ts` checks every text pair and all twelve strip
+colours for 4.5:1.
 
 ## Type
 
-One family, two widths: Archivo (`--font-archivo`, variable `wdth` and `wght` axes, `latin-ext` for
-Turkish). The variable class sits on `<html>` so Tailwind's base styles can read it.
+- Body: Inter (`--font-inter`).
+- Headings: Plus Jakarta Sans (`--font-jakarta`, `font-display`).
+- Dates, counts and short technical labels: JetBrains Mono (`--font-jetbrains`, `font-mono`, `.t-mono`).
 
-| Class | Size | Notes |
-| --- | --- | --- |
-| `t-hero` | `clamp(48px, 8.4vw, 112px)` | 800, width 66% |
-| `t-page` | 36 px (48 px from `lg`) | 800, width 70% |
-| `t-section`, `t-card` | 24 px | 800, width 75% |
-| `t-label` | 14 px | 600 |
-| `t-body` | 15 px / 1.55 | 400 |
-| `t-meta` | 13 px | 450 |
+All three load through `next/font` with `latin-ext`; the variables sit on `<html>`.
 
-Headings are the condensed, heavy cut (poster-like); body text is the normal width.
+| Class | Size |
+| --- | --- |
+| `t-hero` | `clamp(40px, 6vw, 62px)`, 700 |
+| `t-page` | 26 px (30 px from `lg`), 800 |
+| `t-card` | 19 px, 700 |
+| `t-section` | 17 px, 700 |
+| `t-label` 14 px 600, `t-body` 15 px, `t-meta` 13 px, `t-mono` 11 px |
 
-## Shape and depth
+## Shape
 
-- Radii: `chip`, `control`, `card` 3 px; `sheet` 6 px. No pills.
-- `paper-shadow` (a `@utility`, so `lg:paper-shadow` works) is a `drop-shadow` filter, which follows
-  the gaps between a flyer and its strips.
-- Touch targets are at least 44 px.
+Flat: no shadows on cards, 1 px `line` borders. Radii: chip 2 px, control and card 3 px, sheet 6 px.
+Avatars are squares with 2 px corners. Touch targets are at least 44 px on phones.
+
+## Shell
+
+- Top bar (60 px, black): logo, white search box, notification bell, profile chip (square avatar + first
+  name).
+- Desktop (`lg`): fixed white side menu, 230 px, full height, under the top bar; "Proje paylaş" below a
+  divider; "Ayarlar" pinned at the bottom. Content starts at 230 px.
+- Phone: bottom bar with the five items; the selected item is `pen-soft`, "Paylaş" is a black block.
 
 ## Components
 
-- `ProjectCard`: flyer body (owner, title, summary, status) + up to three `RoleStrip`s, then "+N rol".
-- `RoleStrip`: `card` size on flyers, `page` size on the project page (with description and slots).
-- `Logo` / `LogoMark`: navy spiral task notebook with a large light-green tick. Ring and outline use
-  `currentColor` (white on the blue bar, navy on light ground); `onLight` picks a darker green for the
-  part of the tick that leaves the notebook.
-- `Button`: `primary` (blue), `secondary` (blue outline), `ghost`, `danger`, and `inverse` /
-  `inverse-outline` for use on blue.
-- Focus: `focusRing` (blue outline) on light ground, `focusRingInverse` (white) on blue.
-- Shell: blue top bar; from `lg` a left side menu, below that a bottom bar. Selected item is
-  `pen-soft` + `pen`; "Paylaş" is a filled blue block.
+- `ProjectCard`: owner (square avatar, green "belgesi doğrulandı" line, department · university), mono
+  time, title, two-line summary, stage/mode chips and city; below the perforation "Sana uyan görevin
+  şeridini kopar · N açık, M dolu", "Detayı aç" and up to three `RoleStrip`s.
+- `RoleStrip`: discipline badge, title, optional description, black "Şeridi kopar" link or a footer; a
+  filled role is the grey "Şerit dolu" box.
+- `VerifiedLine` (green tick + text) and `VerifiedStamp` (green square seal).
+- Landing (`components/landing`): black grid hero with the discipline matrix and the three steps, the
+  "Şerit mantığı" board, three principle cards, the dark campus band and the closing call to action.
+- `Logo` / `LogoMark`: task notebook with a large light-green tick; outline uses `currentColor`.

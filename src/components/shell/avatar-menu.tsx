@@ -82,14 +82,25 @@ export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
         onClick={() => setOpen(true)}
         aria-label={user ? "Hesap menüsünü aç" : "Misafir menüsünü aç"}
         aria-haspopup="dialog"
-        className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-full", focusRingInverse)}
+        className={cn(
+          "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-control lg:h-10 lg:border lg:border-white/15 lg:bg-white/10 lg:pr-3 lg:pl-1.5 lg:hover:bg-white/15",
+          focusRingInverse,
+        )}
       >
         {user ? (
-          <Avatar name={user.name} seed={user.username} avatarPath={user.avatarPath} disciplineGroup={user.disciplineGroup} />
+          <>
+            <Avatar name={user.name} seed={user.username} avatarPath={user.avatarPath} disciplineGroup={user.disciplineGroup} size={28} />
+            <span className="hidden max-w-[12em] truncate text-[13px] font-[600] text-pen-ink lg:inline">
+              {user.name.split(" ")[0]}
+            </span>
+          </>
         ) : (
-          <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/15 text-pen-ink">
-            <UserRound aria-hidden="true" strokeWidth={1.75} className="size-5" />
-          </span>
+          <>
+            <span className="inline-flex size-8 items-center justify-center rounded-control bg-white/15 text-pen-ink">
+              <UserRound aria-hidden="true" strokeWidth={1.75} className="size-5" />
+            </span>
+            <span className="hidden text-[13px] font-[600] text-pen-ink lg:inline">Hesap</span>
+          </>
         )}
       </button>
 

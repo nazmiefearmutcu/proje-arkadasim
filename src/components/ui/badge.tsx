@@ -18,7 +18,7 @@ export function Badge({
     <span
       aria-label={label}
       className={cn(
-        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-chip px-1 text-[12px] leading-none font-[700]",
+        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-chip px-1 font-mono text-[11px] leading-none font-[600]",
         tone === "inverse" ? "bg-surface text-pen" : "bg-pen text-pen-ink",
         className,
       )}

@@ -85,7 +85,7 @@ function SearchField({ suggestions }: SearchBarProps) {
         <Search
           aria-hidden="true"
           strokeWidth={1.75}
-          className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-ink-3"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3"
         />
         <input
           name="q"
@@ -100,7 +100,7 @@ function SearchField({ suggestions }: SearchBarProps) {
             if (event.key === "Escape") setOpen(false);
           }}
           className={cn(
-            "h-11 w-full rounded-control border border-transparent bg-surface pr-4 pl-11 text-[16px] text-ink [&::-webkit-search-cancel-button]:appearance-none",
+            "h-11 w-full rounded-control border border-white/20 bg-surface pr-4 pl-10 text-[16px] text-ink lg:h-10 lg:text-[14px] [&::-webkit-search-cancel-button]:appearance-none",
             focusRingInverse,
           )}
         />
@@ -108,7 +108,7 @@ function SearchField({ suggestions }: SearchBarProps) {
           <span
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute inset-y-0 top-0 right-4 left-11 flex items-center truncate text-[16px] text-ink-3 transition-opacity duration-[400ms]",
+              "pointer-events-none absolute inset-y-0 top-0 right-4 left-10 flex items-center truncate text-[16px] text-ink-3 transition-opacity duration-[400ms] lg:text-[14px]",
               visible ? "opacity-100" : "opacity-0",
             )}
           >
@@ -121,7 +121,7 @@ function SearchField({ suggestions }: SearchBarProps) {
         // Spec §3.1: odaklanınca öneri çipleri görünür. Çipler satır kırarak dizilir; her biri 44 px dokunma hedefi.
         <ul
           aria-label="Önerilen aramalar"
-          className="paper-shadow absolute inset-x-0 top-full z-40 mt-2 flex flex-wrap gap-2 rounded-card border border-line bg-surface p-3 text-ink"
+          className="absolute inset-x-0 top-full z-40 mt-2 flex flex-wrap gap-2 rounded-card border border-line bg-surface p-3 text-ink shadow-[0_12px_28px_-12px_rgb(13_17_23/0.35)]"
         >
           {suggestions.map((suggestion) => (
             <li key={suggestion} className="flex max-w-full">

@@ -1,3 +1,4 @@
+import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { STAGES, WORK_MODES, labelOf } from "@/config/taxonomy";
 import { Avatar } from "@/components/ui/avatar";
@@ -7,7 +8,7 @@ import type { ProjectCardData } from "@/lib/dto";
 import { displayName } from "@/lib/permissions";
 import { relativeTimeTr } from "@/lib/time";
 import { RoleStrip } from "./role-strip";
-import { VerifiedStamp } from "./verified-stamp";
+import { VerifiedLine } from "./verified-stamp";
 
 export interface ProjectCardProps {
   project: ProjectCardData;
@@ -17,87 +18,111 @@ export interface ProjectCardProps {
 
 const MAX_VISIBLE_STRIPS = 3;
 
-/** "2 açık rol, 1 rol doldu" gibi kısa durum cümlesi. */
-function roleSummary(open: number, full: number, closed: boolean): string {
-  if (closed) return "Proje başvurulara kapandı";
-  if (open === 0 && full === 0) return "Rol belirtilmemiş";
-  if (open === 0) return "Bütün roller doldu";
-  return full > 0 ? `${open} açık rol, ${full} rol doldu` : `${open} açık rol`;
+/** "Sana uyan görevin şeridini kopar · 2 açık, 1 dolu" satırının sayı kısmı. */
+function roleCounts(open: number, full: number): string {
+  return full > 0 ? `${open} açık, ${full} dolu` : `${open} açık`;
 }
 
 /**
- * Proje kartı: panoya asılmış bir ilan. Üstte ilan sahibi, altında başlık (tüm kart tıklanabilir),
- * özet ve durum; en altta koparmalı rol şeritleri. Her şerit aranan bir rol, rengi rolün disiplini;
- * dolan rolün şeridi koparılmış görünür. Kapalı projelerde şeritler soluklaşır.
+ * Proje kartı: beyaz kart, üstte ilan sahibi (doğrulama satırıyla) ve paylaşım zamanı, başlık, iki
+ * satırlık özet ve aşama/çalışma şekli/şehir. Kesik çizginin altında rol şeritleri: her açık rolün
+ * "Şeridi kopar" bağlantısı proje sayfasına gider; dolu rol gri kutu olur.
  */
 export function ProjectCard({ project, viewer }: ProjectCardProps) {
   const closed = project.status === "CLOSED";
   const { owner } = project;
   const ownerName = displayName(owner, viewer);
+  const href = `/projeler/${project.id}`;
   const strips = project.roles.slice(0, MAX_VISIBLE_STRIPS);
   const hiddenCount = project.roles.length - strips.length;
   const fullCount = project.roles.filter((role) => role.full).length;
   const openCount = project.roles.length - fullCount;
 
   return (
-    <article className="paper-shadow relative flex min-w-0 flex-col gap-[3px]">
-      <div
-        className={cn(
-          "flex flex-1 flex-col gap-3 rounded-t-card bg-surface px-5 pt-5 pb-4",
-          strips.length > 0 ? "border-b-2 border-dashed border-perf" : "rounded-b-card",
-        )}
-      >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <Avatar
-            size={28}
-            name={ownerName}
-            seed={owner.username}
-            avatarPath={owner.avatarPath}
-            disciplineGroup={owner.disciplineGroup}
-          />
-          <span className="t-label min-w-0 truncate text-ink">{ownerName}</span>
-          {owner.verified ? <VerifiedStamp size="sm" /> : null}
-          {owner.university ? <span className="t-meta min-w-0 truncate text-ink-2">{owner.university}</span> : null}
-          <span className="t-meta ml-auto shrink-0 text-ink-2">{relativeTimeTr(project.createdAt)}</span>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <h2 className="t-card min-w-0 text-ink">
-            <Link
-              href={`/projeler/${project.id}`}
-              className={cn("line-clamp-3 rounded-control after:absolute after:inset-0 after:rounded-card", focusRing)}
-            >
-              {project.title}
-            </Link>
-          </h2>
-          <p className="t-body line-clamp-2 text-ink-2">{project.summary}</p>
-        </div>
-
-        <div className="mt-auto flex flex-col gap-1.5">
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] leading-[1.4] font-[550] text-ink">
-            <span>{labelOf(STAGES, project.stage)}</span>
-            <span>{labelOf(WORK_MODES, project.workMode)}</span>
-            {project.city ? <span>{project.city}</span> : null}
+    <article className="min-w-0 overflow-hidden rounded-card border border-line bg-surface transition-colors hover:border-perf">
+      <div className="p-5 pb-4">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Avatar
+              size={36}
+              name={ownerName}
+              seed={owner.username}
+              avatarPath={owner.avatarPath}
+              disciplineGroup={owner.disciplineGroup}
+            />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="text-[14px] font-[600] text-ink">{ownerName}</span>
+                {owner.verified ? <VerifiedLine academicStatus={owner.academicStatus} /> : null}
+              </div>
+              {owner.department || owner.university ? (
+                <p className="truncate text-[12px] text-ink-2">
+                  {[owner.department, owner.university].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+            </div>
           </div>
-          <p className="t-meta text-ink-2">{roleSummary(openCount, fullCount, closed)}</p>
+          <span className="t-mono shrink-0 whitespace-nowrap text-ink-3">{relativeTimeTr(project.createdAt)}</span>
+        </div>
+
+        <h2 className="t-card text-ink">
+          <Link href={href} className={cn("rounded-control hover:underline hover:underline-offset-4", focusRing)}>
+            {project.title}
+          </Link>
+        </h2>
+        <p className="mt-1.5 line-clamp-2 text-[14px] leading-relaxed text-ink-2">{project.summary}</p>
+
+        <div className="mt-3.5 flex flex-wrap items-center gap-2">
+          <span className="rounded-chip border border-line bg-paper px-2 py-0.5 text-[11px] font-[600] text-ink-2">
+            {labelOf(STAGES, project.stage)}
+          </span>
+          <span className="rounded-chip border border-line bg-paper px-2 py-0.5 text-[11px] font-[600] text-ink-2">
+            {labelOf(WORK_MODES, project.workMode)}
+          </span>
+          {project.city ? (
+            <span className="flex items-center gap-1 text-[11px] font-[500] text-ink-2">
+              <MapPin aria-hidden="true" strokeWidth={2} className="size-3" />
+              {project.city}
+            </span>
+          ) : null}
+          {closed ? (
+            <span className="rounded-chip border border-danger/30 bg-danger-soft px-2 py-0.5 text-[11px] font-[600] text-danger">
+              Başvurulara kapandı
+            </span>
+          ) : null}
         </div>
       </div>
 
-      {strips.length > 0 ? (
-        <div className={cn("flex gap-[3px]", closed && "opacity-50")}>
-          {strips.map((role) => (
-            <RoleStrip
-              key={role.id}
-              title={role.title}
-              disciplineGroup={role.disciplineGroup}
-              full={role.full}
-              className="flex-1 basis-0"
-            />
-          ))}
+      {project.roles.length > 0 ? (
+        <div className="border-t-[1.5px] border-dashed border-perf bg-surface-2 px-5 pt-3.5 pb-4">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <span className="text-[12px] text-ink-2">
+              Sana uyan görevin şeridini kopar ·{" "}
+              <strong className="font-[650] text-ink">{roleCounts(openCount, fullCount)}</strong>
+            </span>
+            <Link
+              href={href}
+              className={cn("flex shrink-0 items-center gap-0.5 rounded-control text-[12px] font-[650] text-ink hover:underline", focusRing)}
+            >
+              Detayı aç
+              <ChevronRight aria-hidden="true" strokeWidth={2} className="size-3.5" />
+            </Link>
+          </div>
+          <div className={cn("grid grid-cols-1 gap-2.5 sm:grid-cols-3", closed && "opacity-60")}>
+            {strips.map((role) => (
+              <RoleStrip
+                key={role.id}
+                title={role.title}
+                disciplineGroup={role.disciplineGroup}
+                full={role.full}
+                href={role.full || closed ? undefined : href}
+              />
+            ))}
+          </div>
           {hiddenCount > 0 ? (
-            <div className="flex min-h-[60px] shrink-0 items-center rounded-b-card bg-surface px-3 text-[13px] font-[700] text-ink">
-              +{hiddenCount} rol
-            </div>
+            <p className="mt-2 text-[12px] text-ink-2">
+              +{hiddenCount} rol daha. Hepsini proje sayfasında görebilirsin.
+            </p>
           ) : null}
         </div>
       ) : null}

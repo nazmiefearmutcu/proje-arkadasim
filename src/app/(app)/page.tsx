@@ -1,9 +1,12 @@
-import { Check } from "lucide-react";
+import Link from "next/link";
+import { CampusBand, ClosingCta, LandingHero, Principles, StripMechanics } from "@/components/landing/landing-sections";
 import { ProjectCard } from "@/components/common/project-card";
 import { UserRow } from "@/components/common/user-row";
 import { FollowButton } from "@/components/social/follow-button";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { focusRing } from "@/components/ui/styles";
+import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
 import { getCurrentUser } from "@/lib/auth/guards";
@@ -39,13 +42,13 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       <PageHeader title="Ana sayfa" description="Takip ettiğin kişilerin paylaştığı projeler" />
 
       {feed.items.length > 0 ? (
-        <div data-wide className="flex flex-col gap-8 xl:grid xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section aria-label="Akış" className="grid min-w-0 content-start gap-3 lg:grid-cols-2">
+        <div data-wide className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_324px]">
+          <section aria-label="Akış" className="flex min-w-0 flex-col gap-4">
             {feed.items.map((project) => (
               <ProjectCard key={project.id} project={project} viewer={viewer} />
             ))}
             {feed.hasMore ? (
-              <ButtonLink href={`/?sayfa=${page + 1}`} variant="secondary" className="w-full lg:col-span-2">
+              <ButtonLink href={`/?sayfa=${page + 1}`} variant="secondary" className="w-full">
                 Daha fazla göster
               </ButtonLink>
             ) : null}
@@ -119,16 +122,12 @@ async function HomeRail({ viewer }: { viewer: CurrentUser }) {
 
   return (
     <aside aria-label="Önerilen kişiler" className="hidden xl:block">
-      <div className="paper-shadow sticky top-[84px] rounded-card bg-surface px-5 pt-3 pb-1">
-        <Section
-          title="Önerilen kişiler"
-          right={
-            <ButtonLink href="/network?sekme=tanistirmalar" variant="ghost">
-              Tümü
-            </ButtonLink>
-          }
-        >
-          <ul className="flex flex-col divide-y divide-line">
+      <div className="sticky top-[84px] rounded-card border border-line bg-surface">
+        <div className="border-b border-line px-4 py-3.5">
+          <h2 className="font-display text-[14px] font-[700] text-ink">Tanışabileceğin kişiler</h2>
+          <p className="mt-0.5 text-[11px] text-ink-2">Ortak ilgi alanlarınıza ve bölümünüze göre</p>
+        </div>
+        <ul className="flex flex-col divide-y divide-line px-4">
             {suggestions.map((suggestion) => (
               <li key={suggestion.person.id}>
                 <UserRow
@@ -139,8 +138,15 @@ async function HomeRail({ viewer }: { viewer: CurrentUser }) {
                 />
               </li>
             ))}
-          </ul>
-        </Section>
+        </ul>
+        <div className="border-t border-line bg-surface-2 px-4 py-2.5 text-center">
+          <Link
+            href="/network?sekme=tanistirmalar"
+            className={cn("rounded-control text-[12px] font-[650] text-ink hover:underline", focusRing)}
+          >
+            Tümünü Network&apos;te gör
+          </Link>
+        </div>
       </div>
     </aside>
   );
@@ -166,91 +172,37 @@ async function Landing({
   query: Record<string, string | string[] | undefined>;
 }) {
   const latest = await listProjects({ pageSize: LANDING_PROJECT_COUNT });
+  const signedIn = viewer !== null;
 
   return (
-    <>
+    <div data-wide className="flex flex-col gap-6">
       <DeletedNotice query={query} />
-      <section
-        data-wide
-        className="flex flex-col gap-6 rounded-card bg-pen px-5 pt-8 pb-8 text-pen-ink lg:gap-8 lg:px-12 lg:pt-14 lg:pb-12"
-      >
-        <h1 className="t-hero max-w-[9em]">Bölümünün dışında bir ekip kur.</h1>
-        <p className="max-w-[34em] text-[17px] leading-[1.5] text-pen-ink/85 lg:text-[20px]">
-          Projeni panoya as, aradığın rolleri şeritlere yaz. Başka bölümlerden öğrenciler ve mezunlar kendine uyan
-          şeridi koparıp ekibine katılsın.
-        </p>
+      <LandingHero signedIn={signedIn} />
+      <StripMechanics />
 
-        {viewer ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-[16px] leading-[1.4] font-[600]">Belgeni doğrula, proje paylaşmaya başla</p>
-            <ButtonLink href="/dogrulama" variant="inverse" className="h-12 w-full px-6 text-[16px] sm:w-fit">
-              Belgeni yükle
-            </ButtonLink>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-3">
-            <ButtonLink href="/kayit" variant="inverse" className="h-12 px-6 text-[16px]">
-              Hesap oluştur
-            </ButtonLink>
-            <ButtonLink href="/projeler" variant="inverse-outline" className="h-12 px-6 text-[16px]">
-              Panodaki projelere bak
-            </ButtonLink>
-          </div>
-        )}
-
-        <p className="flex max-w-[40em] items-start gap-2 text-[15px] leading-[1.5] text-pen-ink/85">
-          <span aria-hidden="true" className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--tick)] text-ink">
-            <Check strokeWidth={3} className="size-3.5" />
-          </span>
-          Yalnızca öğrenci ya da mezun belgesi doğrulanmış kişiler proje paylaşabilir ve projelere katılabilir.
-          Panoya herkes bakabilir.
-        </p>
-
-        <ol className="flex flex-col gap-5 border-t border-white/25 pt-6 sm:flex-row sm:gap-8">
-          <li className="flex flex-1 flex-col gap-1.5">
-            <span aria-hidden="true" className="text-[40px] leading-none font-[800] [font-stretch:70%]">1</span>
-            <span className="text-[16px] leading-[1.4] font-[650]">Hesabını aç, belgeni yükle</span>
-            <span className="text-[14px] leading-[1.45] text-pen-ink/85">
-              e-Devlet öğrenci ya da mezun belgen saniyeler içinde kontrol edilir.
-            </span>
-          </li>
-          <li className="flex flex-1 flex-col gap-1.5">
-            <span aria-hidden="true" className="text-[40px] leading-none font-[800] [font-stretch:70%]">2</span>
-            <span className="text-[16px] leading-[1.4] font-[650]">Projeni paylaş ya da bir şerit kopar</span>
-            <span className="text-[14px] leading-[1.45] text-pen-ink/85">Her şerit bir rol. Dolunca koparılmış görünür.</span>
-          </li>
-          <li className="flex flex-1 flex-col gap-1.5">
-            <span aria-hidden="true" className="text-[40px] leading-none font-[800] [font-stretch:70%]">3</span>
-            <span className="text-[16px] leading-[1.4] font-[650]">Ekibinle yazış, üretmeye başla</span>
-            <span className="text-[14px] leading-[1.45] text-pen-ink/85">
-              Mesajlar yalnızca ekip arkadaşlarından ve kabul ettiğin kişilerden gelir.
-            </span>
-          </li>
-        </ol>
-      </section>
-
-      <Section
-        title="Son paylaşılan projeler"
-        right={
-          <ButtonLink href="/projeler" variant="ghost">
+      <section aria-labelledby="son-projeler" className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-3">
+          <h2 id="son-projeler" className="t-page text-ink">
+            Panodaki son projeler
+          </h2>
+          <Link href="/projeler" className={cn("rounded-control text-[13px] font-[650] text-ink hover:underline", focusRing)}>
             Tüm projeler
-          </ButtonLink>
-        }
-      >
+          </Link>
+        </div>
         {latest.items.length > 0 ? (
-          <div data-wide className="grid gap-3 lg:grid-cols-3">
+          <div className="flex flex-col gap-4">
             {latest.items.map((project) => (
               <ProjectCard key={project.id} project={project} viewer={viewer} />
             ))}
           </div>
         ) : (
-          <EmptyState
-            title="Henüz açık proje yok"
-            text="İlk projeyi paylaşan sen olabilirsin."
-          />
+          <EmptyState title="Henüz açık proje yok" text="İlk projeyi paylaşan sen olabilirsin." />
         )}
-      </Section>
+      </section>
 
-    </>
+      <Principles />
+      <CampusBand />
+      <ClosingCta signedIn={signedIn} />
+    </div>
   );
 }

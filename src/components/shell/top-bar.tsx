@@ -32,11 +32,11 @@ export function TopBar({ user, counters, logout }: TopBarProps) {
   const suggestions = getSearchSuggestions(user);
 
   return (
-    <header className="sticky top-0 z-30 bg-pen text-pen-ink">
-      <div className="mx-auto flex h-[60px] max-w-[640px] items-center gap-2 px-3 lg:max-w-[1440px] lg:gap-8 lg:px-6">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-pen text-pen-ink">
+      <div className="mx-auto flex h-[60px] max-w-[640px] items-center gap-2 px-3 lg:max-w-none lg:gap-6 lg:px-5">
         <Link
           href="/"
-          className={`hidden w-[220px] shrink-0 rounded-control py-2 lg:order-1 lg:inline-flex ${focusRingInverse}`}
+          className={`hidden w-[194px] shrink-0 rounded-control py-2 lg:order-1 lg:inline-flex ${focusRingInverse}`}
         >
           <Logo />
         </Link>
@@ -57,7 +57,7 @@ export function TopBar({ user, counters, logout }: TopBarProps) {
             logout={logout}
           />
         </div>
-        <div className="flex min-w-0 flex-1 lg:order-2 lg:max-w-[640px]">
+        <div className="flex min-w-0 flex-1 lg:order-2 lg:max-w-2xl">
           <SearchBar suggestions={suggestions} />
         </div>
         <div className="lg:order-3 lg:ml-auto">

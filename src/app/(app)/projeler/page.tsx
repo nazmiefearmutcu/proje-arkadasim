@@ -121,7 +121,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
           )
         ) : (
           <>
-            <ul className="grid gap-3 lg:grid-cols-2">
+            <ul className="flex flex-col gap-4">
               {list.items.map((project) => (
                 <li key={project.id}>
                   <ProjectCard project={project} viewer={viewer} />

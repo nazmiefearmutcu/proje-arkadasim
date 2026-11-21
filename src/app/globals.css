@@ -3,56 +3,57 @@
 /*
  * Tasarım tokenları. Ham değerler :root üzerinde CSS değişkeni olarak tutulur; @theme inline
  * bunları bg-paper, text-ink-2, border-line, bg-pen gibi yardımcı sınıflara açar.
- * Tek tema vardır (açık): kimlik belgesi isteyen bir ürün için güven veren kurumsal mavi, beyaz kâğıt
- * ve açık gri-mavi zemin. Sistem koyu temada olsa da görünüm aynıdır. Ayrıntılar: docs/design-system.md
+ * Siyah-beyaz arayüz: marka rengi siyahtır (üst bar, ana düğmeler, seçili durum), zemin açık gri,
+ * içerik beyaz kartlarda. Renk yalnız anlam taşıdığı yerde kalır: rol şeritleri (disiplin),
+ * doğrulama (yeşil), logodaki tik ve durum mesajları. Tek tema vardır. Ayrıntılar: docs/design-system.md
  */
 :root {
   color-scheme: light;
 
-  --paper: #eef2f9;
+  --paper: #f3f4f6;
   --surface: #ffffff;
-  --surface-2: #f3f6fc;
-  --ink: #0f1a3a;
-  --ink-2: #55617f;
-  --ink-3: #5f6a86;
-  --line: #dce2ee;
-  /* Kesik çizgi (koparma hattı) ve koparılmış şerit kenarı. */
-  --perf: #c2cadb;
-  --torn: #a9b4cc;
-  --pen: #1746b8;
-  --pen-strong: #103487;
+  --surface-2: #f7f8fa;
+  --ink: #0d1117;
+  --ink-2: #4b5260;
+  --ink-3: #5c6370;
+  --line: #e1e4e8;
+  /* Kesik çizgi (koparma hattı) ve koparılmış şerit zemini. */
+  --perf: #c3c8d0;
+  --torn: #eceef1;
+  --pen: #0d1117;
+  --pen-strong: #2a303a;
   --pen-ink: #ffffff;
-  --pen-soft: #e4ecff;
+  --pen-soft: #eceef1;
   /* Yeşil yalnız "belgesi doğrulandı" ve başarı durumunda kullanılır. */
-  --stamp: #12754a;
-  --stamp-soft: #e3f4ea;
-  --ok: #12754a;
-  --ok-soft: #e3f4ea;
+  --stamp: #047857;
+  --stamp-soft: #e3f4ec;
+  --ok: #047857;
+  --ok-soft: #e3f4ec;
   --warn: #8a5a00;
   --warn-soft: #fbf1dc;
-  --danger: #b8322a;
-  --danger-soft: #fbe6e4;
-  /* Logodaki tik: lacivert defter üzerinde açık yeşil. */
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  /* Logodaki tik: siyah üst barda ve lacivert defter üzerinde açık yeşil. */
   --tick: #7cf0a2;
 
   /*
-   * Disiplin renkleri: rol şeritleri ve avatar zeminleri. Hepsi açık ve doygun; üzerlerindeki yazı
-   * her zaman koyu mürekkeptir (--avatar-ink) ve her birinde en az 4.5:1 kontrast verir.
+   * Disiplin renkleri: rol şeritleri ve avatar zeminleri. Açık ve doygun; üzerlerindeki yazı her zaman
+   * koyu mürekkeptir (--avatar-ink) ve her birinde en az 4.5:1 kontrast verir.
    */
-  --d-yazilim: #6cc5d6;
-  --d-elektronik: #f59b55;
+  --d-yazilim: #68c9b8;
+  --d-elektronik: #f0904a;
   --d-makine: #b4bac0;
   --d-endustri: #e3c04f;
   --d-mimarlik: #d69c7e;
-  --d-tasarim: #f08cb0;
+  --d-tasarim: #f28ba8;
   --d-isletme: #7ccb7e;
   --d-saglik: #f28b82;
   --d-hukuk: #8fa8f5;
-  --d-sosyal: #b79bf5;
-  --d-temel: #b5d95a;
+  --d-sosyal: #a992f0;
+  --d-temel: #c8dc4b;
   --d-sanat: #de95ee;
 
-  --avatar-ink: #0f1a3a;
+  --avatar-ink: #0d1117;
   --d-yazilim-ink: var(--avatar-ink);
   --d-elektronik-ink: var(--avatar-ink);
   --d-makine-ink: var(--avatar-ink);
@@ -72,7 +73,7 @@
  */
 :root,
 ::backdrop {
-  --scrim: rgb(10 18 44 / 0.5);
+  --scrim: rgb(13 17 23 / 0.5);
 }
 
 @theme inline {
@@ -99,17 +100,19 @@
   --color-danger-soft: var(--danger-soft);
   --color-scrim: var(--scrim);
 
-  /* next/font değişkeni --font-archivo olarak tanımlanır; --font-sans ona bağlanır (döngü olmasın). */
-  --font-sans: var(--font-archivo), system-ui, sans-serif;
+  /* next/font değişkenleri <html> üzerinde tanımlanır; --font-* yardımcıları onlara bağlanır. */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-jakarta), var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
-  /* Kâğıt köşeleri: hap biçimi yok, her şey keskin. */
-  --radius-chip: 3px;
+  /* Keskin köşeler: hap biçimi yok. */
+  --radius-chip: 2px;
   --radius-control: 3px;
   --radius-card: 3px;
   --radius-sheet: 6px;
 
-  --shadow-fab: 0 6px 14px -8px rgb(15 26 58 / 0.45);
-  --shadow-sheet: 0 -16px 40px -16px rgb(15 26 58 / 0.35);
+  --shadow-fab: 0 6px 14px -8px rgb(13 17 23 / 0.45);
+  --shadow-sheet: 0 -16px 40px -16px rgb(13 17 23 / 0.35);
 }
 
 html {
@@ -119,13 +122,14 @@ html {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Kâğıt gölgesi: ilan gövdesi ve şeritleri arasındaki boşlukları da izleyen tek gölge. */
-@utility paper-shadow {
-  filter: drop-shadow(0 10px 12px rgb(15 26 58 / 0.14));
+/* Düz kart: gölge yok, ince çerçeve. */
+@utility card-frame {
+  border: 1px solid var(--line);
 }
 
 /*
@@ -150,7 +154,7 @@ body {
   }
   .t-body {
     font-size: 15px;
-    line-height: 1.55;
+    line-height: 1.6;
     font-weight: 400;
   }
   .t-label {
@@ -158,35 +162,45 @@ body {
     line-height: 1.3;
     font-weight: 600;
   }
-  /* Başlıklar aynı ailenin dar ve kalın kesimi (Archivo, genişlik ekseni %75 ve altı): afiş gibi. */
+  /* Başlıklar Plus Jakarta Sans; gövde Inter. */
   .t-card {
-    font-size: 24px;
-    line-height: 1.08;
-    font-weight: 800;
-    font-stretch: 75%;
+    font-family: var(--font-display);
+    font-size: 19px;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
   .t-section {
-    font-size: 24px;
-    line-height: 1.1;
-    font-weight: 800;
-    font-stretch: 75%;
+    font-family: var(--font-display);
+    font-size: 17px;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
   .t-page {
-    font-size: 36px;
-    line-height: 1;
+    font-family: var(--font-display);
+    font-size: 26px;
+    line-height: 1.15;
     font-weight: 800;
-    font-stretch: 70%;
+    letter-spacing: -0.02em;
   }
   .t-hero {
-    font-size: clamp(48px, 8.4vw, 112px);
-    line-height: 0.9;
-    font-weight: 800;
-    font-stretch: 66%;
+    font-family: var(--font-display);
+    font-size: clamp(40px, 6vw, 62px);
+    line-height: 1.03;
+    font-weight: 700;
+    letter-spacing: -0.025em;
   }
   @media (min-width: 1024px) {
     .t-page {
-      font-size: 48px;
+      font-size: 30px;
     }
+  }
+  /* Tarih, sayı ve kısa teknik etiketler. */
+  .t-mono {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
   }
   .t-prose {
     max-width: 68ch;
