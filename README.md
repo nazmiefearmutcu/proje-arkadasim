@@ -100,6 +100,7 @@ ve `next start` onu `production` yapar; `npm run seed` gibi betiklerde ise kabuk
 |---|---|---|
 | `DATABASE_URL` | Evet | Veritabanı adresi. Varsayılan `file:./dev.db` (SQLite, `prisma/` klasörüne göre). |
 | `DOC_HASH_PEPPER` | Evet | Belge özetlerinin (HMAC-SHA256) gizli biberi. Tanımlı değilse belge yükleme `ERROR` döner. Değişirse eski özetler eşleşmez. |
+| `VERIFICATION_MODE` | Hayır | `editor` (varsayılan): her belge editörlerin onayına gider, yapay zeka çağrılmaz, yurt dışı aktarım rızası sorulmaz. `ai`: yapay zeka ön incelemesi ve otomatik onay açılır. |
 | `VERIFIER_PROVIDER` | Evet | Belge inceleyicisi: `mock` (yalnız geliştirme), `openai` (varsayılan) ya da `deepseek`. Tanınmayan değerde otomatik onay verilmez. |
 | `OPENAI_API_KEY` | Gerçek AI için | OpenAI API anahtarı. Boşsa AI incelemesi çağrılmaz; belgeler manuel incelemeye düşer. |
 | `OPENAI_MODEL` | Hayır | Model adı. Varsayılan `gpt-5.6-luna`. |

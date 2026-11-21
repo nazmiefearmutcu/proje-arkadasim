@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
-import { PandaMark } from "@/components/common/logo";
+import { PandaHero } from "@/components/common/logo";
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { DisciplineMatrix } from "./discipline-matrix";
@@ -53,8 +53,8 @@ export function LandingHero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="flex min-h-[calc(100svh-60px)] flex-col items-center justify-center gap-12 bg-pen px-5 py-16 text-center text-pen-ink sm:px-8 lg:gap-16">
       <div className="flex max-w-5xl flex-col items-center gap-6">
-        <h1 className="font-display text-[44px] leading-[1.02] font-[700] tracking-[-0.035em] sm:text-[72px] lg:text-[96px]">
-          Bölümünün dışında bir ekip kur.
+        <h1 className="font-display text-[42px] leading-[1.04] font-[700] tracking-[-0.035em] sm:text-[68px] lg:text-[88px]">
+          Bir kişiden çıkamayan, birçok kişiden çıkar.
         </h1>
         <div className="flex flex-wrap justify-center gap-3">
           <ButtonLink href={signedIn ? "/dogrulama" : "/kayit"} variant="inverse" className="h-12 rounded-full px-7 text-[16px]">
@@ -71,16 +71,16 @@ export function LandingHero({ signedIn }: { signedIn: boolean }) {
 }
 
 const STRIPS = [
-  { label: "Yazılım", color: "#38bdf8" },
-  { label: "Tasarım", color: "#f472b6" },
-  { label: "Biyoloji", color: "#a3e635" },
-  { label: "Hukuk", color: "#facc15" },
+  { label: "Yazılım geliştirme", color: "#38bdf8" },
+  { label: "Arayüz tasarımı", color: "#f472b6" },
+  { label: "Veri analizi", color: "#a3e635" },
+  { label: "Hukuki danışmanlık", color: "#facc15" },
 ] as const;
 
-/** 2. ekran: soyut bir ilan ve sırayla kopup yerine dönen rol şeritleri. */
+/** 2. ekran: soyut bir ilan ve sırayla kopup yerine dönen beceri şeritleri. Aranan şey kişi ya da bölüm değil, beceridir. */
 export function StripScreen() {
   return (
-    <Screen id="serit" tone="light" title="Her rol bir şerit." sub="Sana uyanı kopar.">
+    <Screen id="serit" tone="light" title="Her beceri bir şerit.">
       <Reveal className="w-full max-w-3xl" delayMs={150}>
         <div aria-hidden="true" className="border-2 border-ink bg-surface text-left shadow-[12px_12px_0_var(--ink)]">
           <div className="flex flex-col gap-3 p-7 sm:p-10">
@@ -97,7 +97,7 @@ export function StripScreen() {
                   className="strip-loop absolute inset-0 flex items-end border border-ink p-3"
                   style={{ background: strip.color, animationDelay: `${index * 1.5}s` }}
                 >
-                  <span className="font-display text-[17px] font-[700] text-ink">{strip.label}</span>
+                  <span className="text-left font-display text-[16px] leading-tight font-[700] text-ink sm:text-[17px]">{strip.label}</span>
                 </div>
               </div>
             ))}
@@ -182,7 +182,7 @@ export function ClosingScreen({ signedIn }: { signedIn: boolean }) {
   return (
     <Screen id="basla" tone="dark" title="İlk ekibini kur.">
       <Reveal className="flex flex-col items-center gap-10" delayMs={150}>
-        <PandaMark className="size-40 sm:size-48" />
+        <PandaHero className="w-44 sm:w-56" />
         <ButtonLink href={signedIn ? "/dogrulama" : "/kayit"} variant="inverse" className="h-12 rounded-full px-8 text-[16px]">
           {signedIn ? "Belgeni yükle" : "Hesap oluştur"}
         </ButtonLink>

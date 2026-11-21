@@ -53,13 +53,13 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
         </Chip>
       </nav>
 
-      <div className="mt-3 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" aria-label="Disiplinler">
+      <div className="mt-3 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" aria-label="Beceri alanları">
         <Chip
           href={projectsHref({ mine: filters.mine, q: filters.q, category: filters.category, workMode: filters.workMode, city: filters.city, stage: filters.stage })}
           selected={filters.disciplineGroup === null}
           className="shrink-0"
         >
-          Tüm disiplinler
+          Tüm alanlar
         </Chip>
         {DISCIPLINE_GROUPS.map((group) => {
           const selected = filters.disciplineGroup === group.id;

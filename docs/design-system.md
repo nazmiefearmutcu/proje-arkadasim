@@ -71,8 +71,9 @@ Avatars are squares with 2 px corners. Touch targets are at least 44 px on phone
 - `ProjectCard`: owner (square avatar, green "belgesi doğrulandı" line, department · university), mono
   time, title, two-line summary, stage/mode chips and city; below the perforation "Sana uyan görevin
   şeridini kopar · N açık, M dolu", "Detayı aç" and up to three `RoleStrip`s.
-- `RoleStrip`: discipline badge, title, optional description, black "Şeridi kopar" link or a footer; a
-  filled role is the grey "Şerit dolu" box.
+- `RoleStrip`: a skill the project needs (a role means a skill, never a job title or a department), an
+  optional description and a black "Başvur" link; a filled skill is the grey "Bulundu" box. Cards show
+  the owner's university but not the department.
 - `VerifiedLine` (green tick + text) and `VerifiedStamp` (green square seal).
 - Landing (`components/landing`): Apple-style full-screen sections, each one colour (black or white), one
   headline and almost no copy. A page that contains `data-bleed` hides the side menu and spans the full
@@ -80,6 +81,7 @@ Avatars are squares with 2 px corners. Touch targets are at least 44 px on phone
   their own colour with a shine, and the centre shows a project those disciplines could build), tearing
   role strips, a document being scanned and verified, chat bubbles, and the closing call with the panda.
   Visuals fade in on scroll (`Reveal`); every animation stops under `prefers-reduced-motion`.
-- `Logo` / `LogoMark` / `PandaMark`: a flat silhouette of a sitting panda (black ears, arms, legs and eye
-  patches, white face and belly) on a white square tile; it reads the same on the black bar and on white.
-  The favicon is the same panda.
+- `Logo` / `LogoMark` / `PandaHero`: the owner's "Panda Silüet Logo" pack (a sitting panda in profile). Small
+  sizes use the pack's crisp version without fur texture (`panda-mark.png`, and `panda-mark-dark.png` with a
+  white halo for the black bar); the large view uses the textured negative (`panda-large-dark.png`). The
+  favicon and app icon are the pack's black rounded-square icon.

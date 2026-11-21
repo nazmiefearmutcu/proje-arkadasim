@@ -71,7 +71,8 @@ function Explanation({ children }: { children: ReactNode }) {
  * Üç adımlı kayıt. Adım 1 ve 2 aynı formun istemci tarafı görünümleridir; adım 3 (belge) kayıt
  * sonrası `/dogrulama` sayfasıdır. Sunucu hataları ilgili adıma götürülür.
  */
-export function RegisterForm() {
+/** `aiReview`: yapay zeka ön incelemesi açıksa isteğe bağlı yurt dışı aktarım rızası sorulur; editör modunda sorulmaz. */
+export function RegisterForm({ aiReview = false }: { aiReview?: boolean }) {
   const [state, formAction, pending] = useActionState<ActionResult | null, FormData>(
     registerAction,
     null,
@@ -312,6 +313,7 @@ export function RegisterForm() {
             ) : null}
           </div>
 
+          {aiReview ? (
           <section className="flex flex-col gap-3 rounded-card border border-line bg-surface-2 p-4">
             <h3 className="t-label text-ink">İsteğe bağlı açık rıza</h3>
             <Checkbox
@@ -340,6 +342,7 @@ export function RegisterForm() {
             </ul>
             <AiConsentTextLink />
           </section>
+          ) : null}
 
           {generalError ? <FormAlert tone="danger">{generalError}</FormAlert> : null}
 

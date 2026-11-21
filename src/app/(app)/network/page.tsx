@@ -97,7 +97,7 @@ async function InvitesTab({
               <UserRow person={invite.inviter} name={displayName(invite.inviter, viewer)} />
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <Chip>{invite.roleTitle ?? "Rol fark etmez"}</Chip>
+              <Chip>{invite.roleTitle ?? "Beceri fark etmez"}</Chip>
             </div>
             {invite.message ? (
               <p className="t-body whitespace-pre-line text-ink-2">{invite.message}</p>

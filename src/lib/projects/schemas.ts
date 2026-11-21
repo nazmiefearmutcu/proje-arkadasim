@@ -25,8 +25,8 @@ export const roleInputSchema = z.object({
   title: z
     .string()
     .trim()
-    .min(3, { error: "Rol adı en az 3 karakter olmalı." })
-    .max(60, { error: "Rol adı en fazla 60 karakter olabilir." }),
+    .min(3, { error: "Beceri en az 3 karakter olmalı." })
+    .max(60, { error: "Beceri en fazla 60 karakter olabilir." }),
   disciplineGroup: disciplineField,
   slots: z
     .number({ error: "Kişi sayısı seçilmeli." })
@@ -36,7 +36,7 @@ export const roleInputSchema = z.object({
   description: z
     .string()
     .trim()
-    .max(200, { error: "Rol açıklaması en fazla 200 karakter olabilir." })
+    .max(200, { error: "Beceri açıklaması en fazla 200 karakter olabilir." })
     .default(""),
 });
 
@@ -75,8 +75,8 @@ export const projectInputSchema = z
       .default([]),
     roles: z
       .array(roleInputSchema)
-      .min(1, { error: "En az bir rol ekle." })
-      .max(6, { error: "En fazla 6 rol ekleyebilirsin." }),
+      .min(1, { error: "En az bir beceri ekle." })
+      .max(6, { error: "En fazla 6 beceri ekleyebilirsin." }),
   })
   .superRefine((value, ctx) => {
     if (value.workMode === "UZAKTAN") return;

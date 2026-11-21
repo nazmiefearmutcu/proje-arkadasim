@@ -15,7 +15,7 @@ describe("isTransientTxError", () => {
 
   it("diğer hataları geçici saymaz", () => {
     expect(isTransientTxError(Object.assign(new Error("Unique constraint failed"), { code: "P2002" }))).toBe(false);
-    expect(isTransientTxError(new Error("Bu rolün kontenjanı dolu."))).toBe(false);
+    expect(isTransientTxError(new Error("Bu beceri için aranan kişi sayısı doldu."))).toBe(false);
     expect(isTransientTxError("database is locked")).toBe(false);
     expect(isTransientTxError(null)).toBe(false);
   });

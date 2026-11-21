@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { aiReviewEnabled } from "./mode";
 import type { Prisma } from "@prisma/client";
 import { MASKED_TEXT_RETENTION_DAYS } from "@/config/legal";
 import { hasActiveConsent } from "@/lib/consent";
@@ -256,11 +257,12 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
   });
   text = "";
 
-  // Adım 7: yapay zeka incelemesi (yalnızca açık rıza varsa ve sağlayıcı tanımlıysa).
+  // Adım 7: yapay zeka incelemesi (yalnızca "ai" modunda, açık rıza varsa ve sağlayıcı tanımlıysa).
+  // Varsayılan "editor" modunda yapay zeka hiç çağrılmaz; belge editörlerin kuyruğuna düşer.
   let analysis: AiAnalysis | null = null;
   let provider: VerifierProvider | null = null;
   let aiError = false;
-  if (await hasActiveConsent(userId, "CROSS_BORDER_AI")) {
+  if (aiReviewEnabled() && (await hasActiveConsent(userId, "CROSS_BORDER_AI"))) {
     provider = resolveProvider();
     if (provider) {
       try {

@@ -18,15 +18,16 @@ export interface ProjectCardProps {
 
 const MAX_VISIBLE_STRIPS = 3;
 
-/** "Sana uyan görevin şeridini kopar · 2 açık, 1 dolu" satırının sayı kısmı. */
+/** "Aranan beceriler · 2 açık, 1 bulundu" satırının sayı kısmı. */
 function roleCounts(open: number, full: number): string {
-  return full > 0 ? `${open} açık, ${full} dolu` : `${open} açık`;
+  return full > 0 ? `${open} açık, ${full} bulundu` : `${open} açık`;
 }
 
 /**
  * Proje kartı: beyaz kart, üstte ilan sahibi (doğrulama satırıyla) ve paylaşım zamanı, başlık, iki
- * satırlık özet ve aşama/çalışma şekli/şehir. Kesik çizginin altında rol şeritleri: her açık rolün
- * "Şeridi kopar" bağlantısı proje sayfasına gider; dolu rol gri kutu olur.
+ * satırlık özet ve aşama/çalışma şekli/şehir. Kesik çizginin altında aranan beceriler: her açık
+ * becerinin "Başvur" bağlantısı proje sayfasına gider; karşılığı bulunan beceri gri kutu olur. Kartta
+ * bölüm gösterilmez: önemli olan beceridir.
  */
 export function ProjectCard({ project, viewer }: ProjectCardProps) {
   const closed = project.status === "CLOSED";
@@ -55,11 +56,7 @@ export function ProjectCard({ project, viewer }: ProjectCardProps) {
                 <span className="text-[14px] font-[600] text-ink">{ownerName}</span>
                 {owner.verified ? <VerifiedLine academicStatus={owner.academicStatus} /> : null}
               </div>
-              {owner.department || owner.university ? (
-                <p className="truncate text-[12px] text-ink-2">
-                  {[owner.department, owner.university].filter(Boolean).join(" · ")}
-                </p>
-              ) : null}
+              {owner.university ? <p className="truncate text-[12px] text-ink-2">{owner.university}</p> : null}
             </div>
           </div>
           <span className="t-mono shrink-0 whitespace-nowrap text-ink-3">{relativeTimeTr(project.createdAt)}</span>
@@ -97,7 +94,7 @@ export function ProjectCard({ project, viewer }: ProjectCardProps) {
         <div className="border-t-[1.5px] border-dashed border-perf bg-surface-2 px-5 pt-3.5 pb-4">
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <span className="text-[12px] text-ink-2">
-              Sana uyan görevin şeridini kopar ·{" "}
+              Aranan beceriler ·{" "}
               <strong className="font-[650] text-ink">{roleCounts(openCount, fullCount)}</strong>
             </span>
             <Link
@@ -121,7 +118,7 @@ export function ProjectCard({ project, viewer }: ProjectCardProps) {
           </div>
           {hiddenCount > 0 ? (
             <p className="mt-2 text-[12px] text-ink-2">
-              +{hiddenCount} rol daha. Hepsini proje sayfasında görebilirsin.
+              +{hiddenCount} beceri daha. Hepsini proje sayfasında görebilirsin.
             </p>
           ) : null}
         </div>

@@ -7,7 +7,6 @@ import { zodFieldErrors, type ActionResult } from "@/lib/action-result";
 import { cn } from "@/lib/cn";
 import { projectInputSchema } from "@/lib/projects/schemas";
 import { DisciplineChip } from "@/components/common/discipline-chip";
-import { DisciplineSpine } from "@/components/common/discipline-spine";
 import { Button, ButtonLink, buttonClasses } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
@@ -193,7 +192,6 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
     setRoles(roles.filter((role) => role.key !== key));
   }
 
-  const spineGroups = roles.map((role) => role.disciplineGroup).filter((id) => id.length > 0);
 
   return (
     <form
@@ -344,10 +342,13 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
         ) : null}
       </Section>
 
-      <Section title="Aranan roller">
-        <div className="flex flex-col gap-2">
-          <p className="t-meta text-ink-3">Projenin aradığı disiplinler</p>
-          <DisciplineSpine orientation="horizontal" groups={spineGroups} />
+      <Section title="Aranan beceriler">
+        <div className="flex flex-col gap-1">
+          <p className="t-body text-ink">Aradığın kişide hangi beceriler olmalı?</p>
+          <p className="t-meta text-ink-2">
+            Bölüm ya da unvan değil, işi yapacak beceriyi yaz: &ldquo;yazılım mühendisi&rdquo; değil &ldquo;yazılım
+            mühendisliği&rdquo;, &ldquo;tasarımcı&rdquo; değil &ldquo;arayüz tasarımı&rdquo;.
+          </p>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -356,7 +357,7 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
             return (
               <div key={role.key} className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="t-label text-ink">Rol {index + 1}</span>
+                  <span className="t-label text-ink">Beceri {index + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeRole(role.key)}
@@ -364,14 +365,14 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
                     className={buttonClasses("ghost", "md", "h-11 px-3 text-danger disabled:opacity-40")}
                   >
                     <Trash2 aria-hidden="true" strokeWidth={1.75} className="size-4" />
-                    Rolü kaldır
+                    Beceriyi kaldır
                   </button>
                 </div>
 
                 <Field
                   id={`role-${role.key}-title`}
-                  label="Rol adı"
-                  hint="3 ile 60 karakter."
+                  label="Beceri"
+                  hint="Örnek: arayüz tasarımı, veri analizi, devre tasarımı. 3 ile 60 karakter."
                   error={roleErrorFor(index, "title")}
                 >
                   <Input
@@ -381,12 +382,12 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
                   />
                 </Field>
 
-                <Field id={`role-${role.key}-discipline`} label="Disiplin" error={roleErrorFor(index, "disciplineGroup")}>
+                <Field id={`role-${role.key}-discipline`} label="Beceri alanı" error={roleErrorFor(index, "disciplineGroup")}>
                   <Select
                     value={role.disciplineGroup}
                     onChange={(event) => updateRole(role.key, { disciplineGroup: event.target.value })}
                   >
-                    <option value="">Disiplin seç</option>
+                    <option value="">Alan seç</option>
                     {DISCIPLINE_GROUPS.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.label}
@@ -446,7 +447,7 @@ export function ProjectForm({ action, initial = EMPTY_INITIAL, submitLabel, canc
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={addRole} disabled={roles.length >= MAX_ROLES}>
             <Plus aria-hidden="true" strokeWidth={1.75} className="size-5" />
-            Rol ekle
+            Beceri ekle
           </Button>
           {roles.length >= MAX_ROLES ? <Chip>En fazla {MAX_ROLES} rol</Chip> : null}
         </div>

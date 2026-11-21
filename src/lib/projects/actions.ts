@@ -119,8 +119,8 @@ async function addMemberInTx(
       where: { id: roleId },
       select: { projectId: true, slots: true, _count: { select: { members: true } } },
     });
-    if (!role || role.projectId !== projectId) throw new TxRefusal("Seçilen rol bu projeye ait değil.");
-    if (role._count.members >= role.slots) throw new TxRefusal("Bu rolün kontenjanı dolu.");
+    if (!role || role.projectId !== projectId) throw new TxRefusal("Seçilen beceri bu projeye ait değil.");
+    if (role._count.members >= role.slots) throw new TxRefusal("Bu beceri için aranan kişi sayısı doldu.");
   }
 
   await tx.projectMember.create({ data: { projectId, userId, roleId } });
@@ -241,10 +241,10 @@ export async function updateProjectAction(
     if (!role.id) continue;
     const members = existing.get(role.id);
     if (members === undefined) {
-      return fail("Rol bulunamadı. Sayfayı yenileyip tekrar dene.");
+      return fail("Beceri bulunamadı. Sayfayı yenileyip tekrar dene.");
     }
     if (keptIds.has(role.id)) {
-      return fail("Aynı rol iki kez gönderildi. Sayfayı yenileyip tekrar dene.");
+      return fail("Aynı beceri iki kez gönderildi. Sayfayı yenileyip tekrar dene.");
     }
     if (role.slots < members) {
       return fail(FORM_ERROR, {
@@ -256,7 +256,7 @@ export async function updateProjectAction(
 
   const removedIds = project.roles.map((role) => role.id).filter((id) => !keptIds.has(id));
   if (removedIds.some((id) => (existing.get(id) ?? 0) > 0)) {
-    return fail("Üyesi olan bir rol silinemez.");
+    return fail("Ekipte karşılığı olan bir beceri silinemez.");
   }
 
   const tags = toListJson(input.tags);
@@ -387,8 +387,8 @@ export async function applyToProjectAction(
   const roleId = parsed.data.roleId;
   if (roleId) {
     const role = project.roles.find((candidate) => candidate.id === roleId);
-    if (!role) return fail(FORM_ERROR, { roleId: "Seçilen rol bu projeye ait değil." });
-    if (role._count.members >= role.slots) return fail(FORM_ERROR, { roleId: "Bu rolün kontenjanı dolu." });
+    if (!role) return fail(FORM_ERROR, { roleId: "Seçilen beceri bu projeye ait değil." });
+    if (role._count.members >= role.slots) return fail(FORM_ERROR, { roleId: "Bu beceri için aranan kişi sayısı doldu." });
   }
 
   await db.joinRequest.create({
@@ -553,8 +553,8 @@ export async function inviteToProjectAction(_prev: FormState, formData: FormData
 
   if (input.roleId) {
     const role = project.roles.find((candidate) => candidate.id === input.roleId);
-    if (!role) return fail(FORM_ERROR, { roleId: "Seçilen rol bu projeye ait değil." });
-    if (role._count.members >= role.slots) return fail(FORM_ERROR, { roleId: "Bu rolün kontenjanı dolu." });
+    if (!role) return fail(FORM_ERROR, { roleId: "Seçilen beceri bu projeye ait değil." });
+    if (role._count.members >= role.slots) return fail(FORM_ERROR, { roleId: "Bu beceri için aranan kişi sayısı doldu." });
   }
 
   await db.projectInvite.create({

@@ -7,6 +7,7 @@ import { hasActiveConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
 import { parseList } from "@/lib/json-fields";
 import { AiConsentPanel } from "./ai-consent-panel";
+import { aiReviewEnabled } from "@/lib/verification/mode";
 import { AvatarField } from "./avatar-field";
 import { DeleteAccountForm } from "./delete-account-form";
 import { PasswordForm } from "./password-form";
@@ -81,14 +82,16 @@ export default async function Page() {
         <Card id="kvkk" className="scroll-mt-20 flex flex-col gap-5 p-4">
           <h2 className="t-section text-ink">Gizlilik ve KVKK</h2>
 
-          <section aria-labelledby="ai-rizasi" className="flex flex-col gap-3">
-            <h3 id="ai-rizasi" className="t-label text-ink">
-              Yapay zeka ile hızlı inceleme
-            </h3>
-            <AiConsentPanel active={aiActive} />
-          </section>
+          {aiReviewEnabled() ? (
+            <section aria-labelledby="ai-rizasi" className="flex flex-col gap-3 border-b border-line pb-5">
+              <h3 id="ai-rizasi" className="t-label text-ink">
+                Yapay zeka ile hızlı inceleme
+              </h3>
+              <AiConsentPanel active={aiActive} />
+            </section>
+          ) : null}
 
-          <section aria-labelledby="verilerim" className="flex flex-col gap-3 border-t border-line pt-5">
+          <section aria-labelledby="verilerim" className="flex flex-col gap-3">
             <h3 id="verilerim" className="t-label text-ink">
               Verilerin
             </h3>

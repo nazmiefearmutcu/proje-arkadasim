@@ -10,23 +10,23 @@ export interface SuggestionUser {
 const GUEST_SUGGESTIONS: readonly string[] = [
   "Yapay zeka projelerini ara…",
   "Mobil uygulama projesi ara…",
-  "Endüstriyel tasarımcı ara…",
+  "Endüstriyel tasarım becerisi ara…",
   "Girişim projelerini ara…",
 ];
 
 const ROLE_PHRASES: Record<DisciplineGroupId, string> = {
-  yazilim: "Yazılımcı ekip arkadaşı ara…",
-  elektronik: "Elektronik mühendisi ara…",
-  makine: "Makine mühendisi ara…",
-  endustri: "Endüstri mühendisi ara…",
-  mimarlik: "Mimar ara…",
-  tasarim: "Endüstriyel tasarımcı ara…",
-  isletme: "Pazarlama ve iş geliştirme ekip arkadaşı ara…",
-  saglik: "Sağlık alanından ekip arkadaşı ara…",
-  hukuk: "Hukukçu ekip arkadaşı ara…",
-  sosyal: "Sosyal bilimci ekip arkadaşı ara…",
-  temel: "Araştırmacı ekip arkadaşı ara…",
-  sanat: "Sanatçı ve içerik üreticisi ara…",
+  yazilim: "Yazılım geliştirme becerisi ara…",
+  elektronik: "Elektronik mühendisliği becerisi ara…",
+  makine: "Makine mühendisliği becerisi ara…",
+  endustri: "Endüstri mühendisliği becerisi ara…",
+  mimarlik: "Mimari tasarım becerisi ara…",
+  tasarim: "Endüstriyel tasarım becerisi ara…",
+  isletme: "Pazarlama ve iş geliştirme becerisi ara…",
+  saglik: "Sağlık alanında beceri ara…",
+  hukuk: "Hukuki danışmanlık becerisi ara…",
+  sosyal: "Sosyal araştırma becerisi ara…",
+  temel: "Bilimsel araştırma becerisi ara…",
+  sanat: "Sanat ve içerik üretimi becerisi ara…",
 };
 
 // Ünlü uyumu ve sert ünsüz benzeşmesi: son sesli harf ön ise "de/te", arka ise "da/ta".
@@ -94,7 +94,7 @@ export function getSearchSuggestions(user: SuggestionUser | null): string[] {
 export function suggestionToQuery(suggestion: string): string {
   let text = suggestion.trim().replace(/(…|\.\.\.)$/, "").trim();
   text = text.replace(/\s+ara$/, "").trim();
-  text = text.replace(/\s+(projelerini|projeleri|projesi)$/, "").trim();
+  text = text.replace(/\s+(projelerini|projeleri|projesi|becerisi)$/, "").trim();
 
   const quoted = /^'(.+)'$/.exec(text);
   if (quoted) return quoted[1].trim();

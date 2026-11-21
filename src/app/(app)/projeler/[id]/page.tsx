@@ -144,10 +144,10 @@ export default async function Page({
           {project.roles.length > 0 ? (
             <div className="border-t-[1.5px] border-dashed border-perf bg-surface-2 p-6">
               <p className="mb-3 text-[12px] font-[500] text-ink-2">
-                Aşağıdaki şeritlerden sana uyan görevi kopar.{" "}
-                {openRoleCount} görev aranıyor, {project.roles.length - openRoleCount} tanesi doldu.
+                Bu projede aranan beceriler. {openRoleCount} açık,{" "}
+                {project.roles.length - openRoleCount} tanesi için ekip tamamlandı.
               </p>
-              <ul aria-label="Aranan roller" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <ul aria-label="Aranan beceriler" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {project.roles.map((role) => (
                   <li key={role.id} className="flex min-w-0">
                     <RoleStrip
@@ -155,7 +155,7 @@ export default async function Page({
                       disciplineGroup={role.disciplineGroup}
                       full={role.full}
                       description={role.description}
-                      footer={role.full ? "Ekibe katıldı" : `${role.filled}/${role.slots} dolu`}
+                      footer={role.full ? "Ekip tamamlandı" : `${role.slots} kişi aranıyor, ${role.filled} bulundu`}
                       className="w-full"
                     />
                   </li>

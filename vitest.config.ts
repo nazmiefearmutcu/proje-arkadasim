@@ -16,6 +16,8 @@ export default defineConfig({
     // Testler ayrı bir SQLite dosyası kullanır; geliştirme veritabanına dokunmaz.
     env: {
       DATABASE_URL: testDatabaseUrl,
+      // Yapay zeka yolunun testleri için "ai" modu; editör modu ayrı testte açıkça seçilir.
+      VERIFICATION_MODE: "ai",
     },
     globalSetup: "./tests/global-setup.ts",
     // Tek SQLite dosyası paylaşıldığı için test dosyaları sırayla çalışır.

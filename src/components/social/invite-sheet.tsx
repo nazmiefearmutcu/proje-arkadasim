@@ -97,9 +97,9 @@ function InviteForm({
           ))}
         </Select>
       </Field>
-      <Field id="invite-role" label="Rol" error={fieldErrors.roleId}>
+      <Field id="invite-role" label="Beceri" error={fieldErrors.roleId}>
         <Select name="roleId" value={roleId} onChange={(event) => setRoleId(event.target.value)}>
-          <option value="">Rol fark etmez</option>
+          <option value="">Beceri fark etmez</option>
           {(project?.roles ?? []).map((role) => (
             <option key={role.id} value={role.id} disabled={role.openSlots === 0}>
               {role.openSlots === 0 ? `${role.title} (dolu)` : role.title}

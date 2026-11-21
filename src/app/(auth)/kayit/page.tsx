@@ -1,3 +1,4 @@
+import { aiReviewEnabled } from "@/lib/verification/mode";
 import { redirect } from "next/navigation";
 import { RegisterForm } from "@/components/auth/register-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -13,7 +14,7 @@ export default async function Page() {
   return (
     <>
       <PageHeader title="Kayıt ol" description="Hesabını oluştur, sonra belgeni doğrulayalım." />
-      <RegisterForm />
+      <RegisterForm aiReview={aiReviewEnabled()} />
       <div className="mt-8 flex flex-col gap-3 border-t border-line pt-6">
         <p className="t-meta text-ink-3">Zaten hesabın var mı?</p>
         <ButtonLink href="/giris" variant="secondary" className="w-full">

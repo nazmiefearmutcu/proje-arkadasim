@@ -54,7 +54,7 @@ export function ProjectActions({ projectId, viewerState, pendingRequestId, roles
 
       {viewerState === "open" ? (
         <>
-          <p className="t-meta text-ink-2">Rol seçip motivasyonunu yazabilirsin.</p>
+          <p className="t-meta text-ink-2">Hangi beceriyle katılacağını seçip kendini kısaca anlatabilirsin.</p>
           <Button onClick={() => setSheetOpen(true)}>Projeye katıl</Button>
           {/* Panel bağlı kalır; kapanınca dialog.close() odağı "Projeye katıl" düğmesine geri verir. */}
           <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Projeye katıl">
@@ -141,9 +141,9 @@ function ApplyForm({ projectId, roles }: ApplyFormProps) {
         </p>
       ) : null}
 
-      <Field id="apply-role" label="Rol" hint="İstersen bir rol seç. Rol fark etmezse boş bırak." error={fieldErrors.roleId}>
+      <Field id="apply-role" label="Beceri" hint="İstersen bir beceri seç. Fark etmezse boş bırak." error={fieldErrors.roleId}>
         <Select name="roleId" value={roleId} onChange={(event) => setRoleId(event.target.value)}>
-          <option value="">Rol fark etmez</option>
+          <option value="">Beceri fark etmez</option>
           {openRoles.map((role) => (
             <option key={role.id} value={role.id}>
               {role.title}

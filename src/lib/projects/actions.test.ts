@@ -183,7 +183,7 @@ describe("updateProjectAction", () => {
       roles: [{ id: project.roles.find((role) => role.title === "Geliştirici")?.id, title: "Geliştirici", disciplineGroup: "yazilim", slots: 1, description: "" }],
     });
     const result = await updateProjectAction(project.id, null, formWith(payload));
-    expect(result).toEqual({ ok: false, error: "Üyesi olan bir rol silinemez." });
+    expect(result).toEqual({ ok: false, error: "Ekipte karşılığı olan bir beceri silinemez." });
     expect(await db.projectRole.count({ where: { projectId: project.id } })).toBe(2);
   });
 });
@@ -262,7 +262,7 @@ describe("decideApplicationAction", () => {
     expect(await decideApplicationAction(firstRequest.id, "ACCEPT")).toEqual({ ok: true });
     expect(await decideApplicationAction(secondRequest.id, "ACCEPT")).toEqual({
       ok: false,
-      error: "Bu rolün kontenjanı dolu.",
+      error: "Bu beceri için aranan kişi sayısı doldu.",
     });
     expect(await db.projectMember.count({ where: { projectId: project.id, roleId: role?.id } })).toBe(1);
   });
@@ -401,7 +401,7 @@ describe("invites", () => {
     await db.projectMember.create({ data: { projectId: project.id, userId: (await createUser()).id, roleId: role?.id } });
     await asViewer(invitee);
 
-    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({ ok: false, error: "Bu rolün kontenjanı dolu." });
+    expect(await respondToInviteAction(invite.id, "ACCEPT")).toEqual({ ok: false, error: "Bu beceri için aranan kişi sayısı doldu." });
   });
 });
 

@@ -22,7 +22,7 @@ export interface DecisionInput {
 }
 
 export const REASON_REUSED = "Bu belge başka bir hesabın doğrulamasında kullanılmış.";
-export const REASON_REVIEW = "Belgen ekibimiz tarafından incelenecek. Sonucu en geç 24 saat içinde bildireceğiz.";
+export const REASON_REVIEW = "Belgen editörlerimiz tarafından incelenecek. Sonucu en geç 24 saat içinde bildireceğiz.";
 export const REASON_NOT_EDUCATION =
   "Yüklediğin dosya öğrenci belgesi veya mezun belgesi gibi görünmüyor. e-Devlet'ten aldığın belgeyi yükle.";
 export const REASON_NAME_MISMATCH =

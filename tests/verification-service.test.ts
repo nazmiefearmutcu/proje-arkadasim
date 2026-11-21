@@ -320,6 +320,23 @@ describe("belge doğrulama servisi", () => {
     assertDocumentNotPersisted(original, before);
   });
 
+  it("editör modunda rıza olsa bile otomatik onay yoktur: belge editör kuyruğuna düşer", async () => {
+    vi.stubEnv("VERIFICATION_MODE", "editor");
+    try {
+      const user = await unverifiedUser();
+      await recordConsent(user.id, "CROSS_BORDER_AI", true);
+      const outcome = await verifyDocument({ userId: user.id, bytes: await buildStudentPdf() });
+      expect(outcome.status).toBe("MANUAL_REVIEW");
+      const refreshed = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(refreshed.verificationStatus).toBe("MANUAL_REVIEW");
+      const attempt = await db.verificationAttempt.findFirstOrThrow({ where: { userId: user.id } });
+      expect(attempt.status).toBe("MANUAL_REVIEW");
+      expect(attempt.aiUsed).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("rıza yoksa manuel incelemeye gider ve maskeli metni süreli saklar", async () => {
     const user = await unverifiedUser();
 

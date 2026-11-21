@@ -13,11 +13,11 @@ export function disciplineLabel(id: string): string {
 export interface RoleStripProps {
   title: string;
   disciplineGroup: string;
-  /** Kontenjanı dolmuş rol: gri "Şerit dolu" kutusu olarak görünür. */
+  /** Aranan kişi sayısı dolmuş beceri: gri "Bulundu" kutusu olarak görünür. */
   full: boolean;
   /** Şeridin açıklaması (proje sayfası). */
   description?: string | null;
-  /** Açık şeridin "Şeridi kopar" bağlantısı. Verilmezse düğme yerine `footer` gösterilir. */
+  /** Açık becerinin "Başvur" bağlantısı. Verilmezse düğme yerine `footer` gösterilir. */
   href?: string;
   /** Açık ya da dolu şeridin alt satırı (ör. kontenjan, "Ekibe katıldı"). */
   footer?: ReactNode;
@@ -25,9 +25,9 @@ export interface RoleStripProps {
 }
 
 /**
- * Koparmalı rol şeridi: projenin aradığı bir rol, rengi rolün disiplini. Disiplin adı şeritte yazıyla
- * da durur (renk tek başına bilgi taşımaz). Şerit üzerindeki yazı her disiplin renginde koyu mürekkeptir
- * (en az 4.5:1, tests/design-tokens.test.ts). Dolu rol gri bir "Şerit dolu" kutusudur.
+ * Beceri şeridi: projenin aradığı bir beceri (rol = beceri, unvan ya da bölüm değil). Rengi becerinin
+ * alanını gösterir ama bilgi beceri adındadır; renk tek başına anlam taşımaz. Şerit üzerindeki yazı her
+ * alan renginde koyu mürekkeptir (en az 4.5:1). Karşılığı bulunan beceri gri bir "Bulundu" kutusudur.
  */
 export function RoleStrip({ title, disciplineGroup, full, description, href, footer, className }: RoleStripProps) {
   if (full) {
@@ -40,13 +40,13 @@ export function RoleStrip({ title, disciplineGroup, full, description, href, foo
       >
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="t-mono tracking-wider text-ink-3 uppercase">Şerit dolu</span>
+            <span className="t-mono tracking-wider text-ink-3 uppercase">Bulundu</span>
             <Check aria-hidden="true" strokeWidth={2} className="size-3.5 text-ink-3" />
           </div>
           <h4 className="font-display text-[14px] leading-snug font-[700] text-ink-2 [overflow-wrap:anywhere]">{title}</h4>
-          <p className="text-[12px] leading-relaxed text-ink-2">Bu şerit koparıldı.</p>
+          <p className="text-[12px] leading-relaxed text-ink-2">Bu beceri için ekip tamamlandı.</p>
         </div>
-        <div className="t-mono mt-3 border-t border-perf pt-2 text-ink-3">{footer ?? "Ekibe katıldı"}</div>
+        <div className="t-mono mt-3 border-t border-perf pt-2 text-ink-3">{footer ?? "Ekip tamamlandı"}</div>
       </div>
     );
   }
@@ -62,10 +62,7 @@ export function RoleStrip({ title, disciplineGroup, full, description, href, foo
       style={known ? { background: `var(--d-${disciplineGroup})` } : undefined}
     >
       <div className="flex flex-col gap-1">
-        <span className="w-fit rounded-chip bg-white/60 px-1.5 py-0.5 text-[11px] leading-tight font-[600]">
-          {disciplineLabel(disciplineGroup)}
-        </span>
-        <h4 className="font-display text-[14px] leading-snug font-[700] [overflow-wrap:anywhere]">{title}</h4>
+        <h4 className="font-display text-[15px] leading-snug font-[700] [overflow-wrap:anywhere]">{title}</h4>
         {description ? (
           <p className="text-[12px] leading-relaxed text-ink/80 [overflow-wrap:anywhere]">{description}</p>
         ) : null}
@@ -78,7 +75,7 @@ export function RoleStrip({ title, disciplineGroup, full, description, href, foo
             focusRing,
           )}
         >
-          Şeridi kopar
+          Başvur
         </Link>
       ) : footer ? (
         <div className="mt-3 text-[12px] font-[600]">{footer}</div>

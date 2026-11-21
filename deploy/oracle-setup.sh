@@ -53,6 +53,7 @@ if [ ! -f "$ENV_FILE" ]; then
 SITE_ADDRESS=${SITE}
 APP_URL=https://${SITE}
 NODE_ENV=production
+VERIFICATION_MODE=editor
 VERIFIER_PROVIDER=openai
 OPENAI_API_KEY=${OPENAI_KEY}
 OPENAI_MODEL=gpt-5.6-luna

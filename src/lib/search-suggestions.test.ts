@@ -4,7 +4,7 @@ import { getSearchSuggestions, locativeTr, suggestionToQuery } from "./search-su
 const GUEST = [
   "Yapay zeka projelerini ara…",
   "Mobil uygulama projesi ara…",
-  "Endüstriyel tasarımcı ara…",
+  "Endüstriyel tasarım becerisi ara…",
   "Girişim projelerini ara…",
 ];
 
@@ -16,9 +16,9 @@ describe("getSearchSuggestions", () => {
   it("gives a yazilim user the complement phrases tasarim, isletme and elektronik", () => {
     const list = getSearchSuggestions({ disciplineGroup: "yazilim", interestsJson: "[]", city: null });
     expect(list).toEqual([
-      "Endüstriyel tasarımcı ara…",
-      "Pazarlama ve iş geliştirme ekip arkadaşı ara…",
-      "Elektronik mühendisi ara…",
+      "Endüstriyel tasarım becerisi ara…",
+      "Pazarlama ve iş geliştirme becerisi ara…",
+      "Elektronik mühendisliği becerisi ara…",
       // Üç tamamlayıcı tek başına 4'e ulaşmaz; ilk genel öneri tamamlar.
       "Yapay zeka projelerini ara…",
     ]);
@@ -57,15 +57,15 @@ describe("getSearchSuggestions", () => {
 
 describe("suggestionToQuery", () => {
   it.each([
-    ["Endüstriyel tasarımcı ara…", "Endüstriyel tasarımcı"],
+    ["Endüstriyel tasarım becerisi ara…", "Endüstriyel tasarım"],
     ["'yapay zeka' projelerini ara…", "yapay zeka"],
     ["'robotik' projelerini ara…", "robotik"],
     ["İzmir'deki projeleri ara…", "İzmir"],
     ["Sivas'taki projeleri ara…", "Sivas"],
     ["Mobil uygulama projesi ara…", "Mobil uygulama"],
     ["Girişim projelerini ara…", "Girişim"],
-    ["Mimar ara…", "Mimar"],
-    ["Pazarlama ve iş geliştirme ekip arkadaşı ara…", "Pazarlama ve iş geliştirme ekip arkadaşı"],
+    ["Mimari tasarım becerisi ara…", "Mimari tasarım"],
+    ["Pazarlama ve iş geliştirme becerisi ara…", "Pazarlama ve iş geliştirme"],
   ])("%s becomes %s", (suggestion, query) => {
     expect(suggestionToQuery(suggestion)).toBe(query);
   });

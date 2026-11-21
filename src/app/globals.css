@@ -328,3 +328,16 @@ body:has([data-bleed]) .app-content {
   .bubble-in { opacity: 1; }
   .check-pop { transform: none; opacity: 1; }
 }
+
+/* Disiplin tablosu: yanan kutudan projeye inen çizgi baştan sona çizilir. */
+.matrix-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: matrix-line 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards;
+}
+@keyframes matrix-line {
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .matrix-line { stroke-dashoffset: 0; }
+}

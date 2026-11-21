@@ -10,6 +10,7 @@ import { MASKED_TEXT_RETENTION_DAYS } from "@/config/legal";
 import { requireUser } from "@/lib/auth/guards";
 import { hasActiveConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
+import { aiReviewEnabled } from "@/lib/verification/mode";
 
 export const metadata = { title: "Belge doğrulama" };
 
@@ -43,7 +44,8 @@ export default async function Page({
   const remaining = Math.max(0, DAILY_ATTEMPT_LIMIT - usedInWindow);
   const status = user.verificationStatus;
   const showUploader = status !== "VERIFIED" && status !== "MANUAL_REVIEW" && status !== "PENDING";
-  const showConsent = showUploader && !aiConsent;
+  const aiMode = aiReviewEnabled();
+  const showConsent = aiMode && showUploader && !aiConsent;
 
   return (
     <>
@@ -171,11 +173,11 @@ export default async function Page({
             {/* Rıza kararı yüklemeden önce verilir; yükleyicinin adım listesi bu karara göre değişir. */}
             {showConsent ? <ConsentPanel /> : null}
 
-            <Uploader aiConsent={aiConsent} remaining={remaining} />
+            <Uploader aiConsent={aiMode && aiConsent} remaining={remaining} />
           </>
         ) : null}
 
-        {showUploader && aiConsent ? (
+        {aiMode && showUploader && aiConsent ? (
           <p className="t-meta text-ink-3">
             Hızlı inceleme açık. Rızanı Ayarlar&apos;dan geri alabilirsin.
           </p>

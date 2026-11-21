@@ -66,7 +66,7 @@ export function OwnerPanel({ projectId, status, roles, requests, invites, member
                 <li key={request.id} className="flex flex-col gap-2 py-2">
                   <UserRow person={request.person} name={request.name} />
                   <div className="flex flex-wrap items-center gap-2">
-                    {request.roleTitle ? <Chip>{request.roleTitle}</Chip> : <Chip>Rol fark etmez</Chip>}
+                    {request.roleTitle ? <Chip>{request.roleTitle}</Chip> : <Chip>Beceri fark etmez</Chip>}
                   </div>
                   <p className="t-body whitespace-pre-line text-ink-2">{request.message}</p>
                   <div className="flex gap-2">
@@ -111,7 +111,7 @@ export function OwnerPanel({ projectId, status, roles, requests, invites, member
                 <UserRow
                   person={invite.person}
                   name={invite.name}
-                  reason={invite.roleTitle ? `Rol: ${invite.roleTitle}` : "Rol fark etmez"}
+                  reason={invite.roleTitle ? `Rol: ${invite.roleTitle}` : "Beceri fark etmez"}
                   action={
                     <Button
                       variant="ghost"
@@ -297,9 +297,9 @@ function InvitePanel({ projectId, roles, onClose }: InvitePanelProps) {
             </p>
           ) : null}
           {fieldErrors.username ? <p className="t-meta text-danger">{fieldErrors.username}</p> : null}
-          <Field id="invite-role" label="Rol" error={fieldErrors.roleId}>
+          <Field id="invite-role" label="Beceri" error={fieldErrors.roleId}>
             <Select name="roleId" value={roleId} onChange={(event) => setRoleId(event.target.value)}>
-              <option value="">Rol fark etmez</option>
+              <option value="">Beceri fark etmez</option>
               {roles.map((role) => (
                 <option key={role.id} value={role.id} disabled={role.full}>
                   {role.full ? `${role.title} (dolu)` : role.title}
