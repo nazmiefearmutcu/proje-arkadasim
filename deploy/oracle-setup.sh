@@ -8,9 +8,11 @@ REPO="https://github.com/nazmiefearmutcu/proje-arkadasim.git"
 DIR="$HOME/proje-arkadasim"
 
 echo "==> Paketler (Docker, git)"
-sudo apt-get update -y
-sudo apt-get install -y docker.io docker-compose-v2 git openssl iptables-persistent || \
-  sudo apt-get install -y docker.io docker-compose-plugin git openssl iptables-persistent
+# Etkileşimsiz kurulum: iptables-persistent "kuralları kaydet?" sorusu betiği bekletmesin.
+APT="sudo DEBIAN_FRONTEND=noninteractive apt-get"
+$APT update -y
+$APT install -y docker.io docker-compose-v2 git openssl iptables-persistent || \
+  $APT install -y docker.io docker-compose-plugin git openssl iptables-persistent
 sudo systemctl enable --now docker
 
 echo "==> Takas alanı (küçük VM'lerde derleme belleği için 2 GB)"
