@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-const DEFAULT_FROM = "Proje Arkadaşım <no-reply@proje-arkadasim.local>";
+const DEFAULT_FROM = "ProBuddy <no-reply@proje-arkadasim.local>";
 
 export interface MailInput {
   to: string;

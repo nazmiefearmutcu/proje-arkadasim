@@ -1,6 +1,6 @@
-# Proje Arkadaşım
+# ProBuddy
 
-Proje Arkadaşım, Türkiye'de üniversite okuyan veya mezun olmuş kişilerin proje paylaşıp projelere
+ProBuddy (Proje arkadaşını bul), Türkiye'de üniversite okuyan veya mezun olmuş kişilerin proje paylaşıp projelere
 katılabildiği, telefonda rahat kullanılan bir web uygulamasıdır. Herkes projeleri gezebilir; proje
 paylaşmak, başvurmak, takip etmek ve mesajlaşmak için hesabın belge ile doğrulanmış olması gerekir.
 Belge doğrulaması, öğrenci ya da mezuniyet belgesinin yerel olarak okunup maskelenmesiyle yapılır.

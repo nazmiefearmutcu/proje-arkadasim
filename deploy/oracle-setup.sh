@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Proje Arkadaşım — Oracle Cloud Always Free (Ubuntu 22.04/24.04) tek komutluk kurulum.
+# ProBuddy — Oracle Cloud Always Free (Ubuntu 22.04/24.04) tek komutluk kurulum.
 # Kullanım (VM'de):  curl -fsSL https://raw.githubusercontent.com/nazmiefearmutcu/proje-arkadasim/main/deploy/oracle-setup.sh -o setup.sh && bash setup.sh
 # Tekrar çalıştırmak güvenlidir: kodu günceller, ayarları korur, yeniden derler.
 set -euo pipefail

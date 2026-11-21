@@ -19,8 +19,8 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s · Proje Arkadaşım",
-    default: "Proje Arkadaşım",
+    template: "%s · ProBuddy",
+    default: "ProBuddy · Proje arkadaşını bul",
   },
   description:
     "Doğrulanmış üniversite öğrencileri ve mezunları için proje paylaşma ve ekip kurma platformu.",

@@ -13,7 +13,7 @@ export default function GlobalError() {
   return (
     <html lang="tr">
       <body className="bg-paper text-ink antialiased" style={{ fontFamily: "system-ui, sans-serif" }}>
-        <title>Bir hata oluştu · Proje Arkadaşım</title>
+        <title>Bir hata oluştu · ProBuddy</title>
         <main className="mx-auto flex min-h-dvh w-full max-w-[640px] flex-col items-center justify-center gap-3 px-4 py-10 text-center">
           <h1 className="t-card text-ink">Sayfa yüklenemedi</h1>
           <p className="t-body max-w-[68ch] text-ink-2">

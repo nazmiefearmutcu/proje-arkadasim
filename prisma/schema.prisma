@@ -1,4 +1,4 @@
-// Proje Arkadaşım veri modeli (spec §7).
+// ProBuddy veri modeli (spec §7).
 // SQLite: enum yok, dizi yok. Enum benzeri alanlar String, listeler JSON metin.
 
 generator client {

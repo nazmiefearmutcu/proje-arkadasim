@@ -26,12 +26,12 @@ export function PandaHero({ className }: { className?: string }) {
   return <Image src={pandaLargeDark} alt="" className={cn("h-auto w-full", className)} sizes="(min-width: 640px) 256px, 192px" />;
 }
 
-/** Marka: panda işareti ve ad. Yazının rengini çağıran taraf verir. */
+/** Marka: panda işareti ve PROBUDDY yazısı (logo paketindeki gibi büyük harf, geniş aralık). Yazının rengini çağıran taraf verir. */
 export function Logo({ className, onLight = false }: { className?: string; onLight?: boolean }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <LogoMark onLight={onLight} />
-      <span className="font-display text-[16px] leading-none font-[700] tracking-tight whitespace-nowrap">Proje Arkadaşım</span>
+      <span className="font-display text-[16px] leading-none font-[800] tracking-[0.14em] whitespace-nowrap">PROBUDDY</span>
     </span>
   );
 }
