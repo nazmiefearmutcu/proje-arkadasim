@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { chipClasses } from "@/components/ui/chip-classes";
-import { focusRingInverse } from "@/components/ui/styles";
+import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/cn";
 import { suggestionToQuery } from "@/lib/search-suggestions";
 
@@ -100,8 +100,8 @@ function SearchField({ suggestions }: SearchBarProps) {
             if (event.key === "Escape") setOpen(false);
           }}
           className={cn(
-            "h-11 w-full rounded-control border border-white/20 bg-surface pr-4 pl-10 text-[16px] text-ink lg:h-10 lg:text-[14px] [&::-webkit-search-cancel-button]:appearance-none",
-            focusRingInverse,
+            "h-11 w-full rounded-control border border-transparent bg-black/[0.05] pr-4 pl-10 text-[16px] text-ink lg:h-10 lg:text-[14px] [&::-webkit-search-cancel-button]:appearance-none",
+            focusRing,
           )}
         />
         {value.length === 0 && hint ? (

@@ -3,7 +3,7 @@
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { focusRingInverse } from "@/components/ui/styles";
+import { focusRing } from "@/components/ui/styles";
 import type { Counters } from "@/lib/counters";
 import { cn } from "@/lib/cn";
 import { useCounters } from "./use-counters";
@@ -23,12 +23,12 @@ export function NotificationBell({ initial }: NotificationBellProps) {
       href={signedIn ? "/bildirimler" : "/giris?next=/bildirimler"}
       aria-label={unread > 0 ? `Bildirimler, ${unread} okunmamış` : "Bildirimler"}
       className={cn(
-        "relative inline-flex size-11 shrink-0 items-center justify-center rounded-control text-pen-ink hover:bg-white/10 lg:size-10",
-        focusRingInverse,
+        "relative inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink hover:bg-black/[0.06] lg:size-10",
+        focusRing,
       )}
     >
       <Bell aria-hidden="true" strokeWidth={1.75} className="size-5" />
-      <Badge count={unread} tone="inverse" className="absolute top-1 right-0.5" />
+      <Badge count={unread} className="absolute top-1 right-0.5" />
     </Link>
   );
 }

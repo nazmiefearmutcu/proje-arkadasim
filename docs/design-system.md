@@ -12,7 +12,7 @@ the roles the team is looking for. A strip's colour is the role's discipline; a 
 
 ## Colour
 
-Black and white carry the interface: the top bar, primary buttons, the selected state and the landing
+Black and white carry the interface: primary buttons, the selected state and the landing
 panels are black (`pen` = `#0d1117`), content sits on white cards over a light grey ground. Colour is kept
 only where it means something:
 
@@ -60,7 +60,8 @@ Avatars are squares with 2 px corners. Touch targets are at least 44 px on phone
 
 ## Shell
 
-- Top bar (60 px, black): logo, white search box, notification bell, profile chip (square avatar + first
+- Top bar (60 px, light and translucent: white at 75 % with a backdrop blur, hairline bottom border): logo,
+  grey search field, notification bell, profile chip (square avatar + first
   name).
 - Desktop (`lg`): fixed white side menu, 230 px, full height, under the top bar; "Proje paylaş" below a
   divider; "Ayarlar" pinned at the bottom. Content starts at 230 px.

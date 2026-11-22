@@ -20,7 +20,7 @@ import { VERIFICATION_STATUSES, labelOf } from "@/config/taxonomy";
 import { Avatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
-import { focusRing, focusRingInverse } from "@/components/ui/styles";
+import { focusRing } from "@/components/ui/styles";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/cn";
 
@@ -83,23 +83,23 @@ export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
         aria-label={user ? "Hesap menüsünü aç" : "Misafir menüsünü aç"}
         aria-haspopup="dialog"
         className={cn(
-          "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-control lg:h-10 lg:border lg:border-white/15 lg:bg-white/10 lg:pr-3 lg:pl-1.5 lg:hover:bg-white/15",
-          focusRingInverse,
+          "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-control lg:h-10 lg:border lg:border-black/[0.08] lg:bg-black/[0.04] lg:pr-3 lg:pl-1.5 lg:hover:bg-black/[0.08]",
+          focusRing,
         )}
       >
         {user ? (
           <>
             <Avatar name={user.name} seed={user.username} avatarPath={user.avatarPath} disciplineGroup={user.disciplineGroup} size={28} />
-            <span className="hidden max-w-[12em] truncate text-[13px] font-[600] text-pen-ink lg:inline">
+            <span className="hidden max-w-[12em] truncate text-[13px] font-[600] text-ink lg:inline">
               {user.name.split(" ")[0]}
             </span>
           </>
         ) : (
           <>
-            <span className="inline-flex size-8 items-center justify-center rounded-control bg-white/15 text-pen-ink">
+            <span className="inline-flex size-8 items-center justify-center rounded-control bg-black/[0.06] text-ink">
               <UserRound aria-hidden="true" strokeWidth={1.75} className="size-5" />
             </span>
-            <span className="hidden text-[13px] font-[600] text-pen-ink lg:inline">Hesap</span>
+            <span className="hidden text-[13px] font-[600] text-ink lg:inline">Hesap</span>
           </>
         )}
       </button>
