@@ -1,5 +1,6 @@
 import Image from "next/image";
 import pandaLargeDark from "@/assets/brand/panda-large-dark.png";
+import pandaLargeLight from "@/assets/brand/panda-large-light.png";
 import pandaMark from "@/assets/brand/panda-mark.png";
 import pandaMarkDark from "@/assets/brand/panda-mark-dark.png";
 import { cn } from "@/lib/cn";
@@ -21,9 +22,16 @@ export function LogoMark({ className, onLight = false }: { className?: string; o
   );
 }
 
-/** Büyük, kürk dokulu panda (koyu zemin). */
-export function PandaHero({ className }: { className?: string }) {
-  return <Image src={pandaLargeDark} alt="" className={cn("h-auto w-full", className)} sizes="(min-width: 640px) 256px, 192px" />;
+/** Büyük panda. `onLight` beyaz zemin için siyah sürümü, aksi halde koyu zemin için kürk dokulu negatifi seçer. */
+export function PandaHero({ className, onLight = false }: { className?: string; onLight?: boolean }) {
+  return (
+    <Image
+      src={onLight ? pandaLargeLight : pandaLargeDark}
+      alt=""
+      className={cn("h-auto w-full", className)}
+      sizes="(min-width: 640px) 256px, 192px"
+    />
+  );
 }
 
 /** Marka: panda işareti ve PROBUDDY yazısı (logo paketindeki gibi büyük harf, geniş aralık). Yazının rengini çağıran taraf verir. */

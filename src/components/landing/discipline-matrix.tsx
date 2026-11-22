@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
-// Her alanın kendi rengi. Koyu zeminde parlak görünmeleri için doygun ve açık tonlar.
+// Her alanın kendi rengi. Beyaz zeminde okunmaları için doygun ve koyu tonlar (yazı olarak 4.5:1 üstü).
 const FIELDS = [
-  { id: "yazilim", label: "Yazılım", color: "#38bdf8" },
-  { id: "tasarim", label: "Tasarım", color: "#f472b6" },
-  { id: "elektronik", label: "Elektronik", color: "#fb923c" },
-  { id: "biyoloji", label: "Biyoloji", color: "#a3e635" },
-  { id: "hukuk", label: "Hukuk", color: "#facc15" },
-  { id: "isletme", label: "İşletme", color: "#34d399" },
-  { id: "mimarlik", label: "Mimarlık", color: "#c084fc" },
-  { id: "saglik", label: "Sağlık", color: "#f87171" },
+  { id: "yazilim", label: "Yazılım", color: "#0369a1" },
+  { id: "tasarim", label: "Tasarım", color: "#be185d" },
+  { id: "elektronik", label: "Elektronik", color: "#c2410c" },
+  { id: "biyoloji", label: "Biyoloji", color: "#4d7c0f" },
+  { id: "hukuk", label: "Hukuk", color: "#a16207" },
+  { id: "isletme", label: "İşletme", color: "#047857" },
+  { id: "mimarlik", label: "Mimarlık", color: "#7e22ce" },
+  { id: "saglik", label: "Sağlık", color: "#b91c1c" },
 ] as const;
 
 type FieldId = (typeof FIELDS)[number]["id"];
@@ -126,7 +126,7 @@ export function DisciplineMatrix() {
             strokeLinejoin="round"
             pathLength={1}
             className="matrix-line"
-            style={{ filter: `drop-shadow(0 0 4px ${c.color})` }}
+            style={{ filter: `drop-shadow(0 0 3px ${c.color}66)` }}
           />
         ))}
       </svg>
@@ -134,12 +134,12 @@ export function DisciplineMatrix() {
       <Row items={top} lit={scene.lit} tileRefs={tileRefs} />
       <div className="relative my-7 flex h-20 items-center justify-center sm:my-14 sm:h-32">
         <div
-          className="matrix-halo absolute inset-x-8 inset-y-0 rounded-full opacity-60 blur-3xl"
-          style={{ background: `radial-gradient(closest-side, ${litColors[0]}55, ${litColors[1] ?? litColors[0]}22, transparent)` }}
+          className="matrix-halo absolute inset-x-8 inset-y-0 rounded-full opacity-50 blur-3xl"
+          style={{ background: `radial-gradient(closest-side, ${litColors[0]}33, ${litColors[1] ?? litColors[0]}14, transparent)` }}
         />
         <p
           key={index}
-          className="matrix-project relative z-10 max-w-[70%] text-center font-display text-[19px] leading-tight font-[700] tracking-tight text-balance text-white sm:max-w-[80%] sm:text-[40px]"
+          className="matrix-project relative z-10 max-w-[70%] text-center font-display text-[19px] leading-tight font-[700] tracking-tight text-balance text-ink sm:max-w-[80%] sm:text-[40px]"
         >
           {/* Ölçüm satır içi öğeden yapılır: blok kutu değil, görünen yazının genişliği hedeflenir. */}
           <span ref={projectRef}>{scene.project}</span>
@@ -171,15 +171,16 @@ function Row({
               else tileRefs.current.delete(item.id);
             }}
             className={cn(
-              "relative overflow-hidden rounded-[3px] border bg-pen px-1 py-3 text-center transition-all duration-700 sm:px-4 sm:py-6",
-              on ? "matrix-on" : "border-white/10",
+              "relative overflow-hidden rounded-[3px] border bg-surface px-1 py-3 text-center transition-all duration-700 sm:px-4 sm:py-6",
+              on ? "matrix-on" : "border-line",
             )}
             style={
               on
                 ? {
                     borderColor: item.color,
                     color: item.color,
-                    boxShadow: `0 0 28px -4px ${item.color}, inset 0 0 22px -12px ${item.color}`,
+                    background: `${item.color}0f`,
+                    boxShadow: `0 10px 30px -10px ${item.color}80, 0 0 0 1px ${item.color}`,
                   }
                 : undefined
             }
@@ -187,9 +188,9 @@ function Row({
             <span
               className={cn(
                 "relative z-10 block truncate font-display text-[12.5px] font-[700] tracking-tight transition-colors duration-700 min-[400px]:text-[13.5px] sm:text-[20px]",
-                on ? "" : "text-white/30",
+                on ? "" : "text-ink-3/60",
               )}
-              style={on ? { textShadow: `0 0 18px ${item.color}` } : undefined}
+              style={on ? { textShadow: `0 0 14px ${item.color}40` } : undefined}
             >
               {item.label}
             </span>

@@ -75,13 +75,13 @@ Avatars are squares with 2 px corners. Touch targets are at least 44 px on phone
   optional description and a black "Başvur" link; a filled skill is the grey "Bulundu" box. Cards show
   the owner's university but not the department.
 - `VerifiedLine` (green tick + text) and `VerifiedStamp` (green square seal).
-- Landing (`components/landing`): Apple-style full-screen sections, each one colour (black or white), one
-  headline and almost no copy. A page that contains `data-bleed` hides the side menu and spans the full
-  width. Screens: hero with the auto-cycling discipline matrix (dim tiles have no colour; lit tiles glow in
-  their own colour with a shine, and the centre shows a project those disciplines could build), tearing
+- Landing (`components/landing`): Apple-style full-screen sections on a white ground with black type,
+  alternating `#ffffff` and `#f5f5f7`, one headline and almost no copy; black pill buttons. A page that contains `data-bleed` hides the side menu and spans the full
+  width. Screens: hero with the auto-cycling discipline matrix (dim tiles are white with a grey label; lit tiles take
+  their own deep colour with a soft tinted glow and a shine, and the centre shows a project those disciplines could build), tearing
   role strips, a document being scanned and verified, chat bubbles, and the closing call with the panda.
   Visuals fade in on scroll (`Reveal`); every animation stops under `prefers-reduced-motion`.
 - `Logo` / `LogoMark` / `PandaHero`: the owner's "Panda Silüet Logo" pack (a sitting panda in profile). Small
   sizes use the pack's crisp version without fur texture (`panda-mark.png`, and `panda-mark-dark.png` with a
-  white halo for the black bar); the large view uses the textured negative (`panda-large-dark.png`). The
+  white halo for the black bar); the large view uses `panda-large-light.png` on white and the textured negative (`panda-large-dark.png`) on black. The
   favicon and app icon are the pack's black rounded-square icon.

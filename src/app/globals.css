@@ -243,7 +243,7 @@ body:has([data-bleed]) .app-content {
 .matrix-shine {
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.28) 48%, transparent 66%);
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.85) 48%, transparent 66%);
   transform: translateX(-120%);
   animation: matrix-shine 2.6s ease-in-out infinite;
 }
@@ -256,7 +256,7 @@ body:has([data-bleed]) .app-content {
 }
 @keyframes matrix-pulse {
   0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.25); }
+  50% { filter: saturate(1.35) brightness(1.06); }
 }
 .matrix-project {
   animation: matrix-project 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
