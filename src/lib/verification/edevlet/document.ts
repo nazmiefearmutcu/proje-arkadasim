@@ -131,6 +131,74 @@ function stripLeadingLabels(value: string): string {
   return words.join(" ");
 }
 
+/**
+ * YÖK öğrenci belgesindeki birleşik program satırı: "Program ÜNİVERSİTE/FAKÜLTE/BÖLÜM BÖLÜMÜ/PROGRAM PR./".
+ * PDF metninde satır bölünebilir; eğik çizgili devam satırları birleştirilir. Parçaları döner.
+ */
+function programPath(all: string[]): string[] | null {
+  for (let i = 0; i < all.length; i += 1) {
+    const line = all[i];
+    if (!line.includes("/")) continue;
+    const first = line.split(" ")[0];
+    const head = foldTr(first.replace(/:$/, ""));
+    if (head !== "program" && head !== "programi") continue;
+    let value = line.slice(first.length).replace(/^\s*:\s*/, "").trim();
+    for (let j = i + 1; j <= i + 2 && all[j] && all[j].includes("/") && !all[j].includes(":"); j += 1) {
+      value += (value.endsWith("/") ? "" : " ") + all[j];
+    }
+    const parts = value.split("/").map((part) => part.trim()).filter((part) => part.length > 0);
+    if (parts.length >= 2) return parts;
+  }
+  return null;
+}
+
+interface PathFields {
+  university: string | null;
+  faculty: string | null;
+  department: string | null;
+}
+
+function fieldsFromPath(parts: string[]): PathFields {
+  const result: PathFields = { university: null, faculty: null, department: null };
+  let program: string | null = null;
+  for (const part of parts) {
+    const folded = foldTr(part);
+    if (!result.university && /universitesi\b|universitesi$/.test(folded)) result.university = part;
+    else if (!result.faculty && /fakultesi|yuksekokulu|enstitusu|konservatuvari/.test(folded)) result.faculty = part;
+    else if (!result.department && /\bbolumu$|\banabilim dali$/.test(folded)) {
+      result.department = part.replace(/\s+(?:BÖLÜMÜ|Bölümü|bölümü)$/u, "").trim();
+    } else if (!program && /\bpr$|\bprogrami$/.test(folded)) {
+      program = part.replace(/\s+(?:PR\.?|PROGRAMI|Programı)$/u, "").trim();
+    }
+  }
+  if (!result.department && program) result.department = program;
+  return result;
+}
+
+/** Etiketsiz tarihler: kendi satırında duran tarihlerin bugünü geçmeyen en yenisi (belge tarihi en yenisidir). */
+function latestStandaloneDate(all: string[], now: Date): Date | null {
+  let latest: Date | null = null;
+  for (const line of all) {
+    if (!/^\d{1,2}[./-]\d{1,2}[./-]\d{4}$/.test(line)) continue;
+    const date = parseDate(line);
+    if (!date || date.getTime() > now.getTime() + 24 * 60 * 60 * 1000) continue;
+    if (!latest || date > latest) latest = date;
+  }
+  return latest;
+}
+
+/** "ÖRGÜN ÖĞRETİM / 4" gibi öğrenim süresinden düzey (yalnız güvenli olduğunda). */
+function levelFromDuration(folded: string): DegreeLevel | null {
+  const match = folded.match(/\b(?:orgun|ikinci|uzaktan|acik) ogretim ([1-7])\b/);
+  if (!match) return null;
+  const years = Number(match[1]);
+  // Lisansüstü programların da süresi 2 olabilir; enstitü geçen belgede süreden düzey çıkarılmaz.
+  if (/\benstitusu\b/.test(folded)) return null;
+  if (years === 2 && /meslek yuksekokulu|\bmyo\b/.test(folded)) return "ONLISANS";
+  if (years >= 4 && years <= 6) return "LISANS";
+  return null;
+}
+
 function parseDate(value: string | null): Date | null {
   if (!value) return null;
   const match = value.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
@@ -155,16 +223,18 @@ function statusFrom(folded: string): EnrollmentStatus | null {
   return null;
 }
 
-export function parseEDevletDocument(text: string): EDevletDocument {
+export function parseEDevletDocument(text: string, now: Date = new Date()): EDevletDocument {
   const all = lines(text);
   const folded = foldTr(text);
+  const path = programPath(all);
+  const fromPath = path ? fieldsFromPath(path) : null;
 
   // Belge türü.
   let kind: DocumentKind = "OTHER";
   const university = (() => {
     const labeled = findLabeled(all, "university");
     if (labeled && /universite|enstitu/.test(foldTr(labeled))) return labeled;
-    return universityLine(all);
+    return fromPath?.university ?? universityLine(all);
   })();
   if (/mezun belgesi|mezuniyet belgesi|\bdiploma\b/.test(folded)) kind = "GRADUATE_CERT";
   else if (/ogrenci belgesi|ogrencilik belgesi/.test(folded)) kind = "STUDENT_CERT";
@@ -181,17 +251,19 @@ export function parseEDevletDocument(text: string): EDevletDocument {
   if (kind === "GRADUATE_CERT" && status !== "INACTIVE") status = "GRADUATE";
 
   const levelValue = findLabeled(all, "level");
-  const degreeLevel = (levelValue ? levelFrom(foldTr(levelValue)) : null) ?? levelFrom(folded);
+  const degreeLevel = (levelValue ? levelFrom(foldTr(levelValue)) : null) ?? levelFrom(folded) ?? levelFromDuration(folded);
 
   const classValue = findLabeled(all, "classYear");
   const classMatch = classValue?.match(/\b([1-9])\b/) ?? folded.match(/\b([1-9]) sinif\b/);
   const classYear = classMatch ? Number(classMatch[1]) : null;
 
   const graduationDate = parseDate(findLabeled(all, "graduationDate"));
-  const issueDate = parseDate(findLabeled(all, "issueDate"));
+  const issueDate = parseDate(findLabeled(all, "issueDate")) ?? latestStandaloneDate(all, now);
 
-  const faculty = findLabeled(all, "faculty");
-  const department = findLabeled(all, "department");
+  // Birleşik program satırı varsa fakülte ve bölüm oradan okunur (etiketli değer o satırın kendisidir).
+  const faculty = findLabeled(all, "faculty") ?? fromPath?.faculty ?? null;
+  const labeledDepartment = findLabeled(all, "department");
+  const department = fromPath && (!labeledDepartment || labeledDepartment.includes("/")) ? fromPath.department : labeledDepartment;
 
   return {
     kind,

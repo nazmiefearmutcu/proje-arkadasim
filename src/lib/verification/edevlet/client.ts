@@ -27,6 +27,8 @@ export type EDevletResult =
   | { kind: "NOT_FOUND"; message: string }
   /** Barkod bulundu ama sorgulama alanı (T.C. kimlik no) tutmadı. */
   | { kind: "MISMATCH"; message: string }
+  /** Barkod ve kimlik no tuttu ama e-Devlet belgeyi artık geçersiz sayıyor. `message` e-Devlet'in uyarısıdır. */
+  | { kind: "INVALID"; message: string }
   /** Ulaşılamadı ya da sayfa biçimi tanınmadı. `reason` kişisel veri içermez; yalnız loglar içindir. */
   | { kind: "UNAVAILABLE"; reason: string };
 
@@ -65,6 +67,10 @@ function isIdentityField(field: FormField): boolean {
   return /kimlik|tckn|tc no|tc kimlik|\btc\b/.test(text) || field.maxLength === 11;
 }
 
+function isFillableText(field: FormField): boolean {
+  return field.type === "text" || field.type === "tel" || field.type === "number" || field.type === "password";
+}
+
 const SUBMIT_HINT = /devam|sorgula|onayla|dogrula|goster|goruntule|ileri/;
 
 export class HttpEDevletClient implements EDevletClient {
@@ -101,6 +107,7 @@ export class HttpEDevletClient implements EDevletClient {
         break;
       }
       const atBarcodeStep = form.fields.some((field) => field.name === "sorgulananBarkod");
+      const atIdentityStep = !atBarcodeStep && form.fields.some((field) => isFillableText(field) && isIdentityField(field));
       page = await this.request(new URL(form.action || page.url, page.url).toString(), {
         method: "POST",
         body,
@@ -118,7 +125,11 @@ export class HttpEDevletClient implements EDevletClient {
           ? { kind: "MISMATCH", message: warnings[0] }
           : { kind: "NOT_FOUND", message: warnings[0] };
       }
-      if (warnings.length > 0) return { kind: "MISMATCH", message: warnings[0] };
+      if (warnings.length > 0) {
+        // Kimlik no adımındaki uyarı eşleşmemedir. Onay adımından sonraki uyarı belgenin kendisiyle
+        // ilgilidir (ör. "Bilgileriniz değiştiğinden belge geçersizdir"): belge artık geçerli değil.
+        return atIdentityStep ? { kind: "MISMATCH", message: warnings[0] } : { kind: "INVALID", message: warnings[0] };
+      }
 
       passedBarcodeStep = passedBarcodeStep || atBarcodeStep;
       if (!next) break;
@@ -176,7 +187,7 @@ export class HttpEDevletClient implements EDevletClient {
       } else if (field.name === "sorgulananBarkod") {
         params.append(field.name, query.barcode);
         fillable += 1;
-      } else if (type === "text" || type === "tel" || type === "number" || type === "password") {
+      } else if (isFillableText(field)) {
         if (isIdentityField(field)) {
           params.append(field.name, query.tckn);
           fillable += 1;
@@ -218,18 +229,30 @@ export class HttpEDevletClient implements EDevletClient {
       const remaining = this.deadline - Date.now();
       if (remaining <= 0) throw new Unavailable("timeout");
 
-      const response = await this.fetchImpl(target.toString(), {
-        ...currentInit,
-        redirect: "manual",
-        signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, remaining)),
-        headers: {
-          "user-agent": USER_AGENT,
-          accept: "text/html,application/pdf;q=0.9,*/*;q=0.8",
-          "accept-language": "tr-TR,tr;q=0.9",
-          ...(this.cookies.size > 0 ? { cookie: this.cookieHeader() } : {}),
-          ...(currentInit?.headers as Record<string, string> | undefined),
-        },
-      });
+      const send = () =>
+        this.fetchImpl(target.toString(), {
+          ...currentInit,
+          redirect: "manual",
+          signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, Math.max(1, this.deadline - Date.now()))),
+          headers: {
+            "user-agent": USER_AGENT,
+            accept: "text/html,application/pdf;q=0.9,*/*;q=0.8",
+            "accept-language": "tr-TR,tr;q=0.9",
+            ...(this.cookies.size > 0 ? { cookie: this.cookieHeader() } : {}),
+            ...(currentInit?.headers as Record<string, string> | undefined),
+          },
+        });
+      let response: Response;
+      try {
+        response = await send();
+      } catch (error) {
+        // e-Devlet bağlantıyı ara sıra kuruluşta koparıyor (ECONNRESET). Yalnız GET bir kez yeniden denenir;
+        // form gönderimi (POST) tekrarlanmaz.
+        const isGet = (currentInit?.method ?? "GET") === "GET";
+        if (!isGet || !(error instanceof TypeError) || this.deadline - Date.now() < 2_000) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        response = await send();
+      }
       this.storeCookies(response);
 
       if (response.status >= 300 && response.status < 400) {

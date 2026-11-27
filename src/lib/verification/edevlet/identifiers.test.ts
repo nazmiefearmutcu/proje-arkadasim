@@ -13,10 +13,13 @@ describe("normalizeBarcode", () => {
     expect(normalizeBarcode("test-ogrenci-0001")).toBe("TEST-OGRENCI-0001");
   });
 
-  it("çok kısa, çok uzun, rakamsız ya da yabancı karakterli girdiyi reddeder", () => {
+  it("yalnız harften oluşan YÖK barkodunu kabul eder", () => {
+    expect(normalizeBarcode("yokogabcdefghijkl")).toBe("YOKOGABCDEFGHIJKL");
+  });
+
+  it("çok kısa, çok uzun ya da yabancı karakterli girdiyi reddeder", () => {
     expect(normalizeBarcode("AB12")).toBeNull();
     expect(normalizeBarcode("A1".repeat(26))).toBeNull();
-    expect(normalizeBarcode("ABCDEFGHIJ")).toBeNull();
     expect(normalizeBarcode("ABCD1234<script>")).toBeNull();
   });
 });

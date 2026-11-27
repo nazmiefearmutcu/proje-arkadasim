@@ -12,8 +12,8 @@ export function normalizeBarcode(raw: string): string | null {
   // e-Devlet barkodları ASCII harf ve rakamdır. Türkçe büyütme kullanılmaz: küçük "i" "İ" olmamalı.
   const value = raw.replace(/\s+/g, "").toUpperCase();
   if (value.length < BARCODE_MIN_LENGTH || value.length > BARCODE_MAX_LENGTH) return null;
+  // Rakam şartı yok: YÖK barkodları (ör. "YOKOG...") yalnız harften de oluşabilir.
   if (!/^[A-Z0-9-]+$/.test(value)) return null;
-  if (!/[0-9]/.test(value)) return null;
   return value;
 }
 

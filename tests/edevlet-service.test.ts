@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { db } from "@/lib/db";
 import { setEDevletClientForTests } from "@/lib/verification/edevlet";
 import type { EDevletClient, EDevletQuery, EDevletResult } from "@/lib/verification/edevlet";
-import { BARCODE_MESSAGES, verifyBarcode } from "@/lib/verification/edevlet/service";
+import { BARCODE_MESSAGES, invalidDocumentMessage, verifyBarcode } from "@/lib/verification/edevlet/service";
 import { REASON_NAME_MISMATCH, REASON_REUSED, REASON_REVIEW } from "@/lib/verification/decision";
 import { createUser, resetDb } from "./helpers/db";
 
@@ -19,6 +19,36 @@ Sınıfı: 3
 Öğrenim Düzeyi: Lisans
 Öğrencilik Durumu: Aktif Öğrenci
 Belge Tarihi: ${date}`;
+
+// YÖK'ün e-Devlet öğrenci belgesinin PDF metni (düzen gerçek belgeden; kişi bilgileri uydurma).
+// Etiketler ve değerler ayrı satırlara dağılır; program satırı iki satıra bölünür.
+const YOK_TEXT = (name: string, issued: string, registered: string) => `YOKOGABCDEFGHIJKL
+ANKARA
+T.C.
+YÜKSEKÖĞRETİM KURULU BAŞKANLIĞI
+${issued}
+ÖĞRENCİ BELGESİ
+Adı / Soyadı ${name}
+Anne Adı FATMA
+ALİBaba Adı
+Doğum Tarihi / Uyruğu
+Kayıt Tarihi
+Eğitim Türü / Öğrenim Süresi
+01.01.2005 / TÜRKİYE CUMHURİYETİ
+${registered}
+ÖRGÜN ÖĞRETİM / 4
+${TCKN}T.C. Kimlik No
+İLGİLİ MAKAMA
+:
+:
+:
+AKTİF ÖĞRENCİ:Öğrencilik Durumu
+Sınıf : 2. SINIF
+Program ESKİŞEHİR TEKNİK ÜNİVERSİTESİ/FEN FAKÜLTESİ/BİYOLOJİ
+BÖLÜMÜ/BİYOLOJİ PR./
+:
+Yukarıda kimlik bilgileri yer alan kişinin Eskişehir Teknik Üniversitesi tarafından yukarıda belirtilen
+programın kayıtlı öğrencisi olduğu bildirilmiştir.`;
 
 function todayTr(offsetDays = 0): string {
   const date = new Date(Date.now() - offsetDays * 24 * 60 * 60 * 1000);
@@ -116,6 +146,36 @@ describe("verifyBarcode (e-Devlet barkodu)", () => {
       fieldErrors: { tckn: BARCODE_MESSAGES.MISMATCH },
     });
     expect(await db.verificationAttempt.count({ where: { userId: user.id } })).toBe(2);
+  });
+
+  it("YÖK öğrenci belgesi düzenindeki (Program: ÜNİVERSİTE/FAKÜLTE/BÖLÜM) belgeyi onaylar", async () => {
+    const user = await unverified();
+    useClient(() => ({ kind: "FOUND", text: YOK_TEXT("AYŞE NUR YILMAZ", todayTr(3), todayTr(400)), pdf: null }));
+
+    const outcome = await verifyBarcode({ userId: user.id, barcode: BARCODE, tckn: TCKN });
+
+    expect(outcome).toEqual({ status: "APPROVED", message: BARCODE_MESSAGES.APPROVED });
+    expect(await db.user.findUniqueOrThrow({ where: { id: user.id } })).toMatchObject({
+      verificationStatus: "VERIFIED",
+      academicStatus: "STUDENT",
+      university: "Eskişehir Teknik Üniversitesi",
+      faculty: "Fen Fakültesi",
+      department: "Biyoloji",
+      degreeLevel: "LISANS",
+      classYear: 2,
+    });
+  });
+
+  it("e-Devlet belgeyi geçersiz sayarsa e-Devlet'in açıklamasıyla reddeder", async () => {
+    const user = await unverified();
+    const warning = "Bilgileriniz değiştiğinden belge geçersizdir. Belgeyi yeniden oluşturunuz.";
+    useClient(() => ({ kind: "INVALID", message: warning }));
+
+    const outcome = await verifyBarcode({ userId: user.id, barcode: BARCODE, tckn: TCKN });
+
+    expect(outcome).toEqual({ status: "REJECTED", message: invalidDocumentMessage(warning) });
+    expect(outcome.message).toContain(warning);
+    expect(await db.verificationAttempt.count({ where: { userId: user.id, status: "REJECTED" } })).toBe(1);
   });
 
   it("e-Devlet'e ulaşılamazsa deneme saymaz ve belge yükleme yolunu önerir", async () => {

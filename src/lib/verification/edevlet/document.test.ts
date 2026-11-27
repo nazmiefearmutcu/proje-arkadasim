@@ -85,6 +85,51 @@ describe("parseEDevletDocument", () => {
   });
 });
 
+describe("parseEDevletDocument (YÖK PDF düzeni)", () => {
+  const NOW = new Date(Date.UTC(2026, 10, 27));
+  const yok = (program: string, duration = "4") => `YÜKSEKÖĞRETİM KURULU BAŞKANLIĞI
+20.11.2026
+ÖĞRENCİ BELGESİ
+Adı / Soyadı AYŞE NUR YILMAZ
+Kayıt Tarihi
+Eğitim Türü / Öğrenim Süresi
+01.01.2005 / TÜRKİYE CUMHURİYETİ
+10.09.2023
+ÖRGÜN ÖĞRETİM / ${duration}
+AKTİF ÖĞRENCİ:Öğrencilik Durumu
+Sınıf : 3. SINIF
+${program}
+:`;
+
+  it("iki satıra bölünmüş program yolundan üniversite, fakülte ve bölümü ayırır", () => {
+    const doc = parseEDevletDocument(yok("Program ESKİŞEHİR TEKNİK ÜNİVERSİTESİ/FEN FAKÜLTESİ/BİYOLOJİ\nBÖLÜMÜ/BİYOLOJİ PR./"), NOW);
+    expect(doc).toMatchObject({
+      kind: "STUDENT_CERT",
+      status: "STUDENT",
+      university: "Eskişehir Teknik Üniversitesi",
+      faculty: "Fen Fakültesi",
+      department: "Biyoloji",
+      degreeLevel: "LISANS",
+      classYear: 3,
+    });
+    // Kayıt tarihi değil, en yeni tarih (belgenin tarihi) alınır.
+    expect(doc.issueDate).toEqual(new Date(Date.UTC(2026, 10, 20)));
+  });
+
+  it("bölüm parçası yoksa programı, meslek yüksekokulunda 2 yılı ön lisans okur", () => {
+    const doc = parseEDevletDocument(
+      yok("Program ANADOLU ÜNİVERSİTESİ/PORSUK MESLEK YÜKSEKOKULU/BİLGİSAYAR PROGRAMCILIĞI PR./", "2"),
+      NOW,
+    );
+    expect(doc).toMatchObject({ faculty: "Porsuk Meslek Yüksekokulu", department: "Bilgisayar Programcılığı", degreeLevel: "ONLISANS" });
+  });
+
+  it("enstitü programında süreden düzey çıkarmaz", () => {
+    const doc = parseEDevletDocument(yok("Program HACETTEPE ÜNİVERSİTESİ/FEN BİLİMLERİ ENSTİTÜSÜ/KİMYA ANABİLİM DALI/", "2"), NOW);
+    expect(doc).toMatchObject({ faculty: "Fen Bilimleri Enstitüsü", department: "Kimya Anabilim Dalı", degreeLevel: null });
+  });
+});
+
 describe("profileFromDocument", () => {
   it("öğrenci için sınıfı, mezun için mezuniyet yılını yazar ve disiplin grubunu bulur", () => {
     const student = profileFromDocument(parseEDevletDocument(STUDENT_TABLE), new Date("2026-11-27"));

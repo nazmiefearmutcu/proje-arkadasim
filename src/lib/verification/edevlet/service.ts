@@ -56,6 +56,16 @@ export const BARCODE_MESSAGES = {
   APPROVED: "Belgen e-Devlet üzerinden doğrulandı. Eğitim bilgilerin profiline yazıldı.",
 } as const;
 
+/**
+ * e-Devlet belgeyi tanıyıp geçersiz saydığında (ör. bilgiler değişmiş) kullanıcıya e-Devlet'in kendi
+ * açıklaması ve ne yapacağı gösterilir.
+ */
+export function invalidDocumentMessage(edevletMessage: string): string {
+  const quoted = edevletMessage.replace(/\s+/g, " ").trim().slice(0, 200);
+  const prefix = quoted ? `e-Devlet bu belgeyi artık geçerli saymıyor: "${quoted}"` : "e-Devlet bu belgeyi artık geçerli saymıyor.";
+  return `${prefix} e-Devlet'ten yeni bir belge alıp onun barkodunu gir.`;
+}
+
 function barcodeHash(pepper: string, barcode: string): string {
   return createHmac("sha256", pepper).update(`edevlet:${barcode}`).digest("hex");
 }
@@ -230,6 +240,11 @@ async function run(userId: string, barcode: string, tckn: string): Promise<Barco
   }
 
   const base = { userId, user, docHash, started };
+  if (result.kind === "INVALID") {
+    const reason = invalidDocumentMessage(result.message);
+    const committed = await commit({ ...base, status: "REJECTED", reason, nameMatch: false, documentType: null, profile: null, maskedText: null });
+    return finish(userId, committed);
+  }
   if (result.kind === "NOT_FOUND" || result.kind === "MISMATCH") {
     const reason = result.kind === "NOT_FOUND" ? BARCODE_MESSAGES.NOT_FOUND : BARCODE_MESSAGES.MISMATCH;
     const committed = await commit({ ...base, status: "REJECTED", reason, nameMatch: false, documentType: null, profile: null, maskedText: null });

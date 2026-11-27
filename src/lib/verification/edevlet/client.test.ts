@@ -122,6 +122,46 @@ describe("HttpEDevletClient", () => {
     expect(await new HttpEDevletClient(fn).verify(QUERY)).toEqual({ kind: "MISMATCH", message: warning });
   });
 
+  it("onaydan sonra gelen uyarıda belgeyi geçersiz sayar (INVALID)", async () => {
+    const warning = "Bilgileriniz değiştiğinden belge geçersizdir. Belgeyi yeniden oluşturunuz.";
+    const { fn } = fakeFetch([
+      html(STEP1()),
+      redirect("/belge-dogrulama?islem=dogrulama"),
+      html(STEP2()),
+      html(STEP3),
+      redirect("/belge-dogrulama?hata=sayfasi"),
+      html(page(`<div class="warningContainer"><span>${warning}</span></div>`)),
+    ]);
+
+    expect(await new HttpEDevletClient(fn).verify(QUERY)).toEqual({ kind: "INVALID", message: warning });
+  });
+
+  it("bağlantı koparsa ilk GET'i bir kez yeniden dener", async () => {
+    const warning = "Girilen barkod numarası e-Devlet Kapısında tanımlı değildir.";
+    const { fn, calls } = fakeFetch([
+      () => {
+        throw new TypeError("fetch failed");
+      },
+      html(STEP1()),
+      html(STEP1(warning)),
+    ]);
+
+    expect(await new HttpEDevletClient(fn).verify(QUERY)).toEqual({ kind: "NOT_FOUND", message: warning });
+    expect(calls.map((call) => call.method)).toEqual(["GET", "GET", "POST"]);
+  });
+
+  it("form gönderimi koparsa tekrarlamaz", async () => {
+    const { fn, calls } = fakeFetch([
+      html(STEP1()),
+      () => {
+        throw new TypeError("fetch failed");
+      },
+    ]);
+
+    expect(await new HttpEDevletClient(fn).verify(QUERY)).toEqual({ kind: "UNAVAILABLE", reason: "network:TypeError" });
+    expect(calls).toHaveLength(2);
+  });
+
   it("CAPTCHA görürse durur", async () => {
     const { fn, calls } = fakeFetch([html(page('<div class="g-recaptcha"></div>'))]);
 
