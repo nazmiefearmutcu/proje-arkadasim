@@ -10,7 +10,8 @@ import type { CurrentUser } from "@/lib/auth/user-select";
 import { db } from "@/lib/db";
 import { personSummarySelect, toPersonSummary, type PersonSummary } from "@/lib/dto";
 import { toListJson } from "@/lib/json-fields";
-import { notify, notifyMany } from "@/lib/notify";
+import { notify } from "@/lib/notify";
+import { moderationForEditedProject, moderationForNewProject, notifyFollowersOfNewProject } from "@/lib/moderation/review";
 import { isBlockedEitherWay } from "@/lib/permissions";
 import { searchTokens, toSearchText } from "@/lib/tr";
 import {
@@ -152,6 +153,23 @@ async function endMembershipInTx(
   return true;
 }
 
+/** Denetim için ilanın metin alanları. */
+function contentOf(input: {
+  title: string;
+  summary: string;
+  description: string;
+  tags: string[];
+  roles: Array<{ title: string; description?: string | null }>;
+}) {
+  return {
+    title: input.title,
+    summary: input.summary,
+    description: input.description,
+    tags: input.tags,
+    roles: input.roles.map((role) => ({ title: role.title, description: role.description ?? null })),
+  };
+}
+
 function revalidateProject(projectId: string): void {
   revalidatePath("/projeler");
   revalidatePath(`/projeler/${projectId}`);
@@ -171,10 +189,13 @@ export async function createProjectAction(_prev: FormState, formData: FormData):
   const input = parsed.data;
 
   const tags = toListJson(input.tags);
+  // Otomatik içerik denetimi: şüpheli ilan editör onayına kadar yayına girmez (spec 2026-11-27 §3).
+  const moderation = await moderationForNewProject(viewer.id, contentOf(input));
   const project = await db.$transaction(async (tx) =>
     tx.project.create({
       data: {
         ownerId: viewer.id,
+        ...moderation,
         title: input.title,
         summary: input.summary,
         description: input.description,
@@ -198,14 +219,10 @@ export async function createProjectAction(_prev: FormState, formData: FormData):
     }),
   );
 
-  const followers = await db.follow.findMany({
-    where: { followingId: viewer.id },
-    select: { followerId: true },
-  });
-  await notifyMany(
-    followers.map((follow) => follow.followerId),
-    { type: "NEW_PROJECT_FROM_FOLLOWING", actorId: viewer.id, projectId: project.id },
-  );
+  // Bekletilen ilan için takipçilere bildirim, editör onayında gider.
+  if (moderation.moderationStatus === "APPROVED") {
+    await notifyFollowersOfNewProject(viewer.id, project.id);
+  }
 
   revalidatePath("/");
   revalidatePath("/projeler");
@@ -224,7 +241,11 @@ export async function updateProjectAction(
   const project = await db.project.findUnique({
     where: { id: projectId },
     select: {
+      id: true,
       ownerId: true,
+      moderationStatus: true,
+      moderationFlagsJson: true,
+      moderatedAt: true,
       roles: { select: { id: true, _count: { select: { members: true } } } },
     },
   });
@@ -260,10 +281,12 @@ export async function updateProjectAction(
   }
 
   const tags = toListJson(input.tags);
+  const moderation = await moderationForEditedProject(project, contentOf(input));
   await db.$transaction(async (tx) => {
     await tx.project.update({
       where: { id: projectId },
       data: {
+        ...moderation,
         title: input.title,
         summary: input.summary,
         description: input.description,
@@ -351,6 +374,7 @@ export async function applyToProjectAction(
     select: {
       ownerId: true,
       status: true,
+      moderationStatus: true,
       roles: { select: { id: true, slots: true, _count: { select: { members: true } } } },
     },
   });
@@ -363,6 +387,7 @@ export async function applyToProjectAction(
     select: { id: true },
   });
   if (membership) return fail("Zaten bu projenin ekibindesin.");
+  if (project.moderationStatus !== "APPROVED") return fail("Proje bulunamadı.");
   if (project.status !== "OPEN") return fail("Bu proje yeni başvuru almıyor.");
 
   const parsed = applySchema.safeParse({
@@ -509,11 +534,15 @@ export async function inviteToProjectAction(_prev: FormState, formData: FormData
     select: {
       ownerId: true,
       status: true,
+      moderationStatus: true,
       roles: { select: { id: true, slots: true, _count: { select: { members: true } } } },
     },
   });
   if (!project || project.ownerId !== viewer.id) return fail(NO_PERMISSION);
   if (project.status !== "OPEN") return fail("Kapalı projeye davet gönderemezsin. Önce projeyi aç.");
+  if (project.moderationStatus !== "APPROVED") {
+    return fail("İlanın editör onayı bekliyor. Onaylandıktan sonra davet gönderebilirsin.");
+  }
 
   const invitee = await db.user.findUnique({
     where: { username: input.username },

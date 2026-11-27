@@ -83,6 +83,8 @@ export type ProjectCardData = {
   workMode: string;
   city: string | null;
   status: string;
+  /** APPROVED ya da PENDING; bekleyen ilan yalnız sahibinin listelerinde görünür. */
+  moderationStatus: string;
   createdAt: Date;
   /** Rollerin disiplin grupları, rol sırasıyla, tekrarsız. */
   disciplineGroups: string[];
@@ -122,6 +124,7 @@ export function toProjectCardData(row: ProjectCardRow): ProjectCardData {
     workMode: row.workMode,
     city: row.city,
     status: row.status,
+    moderationStatus: row.moderationStatus,
     createdAt: row.createdAt,
     disciplineGroups,
     openRoleCount,

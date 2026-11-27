@@ -62,7 +62,13 @@ export default async function Page({
 
   return (
     <>
-      {isNew ? (
+      {isOwner && project.moderationStatus === "PENDING" ? (
+        <p role="status" className="mb-4 rounded-card border border-warn/30 bg-warn-soft p-4 t-body text-ink">
+          İlanın editör onayı bekliyor. Onaylanınca yayına girer ve sana bildirim gelir. Bu sırada ilanı
+          yalnız sen görürsün. İletişim bilgisi, bağlantı ya da reklam içeren ilanlar otomatik olarak
+          incelemeye alınır.
+        </p>
+      ) : isNew ? (
         <p role="status" className="mb-4 rounded-card bg-ok-soft p-4 t-body text-ok">
           Projen yayında. Takipçilerin ana sayfalarında görecek.
         </p>

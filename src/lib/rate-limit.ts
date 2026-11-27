@@ -69,6 +69,9 @@ export const LIMITS = {
   report: [10, 60 * 60_000],
   // Oturum açıkken mevcut şifrenin denetimi (şifre değiştirme, hesap silme): kullanıcı başına.
   passwordCheck: [10, 15 * 60_000],
+  // e-Devlet barkod sorgusu: kullanıcı başına ve tüm site için (e-Devlet'i yormamak için).
+  edevletUser: [10, 60 * 60_000],
+  edevletGlobal: [120, 60 * 60_000],
 } as const;
 
 /**

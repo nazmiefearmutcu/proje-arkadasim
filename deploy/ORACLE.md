@@ -33,15 +33,18 @@ Betik Docker'ı kurar, 80/443 portlarını açar, kodu indirir ve sana üç şey
 
 Ayarlar `~/proje-arkadasim/.env.production` dosyasında durur; anahtarlar git'e girmez.
 
-## 3. İlk yönetici
+## 3. Editör hesabı
 
-Sitede `/kayit` ile kendi hesabını aç, sonra VM'de:
+Sistemde tek bir editör hesabı olur; öğrenci hesabından ayrıdır ve kendi paneli (`/editor`) vardır.
+VM'de:
 
 ```bash
-cd ~/proje-arkadasim && sudo docker compose --env-file .env.production exec app npm run make-admin -- <e-posta>
+cd ~/proje-arkadasim && sudo docker compose --env-file .env.production exec app npm run editor -- <e-posta>
 ```
 
-Komutun yazdığı `@kullanıcı adı` seninki değilse rolü hemen geri al.
+Komut 30 dakika geçerli, tek kullanımlık bir parola belirleme bağlantısı yazdırır. Bağlantıyı açıp
+parolanı belirle, sonra `/giris` ile gir. Editörü değiştirmek için komutun sonuna `--replace` ekle (eski
+editör hesabı silinir). Parolayı unutursan aynı komutu aynı e-postayla yeniden çalıştır.
 
 ## Güncelleme, yedek, kayıtlar
 

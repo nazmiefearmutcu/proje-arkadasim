@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { TopBar } from "@/components/shell/top-bar";
 import { BottomNav } from "@/components/shell/bottom-nav";
 import { SideNav } from "@/components/shell/side-nav";
@@ -15,6 +16,8 @@ import { getCounters } from "@/lib/counters";
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  // Editörün kendi arayüzü vardır (spec 2026-11-27 §2); öğrenci arayüzüne girmez.
+  if (user && isAdmin(user)) redirect("/editor");
   const counters = user ? await getCounters(user.id) : null;
 
   return (

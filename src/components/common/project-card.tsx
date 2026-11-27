@@ -82,6 +82,11 @@ export function ProjectCard({ project, viewer }: ProjectCardProps) {
               {project.city}
             </span>
           ) : null}
+          {project.moderationStatus === "PENDING" ? (
+            <span className="rounded-chip border border-warn/30 bg-warn-soft px-2 py-0.5 text-[11px] font-[600] text-warn">
+              Editör onayı bekliyor
+            </span>
+          ) : null}
           {closed ? (
             <span className="rounded-chip border border-danger/30 bg-danger-soft px-2 py-0.5 text-[11px] font-[600] text-danger">
               Başvurulara kapandı

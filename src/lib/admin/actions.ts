@@ -255,8 +255,8 @@ export async function approveAttemptAction(
     data: { status: "APPROVED" },
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/dogrulamalar");
+  revalidatePath("/editor");
+  revalidatePath("/editor/belgeler");
   return ok();
 }
 
@@ -334,8 +334,8 @@ export async function rejectAttemptAction(attemptId: string, reason: string): Pr
     });
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/dogrulamalar");
+  revalidatePath("/editor");
+  revalidatePath("/editor/belgeler");
   return ok();
 }
 
@@ -359,8 +359,8 @@ export async function resolveReportAction(reportId: string): Promise<ActionResul
     }),
   ]);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/sikayetler");
+  revalidatePath("/editor");
+  revalidatePath("/editor/sikayetler");
   return ok();
 }
 
@@ -435,8 +435,8 @@ export async function revokeVerificationAction(userId: string, reason: string): 
     data: { status: "REJECTED" },
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/sikayetler");
+  revalidatePath("/editor");
+  revalidatePath("/editor/sikayetler");
   revalidatePath(`/u/${target.username}`);
   return ok();
 }
@@ -470,7 +470,7 @@ export async function adminCloseProjectAction(projectId: string): Promise<Action
     throw error;
   }
 
-  revalidatePath("/admin/sikayetler");
+  revalidatePath("/editor/sikayetler");
   revalidatePath("/projeler");
   revalidatePath(`/projeler/${project.id}`);
   return ok();
@@ -486,7 +486,7 @@ export async function purgeMaskedTextAction(): Promise<ActionResult<{ count: num
     data: { adminId: admin.id, action: "PURGE_MASKED_TEXT" },
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/dogrulamalar");
+  revalidatePath("/editor");
+  revalidatePath("/editor/belgeler");
   return ok({ count });
 }

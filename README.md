@@ -100,7 +100,9 @@ ve `next start` onu `production` yapar; `npm run seed` gibi betiklerde ise kabuk
 |---|---|---|
 | `DATABASE_URL` | Evet | Veritabanı adresi. Varsayılan `file:./dev.db` (SQLite, `prisma/` klasörüne göre). |
 | `DOC_HASH_PEPPER` | Evet | Belge özetlerinin (HMAC-SHA256) gizli biberi. Tanımlı değilse belge yükleme `ERROR` döner. Değişirse eski özetler eşleşmez. |
-| `VERIFICATION_MODE` | Hayır | `editor` (varsayılan): her belge editörlerin onayına gider, yapay zeka çağrılmaz, yurt dışı aktarım rızası sorulmaz. `ai`: yapay zeka ön incelemesi ve otomatik onay açılır. |
+| `VERIFICATION_MODE` | Hayır | `editor` (varsayılan): yüklenen her belge editörün onayına gider, yapay zeka çağrılmaz, yurt dışı aktarım rızası sorulmaz. `ai`: yapay zeka ön incelemesi ve otomatik onay açılır. |
+| `EDEVLET_VERIFICATION` | Hayır | e-Devlet barkoduyla anında doğrulama. `off` kapatır; varsayılan açık. Kullanıcı barkodu ve T.C. kimlik noyu girer, sistem belgeyi e-Devlet Barkodlu Belge Doğrulama hizmetine sorar. |
+| `EDEVLET_CLIENT` | Hayır | Yalnız geliştirmede `mock`: e-Devlet yerine sahte istemci (`TEST-OGRENCI-...` barkodları). Üretimde etkisizdir. |
 | `VERIFIER_PROVIDER` | Evet | Belge inceleyicisi: `mock` (yalnız geliştirme), `openai` (varsayılan) ya da `deepseek`. Tanınmayan değerde otomatik onay verilmez. |
 | `OPENAI_API_KEY` | Gerçek AI için | OpenAI API anahtarı. Boşsa AI incelemesi çağrılmaz; belgeler manuel incelemeye düşer. |
 | `OPENAI_MODEL` | Hayır | Model adı. Varsayılan `gpt-5.6-luna`. |
@@ -120,7 +122,7 @@ ve `next start` onu `production` yapar; `npm run seed` gibi betiklerde ise kabuk
 | `SEED_ADMIN_EMAIL` | Tohum için | Tohumda oluşturulan yöneticinin e-postası (yalnız geliştirme). |
 | `SEED_ADMIN_PASSWORD` | Tohum için | Tohumdaki yöneticinin parolası (yalnız geliştirme). |
 | `SEED_USER_PASSWORD` | Tohum için | Tohumdaki örnek kullanıcıların ortak parolası (yalnız geliştirme). |
-| `SEED_ALLOW_PRODUCTION` | Hayır | `true` değilse tohum `NODE_ENV=production` ortamında hiç çalışmaz. **Üretim veritabanında tohum çalıştırmayın:** tohum tüm tabloları siler ve demo hesapları açar. Yönetici atamak için bu değişkeni değil, `npm run make-admin -- <e-posta>` komutunu kullanın. |
+| `SEED_ALLOW_PRODUCTION` | Hayır | `true` değilse tohum `NODE_ENV=production` ortamında hiç çalışmaz. **Üretim veritabanında tohum çalıştırmayın:** tohum tüm tabloları siler ve demo hesapları açar. Editör hesabı için bu değişkeni değil, `npm run editor -- <e-posta>` komutunu kullanın. |
 
 `DOC_HASH_PEPPER` üretmek için: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
@@ -168,7 +170,7 @@ Bu liste operatörün (veri sorumlusunun) yapması gerekenlerdir. Kod bunların 
 3. Türkiye'de barındırmayı tercih edin; böylece ek bir yurt dışı aktarımı doğmaz.
 4. 5651 sayılı Kanun kapsamındaki yükümlülükleri (yer sağlayıcılık, giriş kaydı süreleri) hukuken teyit edin.
 5. Yasal metinler şablondur. Avukat onayıyla yayımlayın ve metin değişince `LEGAL_VERSION` değerini artırın.
-6. Üretimde `NODE_ENV=production` kullanın; `VERIFIER_PROVIDER=mock` kullanılmaz. **Üretimde tohum (`npm run seed`) çalıştırmayın:** tohum yalnız geliştirme içindir, tüm tabloları (kullanıcılar, projeler, mesajlar, rıza ve denetim kayıtları) siler ve parolası `.env.example`'da yayımlanmış demo hesapları açar. İlk yöneticiyi şöyle atayın: hesabı `/kayit` sayfasından açın, sonra sunucuda `npm run make-admin -- <e-posta>` çalıştırın. Komut yalnız o hesabın rolünü `ADMIN` yapar ve denetim kaydı yazar; veri silmez, kayıtlı olmayan e-postayı reddeder, parola ya da jeton yazdırmaz. Kayıt e-posta sahipliğini doğrulamaz: `/kayit` e-postanın kullanımda olduğunu söylediyse komutu çalıştırmayın, önce araştırın. Komutun yazdırdığı `@kullanıcı adı` sizin `/kayit`'ta seçtiğiniz ad değilse o hesabın rolünü hemen `USER` yapın.
+6. Üretimde `NODE_ENV=production` kullanın; `VERIFIER_PROVIDER=mock` kullanılmaz. **Üretimde tohum (`npm run seed`) çalıştırmayın:** tohum yalnız geliştirme içindir, tüm tabloları (kullanıcılar, projeler, mesajlar, rıza ve denetim kayıtları) siler ve parolası `.env.example`'da yayımlanmış demo hesapları açar. Editör hesabını şöyle açın: sunucuda `npm run editor -- <e-posta>` çalıştırın. Komut öğrenci hesabından ayrı, tek bir editör hesabı açar (ikinci editörü reddeder; `--replace` eskisini silip yenisini açar), parola yazdırmaz; yalnız 30 dakika geçerli, tek kullanımlık bir parola belirleme bağlantısı yazdırır. Öğrenci hesabının e-postasıyla editör açılmaz.
 7. `DOC_HASH_PEPPER` değerini geliştirme değerinden farklı, rastgele ve gizli tutun.
 8. Ters vekil arkasındaysanız `TRUST_PROXY=true` yapın; değilse bırakın.
 9. `SMTP_URL` tanımlayın; üretimde SMTP olmadan şifre sıfırlama e-postası gönderilemez.
@@ -186,7 +188,7 @@ Bu liste operatörün (veri sorumlusunun) yapması gerekenlerdir. Kod bunların 
 | `npm test` | Vitest testlerini bir kez çalıştırır. |
 | `npm run test:watch` | Testleri izleyerek çalıştırır. |
 | `npm run seed` | **Yalnız geliştirme.** Tüm tabloları siler ve demo verisini yükler. Veritabanında kullanıcı varsa çalışmaz; bilerek silip yeniden yüklemek için `npm run seed -- --wipe`. Üretimde kullanmayın. |
-| `npm run make-admin -- <e-posta>` | Var olan hesaba yönetici rolü verir (üretimde ilk yöneticiyi atamanın yolu). Veri silmez; kayıtlı olmayan e-postayı reddeder. |
+| `npm run editor -- <e-posta> [--replace]` | Tek editör hesabını açar ve parola belirleme bağlantısı yazdırır. |
 | `npm run purge` | Saklama süresi geçmiş maskeli metin, oturum, sıfırlama jetonu ve giriş kaydını temizler. |
 | `npm run db:migrate` | `prisma migrate dev` ile yeni migrasyon uygular ya da üretir. |
 | `npm run db:reset` | Veritabanını sıfırlar, migrasyonları baştan uygular ve tohumu kendiliğinden çalıştırır (ayrıca `npm run seed` gerekmez). **Tüm veri silinir.** |
@@ -217,7 +219,7 @@ prisma/
   seed.ts           örnek veri
 scripts/
   purge.ts          npm run purge
-  make-admin.ts     npm run make-admin -- <e-posta>
+  create-editor.ts  npm run editor -- <e-posta> [--replace]
 tests/              uçtan uca benzeri entegrasyon testleri (route handler'lar, doğrulama, ana sayfa)
 docs/               tasarım dokümanı (spec), tasarım sistemi, geliştirme planı ve raporları
 ```

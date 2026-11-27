@@ -45,7 +45,8 @@ export function projectListWhere(input: ListProjectsInput): Prisma.ProjectWhereI
     const userId = input.ownerOrMemberId;
     and.push({ OR: [{ ownerId: userId }, { members: { some: { userId } } }] });
   } else {
-    and.push({ status: "OPEN" });
+    // Keşifte yalnız açık ve editör denetiminden geçmiş ilanlar (spec 2026-11-27 §3).
+    and.push({ status: "OPEN", moderationStatus: "APPROVED" });
   }
 
   // Her belirteç ayrı bir AND koşuludur: "robotik kamera" iki belirteci de içermeli.
@@ -147,6 +148,8 @@ export interface ProjectDetail {
   workMode: string;
   city: string | null;
   status: string;
+  /** APPROVED ya da PENDING (editör onayı bekliyor; yalnız sahip görür). */
+  moderationStatus: string;
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -187,6 +190,7 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
       workMode: true,
       city: true,
       status: true,
+      moderationStatus: true,
       tagsJson: true,
       createdAt: true,
       updatedAt: true,
@@ -219,6 +223,8 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
 
   const viewerId = viewer?.id ?? null;
   const isOwner = viewerId !== null && row.ownerId === viewerId;
+  // Editör onayı bekleyen ilan yalnız sahibine görünür; başkası için yok sayılır.
+  if (row.moderationStatus !== "APPROVED" && !isOwner) return null;
   const isMember = viewerId !== null && row.members.some((member) => member.userId === viewerId);
   const showProfiles = canSeeProfiles(viewer);
   const personFor = (person: PersonRow): PersonSummary => {
@@ -344,6 +350,7 @@ export async function getProjectDetail(id: string, viewer: CurrentUser | null): 
     workMode: row.workMode,
     city: row.city,
     status: row.status,
+    moderationStatus: row.moderationStatus,
     tags: parseList(row.tagsJson),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -377,7 +384,7 @@ export interface OpenProjectForInvite {
  */
 export async function getViewerOpenProjectsForInvite(viewerId: string): Promise<OpenProjectForInvite[]> {
   const rows = await db.project.findMany({
-    where: { ownerId: viewerId, status: "OPEN" },
+    where: { ownerId: viewerId, status: "OPEN", moderationStatus: "APPROVED" },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,

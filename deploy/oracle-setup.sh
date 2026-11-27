@@ -71,6 +71,6 @@ sudo docker compose --env-file "$ENV_FILE" up -d --build
 SITE_NOW="$(grep '^SITE_ADDRESS=' "$ENV_FILE" | cut -d= -f2-)"
 echo
 echo "Hazır: https://${SITE_NOW}  (HTTPS sertifikası ilk istekte birkaç saniyede alınır)"
-echo "İlk yönetici: sitede /kayit ile hesap aç, sonra:"
-echo "  cd $DIR && sudo docker compose --env-file $ENV_FILE exec app npm run make-admin -- <e-posta>"
+echo "Editör hesabı (tek hesap, parola belirleme bağlantısı yazdırır):"
+echo "  cd $DIR && sudo docker compose --env-file $ENV_FILE exec app npm run editor -- <e-posta>"
 echo "Güncelleme: bash $DIR/deploy/oracle-setup.sh"

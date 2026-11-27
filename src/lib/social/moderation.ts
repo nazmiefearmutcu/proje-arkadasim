@@ -6,6 +6,7 @@ import { fail, ok, zodFieldErrors, type ActionResult } from "@/lib/action-result
 import { getCurrentUser } from "@/lib/auth/guards";
 import type { CurrentUser } from "@/lib/auth/user-select";
 import { db } from "@/lib/db";
+import { holdIfReportedEnough } from "@/lib/moderation/review";
 import { LIMITS, rateLimit } from "@/lib/rate-limit";
 import {
   REPORT_DETAILS_MAX,
@@ -178,6 +179,12 @@ export async function reportAction(_prev: ReportState, formData: FormData): Prom
       details: details.length > 0 ? details : null,
     },
   });
+
+  // Aynı projeye çok sayıda farklı kişiden şikayet: ilan editör kararına kadar yayından çekilir.
+  if (input.targetType === "PROJECT" && (await holdIfReportedEnough(input.targetId))) {
+    revalidatePath("/projeler");
+    revalidatePath(`/projeler/${input.targetId}`);
+  }
 
   return ok(REPORT_OK_MESSAGE);
 }

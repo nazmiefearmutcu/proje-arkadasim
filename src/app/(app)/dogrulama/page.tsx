@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { VerifiedStamp } from "@/components/common/verified-stamp";
 import { ConsentPanel } from "@/components/verification/consent-panel";
+import { BarcodeForm } from "@/components/verification/barcode-form";
 import { Uploader } from "@/components/verification/uploader";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { MASKED_TEXT_RETENTION_DAYS } from "@/config/legal";
 import { requireUser } from "@/lib/auth/guards";
 import { hasActiveConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
+import { edevletEnabled } from "@/lib/verification/edevlet";
 import { aiReviewEnabled } from "@/lib/verification/mode";
 
 export const metadata = { title: "Belge doğrulama" };
@@ -46,6 +48,7 @@ export default async function Page({
   const showUploader = status !== "VERIFIED" && status !== "MANUAL_REVIEW" && status !== "PENDING";
   const aiMode = aiReviewEnabled();
   const showConsent = aiMode && showUploader && !aiConsent;
+  const barcodeMode = edevletEnabled();
 
   return (
     <>
@@ -135,7 +138,7 @@ export default async function Page({
             {/* Deneme hakkı bittiyse yükleyici yerine sınır kartı görünür; bağlantı gösterilmez. */}
             {remaining > 0 ? (
               <ButtonLink href="#belge-yukle" variant="secondary" className="self-start">
-                Yeni belge yükle
+                Tekrar dene
               </ButtonLink>
             ) : null}
           </section>
@@ -150,31 +153,47 @@ export default async function Page({
           </Card>
         ) : null}
 
-        {showUploader ? (
-          <>
-            <Card className="flex flex-col gap-2 p-4">
-              <h2 className="t-card text-ink">Kabul edilen belgeler</h2>
+        {showUploader && barcodeMode ? (
+          <Card className="flex flex-col gap-4 p-4 sm:p-5">
+            <div className="flex flex-col gap-1.5">
+              <h2 className="t-card text-ink">e-Devlet barkoduyla anında doğrula</h2>
               <p className="t-body t-prose text-ink-2">
-                En hızlı yol: e-Devlet&apos;te &quot;Öğrenci Belgesi Sorgulama&quot; (öğrenciler) veya
-                &quot;YÖK Mezun Belgesi Sorgulama&quot; (mezunlar) hizmetinden PDF&apos;i indir ve buraya
-                yükle. Fotoğraf da yükleyebilirsin.
+                e-Devlet&apos;ten aldığın YÖK öğrenci belgesinin ya da mezun belgesinin barkod numarasını gir.
+                Belgeyi e-Devlet&apos;in belge doğrulama hizmetine sorarız; sonuç birkaç saniyede gelir.
+              </p>
+            </div>
+            <BarcodeForm disabled={remaining === 0} />
+            <p className="t-meta t-prose text-ink-3">
+              Barkod ve T.C. kimlik numaran yalnız belgenin doğrulanması için e-Devlet Kapısı&apos;na iletilir
+              ve saklanmaz. Bugün {remaining} deneme hakkın kaldı.{" "}
+              <Link href="/kvkk/aydinlatma" className="text-pen underline underline-offset-2">
+                Aydınlatma metni
+              </Link>
+            </p>
+          </Card>
+        ) : null}
+
+        {showUploader ? (
+          <details id="belge-yukle" className="group rounded-card border border-line bg-surface" open={!barcodeMode}>
+            <summary className="flex min-h-12 cursor-pointer items-center px-4 t-label text-ink">
+              {barcodeMode ? "Barkodlu belgen yok mu? Belgeni yükle, editörümüz incelesin" : "Belgeni yükle"}
+            </summary>
+            <div className="flex flex-col gap-4 border-t border-line p-4">
+              <p className="t-body t-prose text-ink-2">
+                Öğrenci belgeni ya da mezun belgeni PDF veya fotoğraf olarak yükle. Editörümüz inceler; sonucu en
+                geç 24 saat içinde bildiririz.
               </p>
               <p className="t-meta t-prose text-ink-3">
-                Belgen sunucumuzda yalnızca incelenirken bellekte tutulur. Ekibimizin incelemesi gereken
-                belgelerde yalnızca kişisel verileri çıkarılmış metin en fazla {MASKED_TEXT_RETENTION_DAYS}{" "}
-                gün saklanır.{" "}
-                <Link href="/kvkk/aydinlatma" className="text-pen underline underline-offset-2">
-                  Aydınlatma metni
-                </Link>
+                Belgen sunucumuzda yalnızca incelenirken bellekte tutulur. İncelenmesi gereken belgelerde yalnızca
+                kişisel verileri çıkarılmış metin en fazla {MASKED_TEXT_RETENTION_DAYS} gün saklanır.
               </p>
-              <p className="t-meta text-ink-2">Bugün {remaining} deneme hakkın kaldı.</p>
-            </Card>
 
-            {/* Rıza kararı yüklemeden önce verilir; yükleyicinin adım listesi bu karara göre değişir. */}
-            {showConsent ? <ConsentPanel /> : null}
+              {/* Rıza kararı yüklemeden önce verilir; yükleyicinin adım listesi bu karara göre değişir. */}
+              {showConsent ? <ConsentPanel /> : null}
 
-            <Uploader aiConsent={aiMode && aiConsent} remaining={remaining} />
-          </>
+              <Uploader aiConsent={aiMode && aiConsent} remaining={remaining} />
+            </div>
+          </details>
         ) : null}
 
         {aiMode && showUploader && aiConsent ? (

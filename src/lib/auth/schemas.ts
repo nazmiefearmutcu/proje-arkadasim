@@ -6,6 +6,9 @@ import { validatePasswordStrength } from "./password-rules";
 /** Kullanıcı adı olarak alınamayan adlar (yol ve rota çakışmasını önler). */
 export const RESERVED_USERNAMES = [
   "admin",
+  "editor",
+  "moderator",
+  "probuddy",
   "yonetim",
   "api",
   "giris",

@@ -24,6 +24,12 @@ const DATA_ROWS: Array<[string, string, string, string]> = [
   ],
   ["Belge dosyası", "Doğrulama", "m.5/2-c", "Saklanmaz; yalnızca bellekte, saniyeler içinde"],
   [
+    "Belge barkod numarası ve T.C. kimlik numarası",
+    "Belgenin e-Devlet Kapısı Barkodlu Belge Doğrulama hizmetinde sorgulanması",
+    "m.5/2-c",
+    "T.C. kimlik numarası saklanmaz; barkod yalnızca geri döndürülemez özet (HMAC) olarak hesap süresince",
+  ],
+  [
     "Maskelenmiş belge metni",
     "Manuel inceleme",
     "m.5/2-f",
@@ -134,6 +140,13 @@ export default function Page() {
           bellekte tutulur ve işlem bitince bellekten silinir. Metin çıkarma ve kişisel verilerin maskelenmesi
           sunucuda yerel olarak yapılır. Maskeleme; TC kimlik numarası, öğrenci numarası, doğum bilgileri, adres ve
           iletişim bilgileri gibi alanları metinden çıkarır; adın ve soyadın [AD] ve [SOYAD] ile değişir.
+        </p>
+        <p>
+          e-Devlet barkoduyla doğrulamada girdiğin barkod numarası ve T.C. kimlik numaran, yalnızca belgenin
+          gerçekliğini sorgulamak için e-Devlet Kapısı&apos;nın herkese açık Barkodlu Belge Doğrulama hizmetine
+          (yurt içi, kamu) iletilir. T.C. kimlik numaran hiçbir yere kaydedilmez. e-Devlet&apos;ten dönen belge
+          bilgilerinden yalnızca eğitim bilgilerin (üniversite, fakülte, bölüm, durum, sınıf veya mezuniyet yılı)
+          profiline yazılır; belgenin kendisi saklanmaz.
         </p>
       </LegalSection>
 

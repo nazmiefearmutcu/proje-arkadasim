@@ -12,12 +12,12 @@ import { toSearchText } from "../src/lib/tr";
 // içinde demo verisiyle yeniden doldurur. Boş veritabanında (`prisma migrate dev` ile yeni oluşturulan ya
 // da `prisma migrate reset` sonrası) `npm run seed` yeterlidir; veritabanında kullanıcı varsa yalnız
 // `npm run seed -- --wipe` ile çalışır (bkz. src/lib/seed-guard.ts). Üretimde yönetici atamak için
-// `npm run make-admin -- <e-posta>` kullanılır. Parolalar yalnız ortam değişkenlerinden okunur
+// `npm run editor -- <e-posta>` kullanılır. Parolalar yalnız ortam değişkenlerinden okunur
 // (.env.example'a bakın). Hiçbir parola yazdırılmaz.
 
 const DEMO_USERNAME = "elif.yilmaz";
 const DEMO_DOMAIN = "ornek.edu.tr";
-const ADMIN_USERNAME = "yonetici";
+const ADMIN_USERNAME = "editor";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -884,18 +884,18 @@ async function populate(
     reports: 0,
   };
 
-  // Yönetici: yalnız role ADMIN ile yetki verilir (ADMIN_EMAILS yetki vermez).
+  // Tek editör hesabı: role ADMIN (arayüzde "Editör"). Öğrenci değildir; doğrulanmamış kalır, bu
+  // yüzden aramada ve önerilerde görünmez (spec 2026-11-27 §1).
   const admin = await tx.user.create({
     data: {
       email: adminEmail,
       passwordHash: hashes.admin,
-      firstName: "Proje",
-      lastName: "Yönetimi",
+      firstName: "ProBuddy",
+      lastName: "Editör",
       username: ADMIN_USERNAME,
       role: "ADMIN",
-      verificationStatus: "VERIFIED",
-      verifiedAt: now,
-      searchText: toSearchText("Proje", "Yönetimi", ADMIN_USERNAME),
+      verificationStatus: "UNVERIFIED",
+      searchText: "",
     },
     select: { id: true },
   });
@@ -1367,7 +1367,7 @@ async function main(): Promise<void> {
     console.log(`- Sohbet: ${counts.conversations} (mesaj ${counts.messages})`);
     console.log(`- Bildirim: ${counts.notifications}; açık şikayet: ${counts.reports}`);
     console.log("Demo giriş e-postaları:");
-    console.log(`- Yönetici: ${adminEmail}`);
+    console.log(`- Editör (panel: /editor): ${adminEmail}`);
     console.log(`- Demo kullanıcı (bildirim ve davet içerir): ${DEMO_USERNAME}@${DEMO_DOMAIN}`);
     console.log("Parolalar .env dosyasındaki SEED_ADMIN_PASSWORD ve SEED_USER_PASSWORD değerleridir.");
   } finally {

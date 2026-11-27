@@ -30,6 +30,7 @@ interface StoredProfile {
 const SOURCE_LABEL: Record<string, string> = {
   PDF_TEXT: "PDF metni",
   OCR: "Fotoğraf (OCR)",
+  EDEVLET: "e-Devlet barkodu (belge e-Devlet'te bulundu, bilgiler okunamadı)",
 };
 
 function toDefaults(profile: StoredProfile): ReviewDefaults {

@@ -127,7 +127,7 @@ export function AvatarMenu({ user, isAdmin, logout }: AvatarMenuProps) {
               <MenuLink href="/kvkk/aydinlatma" icon={Lock} label="Gizlilik ve KVKK" onNavigate={close} />
               <MenuLink href="/yardim" icon={CircleHelp} label="Yardım" onNavigate={close} />
               {isAdmin ? (
-                <MenuLink href="/admin" icon={Shield} label="Yönetim paneli" onNavigate={close} />
+                <MenuLink href="/editor" icon={Shield} label="Editör paneli" onNavigate={close} />
               ) : null}
               <form action={logout} className="flex">
                 <SubmitButton unstyled className={cn(rowClasses, "disabled:opacity-60", focusRing)}>

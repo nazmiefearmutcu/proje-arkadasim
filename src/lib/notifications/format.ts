@@ -44,6 +44,8 @@ const ICON_BY_TYPE: Record<NotificationType, NotificationIcon> = {
   VERIFICATION_RESULT: "verification",
   INTRODUCTION: "intro",
   NEW_PROJECT_FROM_FOLLOWING: "project",
+  PROJECT_APPROVED: "accepted",
+  PROJECT_REMOVED: "rejected",
 };
 
 const VERIFICATION_TEXT: Record<string, string> = {
@@ -129,6 +131,23 @@ export function formatNotification(notification: FormattableNotification): Forma
       return actor && projectHref
         ? { text: `${name} yeni bir proje paylaştı: ${projectTitle}`, href: projectHref, icon }
         : fallback(icon);
+
+    case "PROJECT_APPROVED":
+      return projectHref
+        ? { text: `${projectTitle} ilanın editör onayından geçti ve yayında.`, href: projectHref, icon }
+        : fallback(icon);
+
+    case "PROJECT_REMOVED": {
+      // Proje silindiği için ilişki boştur; başlık ve gerekçe bildirimin verisinde durur.
+      const title = typeof data.title === "string" ? data.title : null;
+      const reason = typeof data.reason === "string" ? data.reason : null;
+      if (!title || !reason) return fallback(icon);
+      return {
+        text: `“${title}” ilanın editör tarafından kaldırıldı. Neden: ${reason}`,
+        href: "/kullanim-kosullari",
+        icon,
+      };
+    }
 
     default:
       return fallback(icon);

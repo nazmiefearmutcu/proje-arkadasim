@@ -48,7 +48,7 @@ export async function loginAction(
 
   const user = await db.user.findUnique({
     where: { email },
-    select: { id: true, passwordHash: true, verificationStatus: true },
+    select: { id: true, passwordHash: true, verificationStatus: true, role: true },
   });
   if (!user) {
     await verifyPassword(password, await getDummyHash());
@@ -67,7 +67,12 @@ export async function loginAction(
 
   await createSession(user.id);
 
-  // Doğrulanmamış kullanıcı ana sayfaya düşmesin: belge adımına yönlendirilir.
-  const target = user.verificationStatus !== "VERIFIED" && next === "/" ? "/dogrulama" : next;
+  // Editör kendi paneline gider. Doğrulanmamış kullanıcı ana sayfaya düşmesin: belge adımına yönlendirilir.
+  const target =
+    user.role === "ADMIN"
+      ? "/editor"
+      : user.verificationStatus !== "VERIFIED" && next === "/"
+        ? "/dogrulama"
+        : next;
   redirect(target);
 }

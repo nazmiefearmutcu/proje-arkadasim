@@ -30,7 +30,7 @@ export async function getHomeFeed(viewerId: string, page = 1): Promise<HomeFeed>
 
   const safePage = normalizeFeedPage(page);
   const rows = await db.project.findMany({
-    where: { ownerId: { in: ownerIds } },
+    where: { ownerId: { in: ownerIds }, moderationStatus: "APPROVED" },
     include: projectCardInclude,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     skip: (safePage - 1) * FEED_PAGE_SIZE,

@@ -13,7 +13,9 @@ export type NotificationType =
   | "MESSAGE_REQUEST_ACCEPTED"
   | "VERIFICATION_RESULT"
   | "INTRODUCTION"
-  | "NEW_PROJECT_FROM_FOLLOWING";
+  | "NEW_PROJECT_FROM_FOLLOWING"
+  | "PROJECT_APPROVED"
+  | "PROJECT_REMOVED";
 
 export interface NotifyPayload {
   type: NotificationType;

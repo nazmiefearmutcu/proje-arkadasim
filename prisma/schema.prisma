@@ -151,6 +151,11 @@ model Project {
   city        String?
   tagsJson    String   @default("[]")
   status      String   @default("OPEN") // OPEN | CLOSED
+  // İçerik denetimi (spec 2026-11-27 §3): PENDING ilan yayında değildir, editör onayını bekler.
+  moderationStatus    String    @default("APPROVED") // APPROVED | PENDING
+  moderationFlagsJson String    @default("[]")
+  moderatedAt         DateTime?
+  moderatedById       String?
   searchText  String   @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -163,6 +168,7 @@ model Project {
 
   @@index([ownerId, createdAt])
   @@index([status, createdAt])
+  @@index([moderationStatus, createdAt])
   @@index([searchText])
 }
 

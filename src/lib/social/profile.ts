@@ -120,13 +120,18 @@ export async function loadProfile(username: string, viewer: CurrentUser): Promis
     getFollowState(viewer.id, row.id),
     getFollowCounts(row.id),
     db.project.findMany({
-      where: { ownerId: row.id },
+      // Kişi kendi profilinde onay bekleyen ilanlarını da görür; başkaları görmez.
+      where: isSelf ? { ownerId: row.id } : { ownerId: row.id, moderationStatus: "APPROVED" },
       include: projectCardInclude,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: PROJECT_LIMIT,
     }),
     db.project.findMany({
-      where: { ownerId: { not: row.id }, members: { some: { userId: row.id, isOwner: false } } },
+      where: {
+        ownerId: { not: row.id },
+        moderationStatus: "APPROVED",
+        members: { some: { userId: row.id, isOwner: false } },
+      },
       include: projectCardInclude,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: PROJECT_LIMIT,

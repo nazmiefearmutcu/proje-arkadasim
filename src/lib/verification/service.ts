@@ -122,13 +122,27 @@ function extractionErrorMessage(error: unknown): string {
 const inFlight = new Set<string>();
 
 /**
+ * Kullanıcı için doğrulama yuvası alır (belge yükleme ve e-Devlet barkodu aynı yuvayı paylaşır).
+ * Alınamazsa false döner; alınırsa iş bitince `releaseVerificationSlot` çağrılmalıdır.
+ */
+export function claimVerificationSlot(userId: string): boolean {
+  if (inFlight.has(userId)) return false;
+  inFlight.add(userId);
+  return true;
+}
+
+export function releaseVerificationSlot(userId: string): void {
+  inFlight.delete(userId);
+}
+
+/**
  * Belge özeti başına kilit zinciri. Tekrar kullanım denetimi ile sonucun yazılması bu kilit altında
  * yapılır: aynı belge iki hesapta aynı anda onaylanamaz (SQLite iki ertelenmiş işlemin ikisinin de
  * yazmadan önce okumasına izin verebilir).
  */
 const docHashLocks = new Map<string, Promise<void>>();
 
-async function withDocHashLock<T>(docHash: string, fn: () => Promise<T>): Promise<T> {
+export async function withDocHashLock<T>(docHash: string, fn: () => Promise<T>): Promise<T> {
   const previous = docHashLocks.get(docHash) ?? Promise.resolve();
   let release: () => void = () => {};
   const current = new Promise<void>((resolve) => {
@@ -398,10 +412,10 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
   return outcome(final.status, message, true, started);
 }
 
-type AttemptReader = Pick<Prisma.TransactionClient, "verificationAttempt">;
+export type AttemptReader = Pick<Prisma.TransactionClient, "verificationAttempt">;
 
 /** Aynı belge özeti, VERIFIED durumdaki başka bir hesapta APPROVED olarak kayıtlı mı (spec §5.1 adım 2). */
-async function isReusedByOtherVerifiedUser(
+export async function isReusedByOtherVerifiedUser(
   client: AttemptReader,
   docHash: string,
   userId: string,
@@ -419,7 +433,7 @@ async function isReusedByOtherVerifiedUser(
 }
 
 /** Aynı belge özeti bu kullanıcı için bir yönetici tarafından reddedilmiş ya da geri alınmış mı. */
-async function wasRejectedByAdminForUser(
+export async function wasRejectedByAdminForUser(
   client: AttemptReader,
   docHash: string,
   userId: string,
