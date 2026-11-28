@@ -146,17 +146,7 @@ export class HttpEDevletClient implements EDevletClient {
     const text = htmlToText(content);
     let pdf: Uint8Array | null = null;
 
-    const candidates = parseLinks(content).filter(({ href, text: label }) =>
-      /pdf|indir|goster|goruntule|belge/i.test(`${href} ${foldTr(label)}`),
-    );
-    for (const candidate of candidates.slice(0, 3)) {
-      let url: URL;
-      try {
-        url = new URL(candidate.href, page.url);
-      } catch {
-        continue;
-      }
-      if (!ALLOWED_HOSTS.has(url.hostname)) continue;
+    for (const url of pdfCandidates(content, page.url).slice(0, 3)) {
       try {
         const linked = await this.request(url.toString(), undefined, MAX_PDF_BYTES);
         if (isPdf(linked)) {
@@ -312,4 +302,29 @@ async function readLimited(response: Response, maxBytes: number): Promise<Uint8A
     offset += chunk.byteLength;
   }
   return out;
+}
+
+/**
+ * Sonuç sayfasında belgenin PDF'ine gidebilecek bağlantılar, en olasıdan başlayarak. Gerçek sayfada başlık,
+ * paylaş ve "Yeni Doğrulama" bağlantıları PDF'ten önce gelir; sorgusuz başlangıç sayfası, dil bağlantısı ve
+ * başka alan adları elenir (başlangıç sayfasına gitmek oturumu sıfırlar).
+ */
+function pdfCandidates(content: string, pageUrl: string): URL[] {
+  const seen = new Set<string>([pageUrl]);
+  const scored: Array<{ url: URL; score: number }> = [];
+  for (const { href, text: label } of parseLinks(content)) {
+    let url: URL;
+    try {
+      url = new URL(href, pageUrl);
+    } catch {
+      continue;
+    }
+    if (!ALLOWED_HOSTS.has(url.hostname) || url.search === "" || /[?&]lang=/.test(url.search)) continue;
+    if (seen.has(url.toString())) continue;
+    seen.add(url.toString());
+    const haystack = `${url.search} ${foldTr(label)}`;
+    const score = /pdf|indir|download|display/i.test(haystack) ? 2 : /goster|goruntule|belge/i.test(haystack) ? 1 : 0;
+    if (score > 0) scored.push({ url, score });
+  }
+  return scored.sort((a, b) => b.score - a.score).map(({ url }) => url);
 }

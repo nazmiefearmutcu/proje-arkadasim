@@ -142,7 +142,12 @@ export function hasCaptcha(html: string): boolean {
 export function mainContent(html: string): string {
   const start = html.search(/id\s*=\s*"(?:pageContentBlock|contentStart|mainContent)"/i);
   const end = html.search(/<footer\b|id\s*=\s*"footer/i);
-  if (start >= 0) return html.slice(start, end > start ? end : undefined);
+  if (start >= 0) {
+    // Etiketin kendisi (id="..." class="...">) metne karışmasın: içerik etiket kapanınca başlar.
+    const tagEnd = html.indexOf(">", start);
+    const from = tagEnd >= 0 ? tagEnd + 1 : start;
+    return html.slice(from, end > from ? end : undefined);
+  }
   const body = html.match(/<body\b[\s\S]*<\/body>/i)?.[0];
   return body ?? html;
 }

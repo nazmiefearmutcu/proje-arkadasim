@@ -108,6 +108,38 @@ describe("HttpEDevletClient", () => {
     expect(calls.every((call) => new URL(call.url).hostname === "www.turkiye.gov.tr")).toBe(true);
   });
 
+  it("gerçek sonuç sayfasında paylaş/yeni sorgu bağlantılarını atlar, PDF'i gömülü bağlantıdan indirir", async () => {
+    // e-Devlet'in canlı sonuç sayfasının bağlantı sırası (2026-11-28): başlık, paylaş, indir, yeni, object, dil.
+    const real = page(`<h2><a href="/belge-dogrulama">Belge Doğrulama</a></h2>
+      <a target="_blank" href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fturkiye.gov.tr/belge-dogrulama">Twitter'da Paylaş</a>
+      <a target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fturkiye.gov.tr/belge-dogrulama">Facebook'da Paylaş</a>
+      <p>Bu işlem toplam 4 aşamalıdır. Şu anda 4 . aşamadasınız.</p>
+      <a class="download" href="/belge-dogrulama?belge=goster&amp;goster=1">Dosyayı İndir</a>
+      <a href="/belge-dogrulama" class="new">Yeni Doğrulama</a>
+      <object data="/belge-dogrulama?belge=goster&amp;goster=1&amp;display=display" type="application/pdf"></object>
+      <a href="/belge-dogrulama?belge=goster&amp;lang=en_US">English</a>`);
+    const { fn, calls } = fakeFetch([
+      html(STEP1()),
+      redirect("/belge-dogrulama?islem=dogrulama"),
+      html(STEP2()),
+      redirect("/belge-dogrulama?islem=onay"),
+      html(STEP3),
+      redirect("/belge-dogrulama?belge=goster"),
+      html(real),
+      () => new Response(PDF, { status: 200, headers: { "content-type": "application/pdf" } }),
+    ]);
+
+    const result = await new HttpEDevletClient(fn).verify(QUERY);
+
+    expect(result.kind).toBe("FOUND");
+    if (result.kind !== "FOUND") return;
+    expect(result.pdf).toEqual(PDF);
+    expect(result.text).not.toContain("pageContentBlock");
+    const last = new URL(calls[calls.length - 1].url);
+    expect(last.searchParams.get("goster")).toBe("1");
+    expect(calls.filter((call) => new URL(call.url).search === "" && call.method === "GET")).toHaveLength(1);
+  });
+
   it("tanımsız barkodda e-Devlet'in uyarısıyla NOT_FOUND döner", async () => {
     const warning = "Girilen barkod numarası e-Devlet Kapısında tanımlı değildir.";
     const { fn } = fakeFetch([html(STEP1()), html(STEP1(warning))]);
