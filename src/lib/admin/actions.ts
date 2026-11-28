@@ -14,6 +14,7 @@ import { notify } from "@/lib/notify";
 import { CLASS_YEAR_MAX } from "@/lib/settings/limits";
 import { toSearchText } from "@/lib/tr";
 import { purgeExpiredMaskedText } from "@/lib/verification/purge-masked";
+import { enableSecureDelete, wipeDocumentText } from "@/lib/verification/wipe";
 
 // Yönetim eylemleri. Her eylem önce yönetici kontrolü yapar; yönetici değilse hiçbir şey değişmez.
 // Her karar AdminAuditLog'a yazılır (spec §6.2). Yönetici kendi doğrulamasıyla ilgili karar veremez.
@@ -181,6 +182,7 @@ export async function approveAttemptAction(
   try {
     // Belge ve kullanıcı koşullu yazılır; biri tutmazsa işlem geri alınır, hiçbir şey değişmez.
     await db.$transaction(async (tx) => {
+      await enableSecureDelete(tx);
       const updated = await tx.verificationAttempt.updateMany({
         where: { id: attempt.id, status: "MANUAL_REVIEW" },
         data: {
@@ -229,6 +231,8 @@ export async function approveAttemptAction(
         },
       });
       if (userUpdated.count === 0) throw new ClaimLost("user");
+      // Hesap doğrulandı: kullanıcının diğer denemelerinde kalan belge metni de kalıcı olarak silinir.
+      await wipeDocumentText(tx, attempt.userId);
 
       await tx.adminAuditLog.create({
         data: {
@@ -290,6 +294,7 @@ export async function rejectAttemptAction(attemptId: string, reason: string): Pr
   let userUpdated: boolean;
   try {
     userUpdated = await db.$transaction(async (tx) => {
+      await enableSecureDelete(tx);
       const updated = await tx.verificationAttempt.updateMany({
         where: { id: attempt.id, status: "MANUAL_REVIEW" },
         data: {

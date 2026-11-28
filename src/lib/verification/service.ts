@@ -19,6 +19,7 @@ import {
 } from "./extract";
 import type { PdfSignals } from "./extract";
 import { maskDocumentText } from "./mask";
+import { wipeDocumentText } from "./wipe";
 import { matchName } from "./name-match";
 import { getVerifierProvider } from "./providers";
 import type { AiAnalysis, VerifierProvider } from "./providers";
@@ -385,6 +386,8 @@ async function runVerification(userId: string, bytes: Uint8Array): Promise<Verif
         where: { id: userId, verificationStatus: { notIn: guard } },
         data: userDataFor(final),
       });
+      // Onaylanan hesabın belge metni (eski yüklemelerinki dahil) kalıcı olarak silinir.
+      if (final.status === "APPROVED") await wipeDocumentText(tx, userId);
       if (count > 0) return { final, applied: true, currentStatus: final.status as string | null };
 
       const current = await tx.user.findUnique({

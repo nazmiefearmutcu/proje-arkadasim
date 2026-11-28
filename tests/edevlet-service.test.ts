@@ -200,6 +200,37 @@ describe("verifyBarcode (e-Devlet barkodu)", () => {
     expect(client.queries).toHaveLength(0);
   });
 
+  it("onayda belgeden yalnız eğitim alanları kalır; kullanıcının eski belge metni de silinir", async () => {
+    const user = await unverified();
+    // Daha önce yüklenip incelemeye düşmüş bir belgenin maskeli metni.
+    await db.verificationAttempt.create({
+      data: {
+        userId: user.id,
+        status: "MANUAL_REVIEW",
+        source: "PDF_TEXT",
+        docHash: "eski",
+        nameMatch: true,
+        maskedText: "ÖĞRENCİ BELGESİ [AD SOYAD] eski yükleme",
+        maskedTextExpiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+    useClient(() => ({ kind: "FOUND", text: STUDENT_TEXT("AYŞE NUR YILMAZ"), pdf: null }));
+
+    const outcome = await verifyBarcode({ userId: user.id, barcode: BARCODE, tckn: TCKN });
+
+    expect(outcome.status).toBe("APPROVED");
+    const attempts = await db.verificationAttempt.findMany({ where: { userId: user.id } });
+    expect(attempts.every((attempt) => attempt.maskedText === null && attempt.maskedTextExpiresAt === null)).toBe(true);
+    const approved = attempts.find((attempt) => attempt.status === "APPROVED");
+    const stored = JSON.stringify(approved);
+    for (const secret of [TCKN, "YOKOB", "1234ABCD5678", "YILMAZ", "Yılmaz", "Ayşe"]) {
+      expect(stored).not.toContain(secret);
+    }
+    expect(Object.keys(JSON.parse(approved!.extractedJson)).sort()).toEqual(
+      ["academicStatus", "classYear", "degreeLevel", "department", "disciplineGroup", "faculty", "graduationYear", "university"].sort(),
+    );
+  });
+
   it("bilgiler okunamazsa editör incelemesine gönderir", async () => {
     const user = await unverified();
     useClient(() => ({ kind: "FOUND", text: "ÖĞRENCİ BELGESİ\nAYŞE NUR YILMAZ\nbelgenin geri kalanı okunamadı", pdf: null }));

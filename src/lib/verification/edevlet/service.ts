@@ -19,6 +19,7 @@ import {
   wasRejectedByAdminForUser,
   withDocHashLock,
 } from "../service";
+import { wipeDocumentText } from "../wipe";
 import { parseEDevletDocument, profileFromDocument } from "./document";
 import { edevletEnabled, getEDevletClient } from "./index";
 import { normalizeBarcode, normalizeTckn } from "./identifiers";
@@ -148,6 +149,8 @@ async function commit(params: {
         where: { id: params.userId, verificationStatus: { notIn: guard } },
         data,
       });
+      // Onaylanan hesabın belge metni (eski yüklemelerinki dahil) kalıcı olarak silinir.
+      if (status === "APPROVED") await wipeDocumentText(tx, params.userId);
       const current = count > 0 ? status : ((await tx.user.findUnique({ where: { id: params.userId }, select: { verificationStatus: true } }))?.verificationStatus ?? null);
       return { status, reason, applied: count > 0, current };
     }),

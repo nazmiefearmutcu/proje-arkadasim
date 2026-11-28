@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { disciplineGroupForDepartment } from "@/config/taxonomy";
 import { removeUserAvatars } from "@/lib/avatar-storage";
+import { enableSecureDelete } from "@/lib/verification/wipe";
 import { getCurrentUser, isVerified } from "@/lib/auth/guards";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { destroySession, getCurrentSessionId } from "@/lib/auth/session";
@@ -232,7 +233,11 @@ export async function deleteAccountAction(
   }
 
   await removeUserAvatars(viewer.id).catch(() => undefined);
-  await db.user.delete({ where: { id: viewer.id } });
+  // Hesapla birlikte silinen satırlar (belge denemeleri dahil) dosyada okunur kalmasın.
+  await db.$transaction(async (tx) => {
+    await enableSecureDelete(tx);
+    await tx.user.delete({ where: { id: viewer.id } });
+  });
   await destroySession();
   // redirect bir istisna fırlatır; try/catch içine alınmaz.
   redirect("/?hesap=silindi");
